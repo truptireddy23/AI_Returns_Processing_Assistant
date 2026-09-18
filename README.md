@@ -24,7 +24,6 @@ A human centered Generative AI system that helps consumers navigate product retu
 | Avni Wadhwani | ML/Data — risk model, image matching, and policy RAG | avniw2@illinois.edu |
 | Sharayu Jadhav | Literature Review, Evaluation & QA — research synthesis, testing, and evaluation | sjadhav5@illinois.edu |
 
-> _Fill in remaining teammates and confirm each person's primary responsibility before submission._
 
 ---
 
@@ -113,8 +112,6 @@ Every tool and model call the agents make is checked against **OPA (Open Policy 
 | **Checkpoint 2** | Prototype validation | Core LangGraph pipeline (Intake → Policy RAG → Image → Behavior → Decision) running end-to-end on test cases; initial governance wiring (OPA fail-closed checks) |
 | **Checkpoint 3** | System integration | Full pipeline incl. Critic + Explanation agents; Governance Gate with human-in-the-loop review UI; observability (Langfuse, Prometheus, Grafana) wired in |
 | **Checkpoint 4** | Final delivery | End-to-end demo on realistic return scenarios; audit-log/traceability walkthrough; evaluation results and final report |
-
-> _Dates and finer-grained deliverables to be confirmed against the course syllabus and added here._
 
 ---
 
