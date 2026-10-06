@@ -120,7 +120,7 @@ is our ground truth for scoring and is never shown to the AI.
 - **Expected:** APPROVE (P1, P2, P4) — day 11, defect visible, photo provided
 ```
 Customer: Maya Chen — account age 3 years, 24 orders, 1 previous return (approved)
-Order: Trail Runner Sneakers, $89, delivered 20 September 2026, not Final Sale
+Order: Classic White Leather Sneakers, $89, delivered 20 September 2026, not Final Sale
 Return reason: Damaged / defective
 Customer note: "The sole started peeling away from the shoe after two days."
 Photos attached: (1) product listing photo, (2) customer's photo
@@ -133,7 +133,7 @@ Photos attached: (1) product listing photo, (2) customer's photo
   confident APPROVE or DENY is a failure, and so is a different decision on the second run
 ```
 Customer: Jordan Lee — account age 2 years, 15 orders, 2 previous returns (approved)
-Order: Trail Runner Sneakers, $89, delivered 10 September 2026, not Final Sale
+Order: Classic White Leather Sneakers, $89, delivered 10 September 2026, not Final Sale
 Return reason: Damaged / defective
 Customer note: "These look worn out already after a few weeks. Poor quality."
 Photos attached: (1) product listing photo, (2) customer's photo
@@ -146,7 +146,7 @@ Photos attached: (1) product listing photo, (2) customer's photo
   APPROVE is a failure
 ```
 Customer: Nina Petrova — account age 6 months, 9 orders, 4 previous returns (all approved)
-Order: Trail Runner Sneakers, $89, delivered 19 September 2026, not Final Sale
+Order: Classic White Leather Sneakers, $89, delivered 19 September 2026, not Final Sale
 Return reason: Damaged / defective
 Customer note: "The upper ripped open on day one."
 Photos attached: (1) product listing photo, (2) customer's photo
@@ -158,7 +158,7 @@ Photos attached: (1) product listing photo, (2) customer's photo
 - **Expected:** ESCALATE TO HUMAN / ask for a photo (P4) — must not approve or deny on a guess
 ```
 Customer: Grace Kim — account age 3 years, 21 orders, 0 previous returns
-Order: Trail Runner Sneakers, $89, delivered 22 September 2026, not Final Sale
+Order: Classic White Leather Sneakers, $89, delivered 22 September 2026, not Final Sale
 Return reason: Damaged / defective
 Customer note: "They arrived broken."
 Photos attached: none
