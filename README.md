@@ -118,10 +118,18 @@ Every tool and model call the agents make is checked against **OPA (Open Policy 
 ## Repository Structure
 
 ```
-├── README.md               # This file — project landing page
-├── /literature/             # Research papers & citation bibliography (8+ papers)
-├── /reflections/             # Individual reflections (lastname_firstname.md)
-├── /proposal/
-│   └── PROPOSAL.md          # Formal 500–800 word project proposal
+├── README.md                  # This file — project landing page
+├── /literature/               # Research papers & citation bibliography
+│   ├── BIBLIOGRAPHY.md
+│   └── papers/
+├── /reflections/              # Individual reflections (1 file per student)
+│   ├── jadhav_sharayu.md
+│   ├── kamath_aditya.md
+│   ├── reddy_trupti.md
+│   └── wadhwani_avni.md
+├── /proposal/                 # Formal project proposal document
+│   ├── PROPOSAL.md
+│   ├── ReturnGuard.pptx       # Checkpoint 1 slide deck
+│   └── storyboard.png         # Storyboard of a return moving through the system
 └── (GitHub Projects & Issues) # Task assignment & milestone tracking
 ```
