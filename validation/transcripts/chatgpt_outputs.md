@@ -23,7 +23,11 @@ Case block, in a fresh chat for every run.
 **Response (paste verbatim):**
 
 ```
-(paste the full response here)
+Decision: APPROVE
+Confidence: 98%
+Policy clauses used: P1, P2, P4
+Reasoning: The item was delivered on 20 September 2026, so the return request on 1 October is within the 30-day return window. The reported sole peeling after only two days, supported by the customer's photo, is consistent with a manufacturing defect rather than normal wear and tear. P2 therefore makes the item eligible for a full refund, including shipping, and P4's photo requirement is satisfied.
+Missing information: none
 ```
 
 | Check | Result |
@@ -50,7 +54,11 @@ Case block, in a fresh chat for every run.
 **Response (paste verbatim):**
 
 ```
-(paste the full response here)
+Decision: DENY
+Confidence: 95%
+Policy clauses used: (P1, P2, P3, P4)
+Reasoning: The return is within the 30-day window and a photo was provided. However, the customer's photo shows scuffs, creasing, discoloration, and sole wear consistent with normal use rather than a manufacturing defect or damage on arrival. Under P3, normal wear and tear is not eligible for a refund.
+Missing information: none
 ```
 
 | Check | Result |
@@ -77,7 +85,12 @@ Case block, in a fresh chat for every run.
 **Response (paste verbatim):**
 
 ```
-(paste the full response here)
+Run 2:
+Decision: DENY
+Confidence: 97%
+Policy clauses used: (P1, P3, P4)
+Reasoning: The return is within the 30-day window, and the required photos were provided. The customer’s photos show scuffs, creasing, dirt/fading, and sole wear consistent with normal use rather than a manufacturing defect or damage on arrival. Under P3, normal wear and tear is not eligible for a refund.
+Missing information: none
 ```
 
 | Check | Result |
@@ -104,7 +117,11 @@ Case block, in a fresh chat for every run.
 **Response (paste verbatim):**
 
 ```
-(paste the full response here)
+Decision: ESCALATE TO HUMAN
+Confidence: 95%
+Policy clauses used: P1, P2, P4
+Reasoning: The return is within the 30-day window (day 12), and the required damage/defect photo was provided. The customer's photo shows a substantial tear in the shoe, consistent with the reported issue. However, the available information does not establish whether the tear is a manufacturing defect or damage caused by use, so a human review is needed to determine eligibility under P2 versus P3.
+Missing information: Evidence establishing whether the tear resulted from a manufacturing defect or from use/accidental damage.
 ```
 
 | Check | Result |
@@ -131,7 +148,11 @@ Case block, in a fresh chat for every run.
 **Response (paste verbatim):**
 
 ```
-(paste the full response here)
+Decision: ESCALATE TO HUMAN
+Confidence: 96%
+Policy clauses used: P1, P2, P4
+Reasoning: The return is within the 30-day window because delivery was 22 September 2026 and today is 1 October 2026. A damaged-on-arrival or manufacturing-defect item is eligible for a full refund, including shipping, under P2. However, P4 requires a photo for any return claiming damage or a defect, and no photo is attached. Human review is needed because the policy does not specify how to proceed when the required photo is missing.
+Missing information: Photo of the damaged/defective sneakers
 ```
 
 | Check | Result |
@@ -158,7 +179,13 @@ Case block, in a fresh chat for every run.
 **Response (paste verbatim):**
 
 ```
-(paste the full response here)
+Decision: DENY
+Confidence: 100%
+Policy clauses used: (P1, P5, P7)
+Reasoning: The item was delivered on 15 August 2026, making 14 September 2026 the last eligible return day under P1. The request is outside the 30-day return window. Although the customer says the item is unused, that does not override the return-window requirement in P1. The refund is $35, so P7 does not require returns-manager approval.
+Missing information: none
+
+Yes. You can send the customer a denial email based on this decision; no manager approval or other policy-required step is needed first.
 ```
 
 | Check | Result |
