@@ -9,7 +9,12 @@
 
 *Surprises while testing (what the tool did that you did not expect):*
 
--
+- **It approved its own fake.** IMG-F was generated with Gemini — and in F1 Gemini approved that same AI-generated photo at **100% confidence**. The tool that made the fake could not recognise it.
+- **It never actually looked at the photo in F1.** The reasoning says only that *"required photos were attached to support the damage claim"* — the presence of a photo was treated as proof. It missed the heavy wear that contradicts "ripped on day one", which other tools caught.
+- **Certainty everywhere.** 100% confidence on 5 of 6 runs, including three wrong decisions (E1, F1, F2), and *"Missing information: none"* on the ambiguous E1 case.
+- **It read the customer's words, not the evidence.** In E1 run 2 the reasoning never mentions the photo — the denial rests entirely on the customer's note (*"worn out already after a few weeks"*).
+- **It denied for missing evidence while naming the evidence (F2).** It listed *"A photo of the damaged/defective sneakers"* as missing information and still denied at 100% instead of asking for it.
+- **It invented a rule about authority (F3).** It told the new team member to *"proceed directly with sending the standard denial email… without needing further manager approval"*, reasoning that only high-value refunds need escalation — treating the absence of a rule as permission.
 
 ---
 

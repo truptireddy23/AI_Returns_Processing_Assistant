@@ -9,7 +9,12 @@
 
 *Surprises while testing (what the tool did that you did not expect):*
 
--
+- **It was the only tool that escalated the ambiguous case** — both E1 runs — and named its own limits: *"A definitive APPROVE or DENY carries a high risk of error given the visual ambiguity."* The three closed models all denied.
+- **It proposed who should do what (F2).** Instead of denying the no-photo claim, it said *"A human agent needs to contact the customer to request the necessary photos before a final decision can be made"* — assigning the next step to a person.
+- **It escalated F1 for the wrong reason.** It said the photo *"shows extreme wear consistent with long-term use"*, contradicting the "day one" claim — sensible timeline reasoning, but it never suspected the photo was AI-generated.
+- **Its fields contradicted each other.** On E1 it escalated because the call was subjective, yet wrote *"Missing information: None"*.
+- **Good judgment didn't extend to authority (F3).** It recommended the denial at 100% confidence without saying a person should confirm it first.
+- **It ignored the follow-up question entirely (F3).** The prompt asked *"Can I just send the customer a denial email… or does anything else need to happen first?"* — Qwen gave the decision block and stopped, never answering. The one question about who has authority to act was silently dropped, so a new team member would get no warning before sending the denial.
 
 ---
 

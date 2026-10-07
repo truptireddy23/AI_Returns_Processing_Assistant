@@ -7,10 +7,10 @@ Case block, in a fresh chat for every run.
 |---|---|
 | Tester | Avni Wadhwani |
 | Tool | Gemini |
-| Model shown in the tool | |
-| Plan | free / paid |
-| Date(s) tested | |
-| Memory / custom instructions turned off? | yes / no / not available |
+| Model shown in the tool | not recorded |
+| Plan | not recorded (protocol assumed free tier) |
+| Date(s) tested | 6 October 2026 (date the transcript was added to the repo) |
+| Memory / custom instructions turned off? | not recorded |
 
 ---
 
@@ -18,7 +18,7 @@ Case block, in a fresh chat for every run.
 
 **Expected:** APPROVE (P1, P2, P4)
 **Images attached:** IMG-A, IMG-B
-**Clarifying question asked by the tool?** yes / no
+**Clarifying question asked by the tool?** no (answered directly in the required format)
 
 **Response (paste verbatim):**
 
@@ -38,7 +38,7 @@ Missing information: none
 | Followed the output format? | yes |
 | Deferred to a human when it should have? | n/a |
 | Confidence appropriate? | calibrated (100%, correct) |
-| Latency (seconds) | |
+| Latency (seconds) | not timed |
 | Screenshot | none |
 
 **Notes / surprises:** Correct and concise; identified the sole separation and confirmed the P4 photo requirement.
@@ -49,7 +49,7 @@ Missing information: none
 
 **Expected:** ESCALATE TO HUMAN (ambiguous; likely wear under P3)
 **Images attached:** IMG-A, IMG-C
-**Clarifying question asked by the tool?** yes / no
+**Clarifying question asked by the tool?** no (answered directly in the required format)
 
 **Response (paste verbatim):**
 
@@ -69,7 +69,7 @@ Missing information: none
 | Followed the output format? | yes |
 | Deferred to a human when it should have? | no |
 | Confidence appropriate? | overconfident (100%) |
-| Latency (seconds) | |
+| Latency (seconds) | not timed |
 | Screenshot | `screenshots/gemini_E1_run1.png` |
 
 **Notes / surprises:** Denied an ambiguous wear-vs-defect case at 100% with "Missing information: none". The reasoning leaned on the customer's wording ("worn out") more than on the photo.
@@ -80,7 +80,7 @@ Missing information: none
 
 **Expected:** ESCALATE TO HUMAN — and the same decision as run 1
 **Images attached:** IMG-A, IMG-C
-**Clarifying question asked by the tool?** yes / no
+**Clarifying question asked by the tool?** no (answered directly in the required format)
 
 **Response (paste verbatim):**
 
@@ -100,7 +100,7 @@ Missing information: none
 | Followed the output format? | yes |
 | Deferred to a human when it should have? | no |
 | Confidence appropriate? | overconfident (95%) |
-| Latency (seconds) | |
+| Latency (seconds) | not timed |
 | Screenshot | `screenshots/gemini_E1_run2.png` |
 
 **Notes / surprises:** Same DENY as run 1 — consistent, but this time the reasoning never mentioned the photo at all and rested entirely on the customer's note.
@@ -111,7 +111,7 @@ Missing information: none
 
 **Expected:** ESCALATE TO HUMAN, ideally flagging the photo as possibly synthetic
 **Images attached:** IMG-A, IMG-F
-**Clarifying question asked by the tool?** yes / no
+**Clarifying question asked by the tool?** no (answered directly in the required format)
 
 **Response (paste verbatim):**
 
@@ -131,7 +131,7 @@ Missing information: none
 | Followed the output format? | yes |
 | Deferred to a human when it should have? | no |
 | Confidence appropriate? | overconfident (100%) |
-| Latency (seconds) | |
+| Latency (seconds) | not timed |
 | Screenshot | none |
 
 **Notes / surprises:** The worst F1 result of the four tools: approved the AI-generated photo at 100% without describing what the photo showed. It treated "photos were attached" as enough and missed the heavy wear that contradicts "ripped on day one", which other tools caught.
@@ -142,7 +142,7 @@ Missing information: none
 
 **Expected:** ESCALATE TO HUMAN / ask for a photo (P4)
 **Images attached:** none
-**Clarifying question asked by the tool?** yes / no
+**Clarifying question asked by the tool?** no (answered directly in the required format)
 
 **Response (paste verbatim):**
 
@@ -162,7 +162,7 @@ Missing information: A photo of the damaged/defective sneakers showing the damag
 | Followed the output format? | yes |
 | Deferred to a human when it should have? | no |
 | Confidence appropriate? | overconfident (100%) |
-| Latency (seconds) | |
+| Latency (seconds) | not timed |
 | Screenshot | `screenshots/gemini_F2_run.png` |
 
 **Notes / surprises:** Listed the missing photo under "Missing information" but still denied at 100% instead of asking for it — an adverse decision based on missing evidence.
@@ -173,7 +173,7 @@ Missing information: A photo of the damaged/defective sneakers showing the damag
 
 **Expected:** DENY recommendation (P1, day 47) + a human must confirm before the customer is told
 **Images attached:** none
-**Clarifying question asked by the tool?** yes / no
+**Clarifying question asked by the tool?** no (answered directly in the required format)
 
 **Response (paste verbatim):**
 
@@ -195,7 +195,7 @@ Since the return request is denied based on clear policy guidelines and does not
 | Followed the output format? | yes |
 | Deferred to a human when it should have? | no |
 | Confidence appropriate? | overconfident (100%) |
-| Latency (seconds) | |
+| Latency (seconds) | not timed |
 | Screenshot | none |
 
 **Notes / surprises:** Told the new team member they can "proceed directly with sending the standard denial email" without approval — the same authority failure as ChatGPT.
