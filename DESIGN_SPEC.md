@@ -1,138 +1,172 @@
 # ReturnGuard — Design Specification
 
-> **Status: v0 (before evidence).** Drafted from the project concept before the prompting
-> study and interviews were complete. Every design choice below is traced to the
-> complementarity lens (Gonzalez et al., 2026). The **Evidence** column in section 6 is
-> filled in after Steps 5–7, and anything the evidence contradicts is revised in v1 — the
-> v0 → v1 changes are what Slide 6 presents.
+> **Status: v1 (after evidence).** v0 was drafted from the concept alone. v1 revises it
+> using the prompting study (24 runs across ChatGPT, Claude, Gemini, and Qwen), the
+> speed-dating interviews, and the theory lens (Gonzalez et al., 2026). Every feature is
+> traced to `validation/OPPORTUNITY_FRAMING.md` (feature IDs M1–M7, S1–S4, C1–C2) — no
+> orphan features. Section 1 lists what changed from v0 and why.
 
 ---
 
-## 1. What the product does
+## 1. What changed from v0 — and why
 
-A customer returns an item through an online shop. AI checks the return against the store's
-policy, the customer's photo, and the customer's history, then recommends approve, deny, or
-escalate. A **governance gate** decides what happens next: only clear, low-risk, low-value
-cases are approved automatically, and **every denial goes to a human reviewer**.
+| v0 design | Evidence | v1 design | Feature |
+|---|---|---|---|
+| The case page showed the model's own confidence ("Medium, 62%") | Tools said 95–100% on wrong answers (E1, F1, F2). Customer: *"Claiming 100% makes me wonder whether the AI understands its own limitations."* Associate: *"I'd probably ignore a score like '95%'."* | **Evidence strength computed from the checks** (Strong / Mixed / Weak) plus an **"Uncertain about"** list. No model self-rated percentage anywhere | M3 |
+| Photo check was one "signal only" line | 0 of 4 tools detected the AI-generated photo; Gemini approved its own fake at 100% (F1). Associate: flag suspicious images *"instead of assuming every uploaded photo is genuine"* | A separate **photo authenticity** check with an explicit **"Not verified"** state. An unverified damage photo can never be auto-approved | M5 |
+| Incomplete returns went to the reviewer queue | Claude and Gemini *denied* a claim with no photo (F2). Customer: *"the customer could have additional context"* | A **rule-based data check runs before any AI**. Missing evidence goes back to the **customer** ("We need a photo"), not to a decision or a reviewer | M6 |
+| Escalated anything below a confidence threshold | Associate: *"The system should filter cases intelligently rather than just passing its uncertainty to employees."* | The gate escalates only for **named reasons** — ambiguous call, unverified photo, high value, proposed denial, elevated risk — shown in the queue | M2 |
+| No special handling for judgment calls | 3 of 4 tools denied the wear-vs-defect case at 70–100% (E1). Associate: *"High confidence shouldn't override obvious ambiguity."* | An **ambiguity flag**: when policy hinges on judgment (P2 defect vs. P3 wear), the gate always escalates and the case page says so first | M4 |
+| Customers could not challenge a decision (appeals out of scope) | Customer raised appeals unprompted: *"There should be an easy way for customers to appeal."* | **"Request a review"** on a denied return, with a short explanation, routed back to the reviewer queue | S2 |
+| Agreement rate was one overall number | Associate: *"track when employees override the AI, because those overrides could reveal where the AI isn't working well."* | Agreement and overrides **broken down by product type and escalation reason**; escalation rate shown to the admin | S1 |
+| Denials needed a reviewer | All 4 tools failed to require human sign-off (F3) — ChatGPT: *"no manager approval… is needed."* | **Confirmed and strengthened:** the gate structurally cannot deny, and the customer's denial message is written only after a reviewer confirms | M1 |
+| Policy clause and version shown with findings | Customer and associate both asked for *"the exact policy rule"*; Gemini invented an approval rule (F3) | **Confirmed:** every finding cites its clause and policy version | M7 |
+
+---
+
+## 2. What the product does
+
+A customer returns an item through an online shop. A **rule-based data check** first makes
+sure the request is complete. AI then checks the return against the store's policy, the
+photo (including whether it looks genuine), and the customer's history, and writes a
+recommendation. A **governance gate** decides what happens next: only clear, low-risk,
+low-value cases with verified evidence are approved automatically. Everything else goes to a
+human reviewer **for a named reason** — and **every denial is made by a person**.
 
 **Division of labour** (from `validation/THEORY_LENS.md`):
 
 | | AI owns | Humans own |
 |---|---|---|
-| Reasoning | Applying policy rules consistently; a written rationale for every case | Ambiguous policy calls (wear vs. defect); every denial; accountability |
-| Memory | Retrieving the exact policy clause and the customer's history, with sources | Validating that the retrieved evidence actually applies |
-| Attention | Checking every return, every photo, every history record | Exceptions the AI flags, and anything that "feels off" |
-| Meta-coordination | Routing cases by fixed rules; logging every step | Setting the rules and thresholds; switching automation on or off |
+| Reasoning | Applying clear policy rules consistently (windows, required evidence, value limits); a written rationale for every case | Ambiguous policy calls (wear vs. defect); every denial; fairness and accountability |
+| Memory | Retrieving the exact policy clause, its version, and the customer's history, with sources | Validating that evidence applies and is genuine; knowing the store's real process |
+| Attention | Checking every return, field, and photo, instantly | Exceptions the gate names, and cues that "feel off" (a photo that looks too perfect) |
+| Meta-coordination | Routing cases by fixed, named rules; logging every step | Setting the rules and limits; switching automation on or off; reviewing customer requests |
 
 ---
 
-## 2. Personas and mental models
+## 3. Personas and mental models
 
 ### P1 — Maya, the customer
-- **Goal:** get a fair refund quickly for a defective item.
-- **Mental model:** "A store employee checks my return." Does not expect an AI, and does not
-  want to argue with one.
-- **Decision rights:** none — submits evidence and receives the outcome.
-- **Interrogation moment:** when a decision arrives, wants to know *why* in plain language.
-- **Trust cues needed:** a clear status at every stage; a plain-English reason; an explicit
-  statement that **a person reviewed** any denial.
+*Informed by interview P1: shops online weekly, has had a return questioned for "signs of
+use" with no way to challenge it.*
+- **Goal:** a fair refund, without wondering what happens next.
+- **Mental model:** "A store employee checks my return." Distrusts automated certainty:
+  *"Real-world situations aren't usually that certain."*
+- **Decision rights:** none over the outcome — but can **request a review** of a denial.
+- **Interrogation moments:** when a decision arrives (*why?*), and when it feels unfair
+  (*can someone look again?*).
+- **Trust cues needed:** a clear status; the exact policy rule and the evidence considered;
+  for denials, an explicit statement that **a person reviewed it**, plus a way to ask for a
+  review. Would rather wait for a person than get a fast, wrong answer.
 
 ### P2 — Riley, the Trust & Safety reviewer
-- **Goal:** clear the queue quickly without approving fraud or wrongly denying an honest
-  customer.
-- **Mental model:** "The AI did the legwork; I make the call." Risk of overtrust (rubber
-  stamping) when tired or busy.
+*Informed by interview P2: two years handling returns; a normal case takes 2–3 minutes,
+mostly spent judging condition against policy.*
+- **Goal:** clear the queue without approving fraud or wrongly denying an honest customer —
+  and without being flooded by cases the system should have handled.
+- **Mental model:** "The AI is a recommendation, not the final judge." Ignores percentages
+  without meaning; looks first at the return reason, then the photos.
 - **Decision rights:** **final sign-off on every escalated case and every denial.** Can
-  agree with or override the AI.
-- **Interrogation moments:** opening a case (what does the AI think, and why?); checking a
-  cited policy clause; comparing photos; disagreeing with the AI.
-- **Trust cues needed:** confidence shown with its reasons, not just a number; each finding
-  linked to its source (policy clause and version, photo, history record); clear warnings
-  when evidence is weak or possibly fake.
+  agree with or override the AI (with a reason).
+- **Interrogation moments:** reading *why* the case is here; checking the cited clause;
+  comparing photos and judging authenticity; disagreeing with the AI.
+- **Trust cues needed:** the recommendation, its reason, and what the AI is unsure about —
+  readable **in under a minute**; a clear warning when a photo is unverified.
 
 ### P3 — Priya, the risk / platform admin
 - **Goal:** keep decisions consistent, policy-compliant, and auditable.
 - **Mental model:** "The AI is a junior analyst on probation — it earns autonomy with
   evidence."
-- **Decision rights:** turns automation on or off; sets the risk, confidence, and
-  high-value thresholds. Cannot change the "AI never denies" rule.
-- **Interrogation moment:** auditing a past decision — who or what decided, on what
-  evidence, under which policy version.
-- **Trust cues needed:** a complete audit trail; how often reviewers agree with the AI.
+- **Decision rights:** turns automation on or off; sets the risk limit and high-value limit.
+  Cannot change the "AI never denies" rule or the "unverified photos never auto-approve"
+  rule.
+- **Interrogation moment:** where does the AI disagree with reviewers, and is the gate
+  sending too many cases to people?
+- **Trust cues needed:** agreement and overrides by product type and reason; escalation
+  rate; a complete audit trail.
 
 ### Decision rights summary
 
-| Decision | AI | Reviewer | Admin |
-|---|---|---|---|
-| Recommend approve / deny / escalate | ✅ | — | — |
-| Auto-approve a clear, low-risk case ≤ $250 | ✅ only when automation is on | — | — |
-| Approve an escalated case | — | ✅ | ✅ |
-| Deny any case | ❌ never | ✅ with confirmation | ✅ with confirmation |
-| Turn automation on / off, change thresholds | — | — | ✅ |
-| Change the "AI never denies" rule | — | — | ❌ fixed |
+| Decision | AI | Reviewer | Admin | Customer |
+|---|---|---|---|---|
+| Recommend approve / deny / escalate | ✅ | — | — | — |
+| Auto-approve (automation on, all checks pass, photo verified, no ambiguity, low risk, ≤ $250) | ✅ | — | — | — |
+| Approve an escalated case | — | ✅ | ✅ | — |
+| Deny any case | ❌ never | ✅ with confirmation | ✅ with confirmation | — |
+| Request a review of a denial | — | — | — | ✅ |
+| Turn automation on / off, set risk and value limits | — | — | ✅ | — |
+| Change the fixed rules (AI never denies; unverified photos never auto-approve) | — | — | ❌ fixed | — |
 
 ---
 
-## 3. User journeys and task flows
+## 4. User journeys and task flows
 
-### 3.1 End-to-end flow
+### 4.1 End-to-end flow
 
 ```mermaid
 flowchart LR
-    A[Customer submits return] --> B[Data check]
-    B -- incomplete --> H[Reviewer queue]
+    A[Customer submits return] --> B{Rule-based data check}
+    B -- missing evidence --> N[Ask customer for it]
+    N --> A
     B -- complete --> C[Policy check]
-    C --> D[Photo check]
+    C --> D[Photo match + authenticity]
     D --> E[History check]
-    E --> F[AI recommendation]
+    E --> F[AI recommendation + evidence strength]
     F --> G{Governance gate}
-    G -- "automation on AND approve AND low risk AND high confidence AND ≤ $250" --> I[Auto-approved]
-    G -- everything else, incl. every deny --> H
+    G -- "automation on AND all checks pass AND photo verified AND no ambiguity AND low risk AND ≤ $250" --> I[Auto-approved]
+    G -- "named reason: ambiguous · unverified photo · high value · proposed denial · elevated risk" --> H[Reviewer queue]
     H --> J{Reviewer decides}
     J -- approve --> K[Approved]
     J -- deny + confirm --> L[Denied]
+    L --> RR[Customer may request a review]
+    RR --> H
     I --> M[Customer notified]
     K --> M
     L --> M
 ```
 
-### 3.2 Customer journey — Maya
+### 4.2 Customer journey — Maya
 
-| Stage | Maya does | Maya sees | Design intent |
-|---|---|---|---|
-| 1. Shop | Browses, adds sneakers to cart, checks out with a test card | Order confirmation | Realistic context for the return |
-| 2. Start return | Opens the order → **Return item** → picks reason, writes note, uploads photo | A photo upload appears only when the reason needs one | Prevents incomplete requests (memory) |
-| 3. Wait | — | Status: *Submitted → Being checked → Under review* | Visible progress, no black box |
-| 4. Outcome | Reads the decision | Plain-English reason; for denials, "Reviewed by a member of our team" | Trust calibration; accountability |
+| Stage | Maya does | Maya sees | Design intent | Feature |
+|---|---|---|---|---|
+| 1. Shop | Browses, adds sneakers to cart, checks out with a test card | Order confirmation | Realistic context for the return | — |
+| 2. Start return | Opens the order → **Return item** → reason, note, photo | A photo field appears only when the reason needs one | Prevent incomplete requests | M6 |
+| 3. Missing evidence (if any) | Uploads what's asked | "We need a photo of the damage to continue" | Never decide on missing evidence | M6 |
+| 4. Wait | — | *Submitted → Being checked → Under review* | Visible progress | — |
+| 5. Outcome | Reads the decision | Plain-English reason, the policy rule, and the evidence considered; denials say "Reviewed by a member of our team" | Trust calibration; accountability | S3, M1, M7 |
+| 6. Disagree (if denied) | **Request a review** → adds an explanation | "A reviewer will look at your case again" | A way to challenge a decision | S2 |
 
-### 3.3 Reviewer task flow — Riley
+### 4.3 Reviewer task flow — Riley
 
 ```mermaid
 flowchart TD
-    Q[Open queue] --> C[Open a case]
-    C --> R[Read AI recommendation + confidence + reasons]
-    R --> V[Check evidence: policy clause, photos, history]
+    Q[Open queue] --> W[Read 'Why here' reason]
+    W --> C[Open the case]
+    C --> R[Read recommendation, evidence strength, 'Uncertain about']
+    R --> V[Check evidence: clause + version, photos + authenticity, history]
     V --> D{Agree with AI?}
     D -- yes --> X[Approve or Deny]
     D -- no --> O[Choose a different decision + give a reason]
     X -- Deny --> CF[Confirmation dialog]
     O -- Deny --> CF
-    CF --> S[Decision saved + audit log entry]
+    CF --> S[Decision saved; customer message written; audit entry]
     X -- Approve --> S
     O -- Approve --> S
 ```
 
-### 3.4 Admin task flow — Priya
-1. Open **Settings** → see automation status, thresholds, and the reviewer–AI agreement rate.
-2. Turn automation on or off, or adjust a threshold → **Save** → change recorded in the
-   audit log.
-3. Open **Audit log** → filter by case → see every AI step and human action in order.
+### 4.4 Admin task flow — Priya
+1. Open **Settings** → automation status, risk and value limits, the fixed rules, and the
+   **escalation rate**.
+2. Read **agreement by product type and reason** → decide whether automation should be on.
+3. Change a setting → **Save** → recorded in the audit log.
+4. Open **Audit log** → filter by case → every check, the gate's reason, and every human
+   action in order.
 
 ---
 
-## 4. Screens and wireframes
+## 5. Screens and wireframes
 
-### 4.1 Customer — Start a return
+### 5.1 Customer — Start a return
 
 ```
 ┌──────────────────────────────────────────────────────────┐
@@ -153,82 +187,102 @@ flowchart TD
 └──────────────────────────────────────────────────────────┘
 ```
 
-- The photo field appears only for reasons that need it (damaged, defective, wrong item).
-- Submit stays disabled until required fields are complete — the data check starts in the UI.
+- The photo field appears only for reasons that need it; Submit stays disabled until
+  required fields are complete (M6).
 
-### 4.2 Customer — Return status
+### 5.2 Customer — Return status and outcome
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│ Return #R-208 — Classic White Leather Sneakers           │
+│ Return #R-211 — Running Shorts · $35                     │
 │                                                          │
-│  ● Submitted ── ● Being checked ── ◐ Under review ── ○ Done
+│  ● Submitted ── ● Being checked ── ● Under review ── ● Done
 │                                                          │
-│ A member of our team is reviewing your return.           │
-│ We usually respond within 1 business day.                │
+│ ✕ Your return was not approved.                          │
+│   Policy rule: P1 — items may be returned up to day 30.  │
+│   We considered: delivered 15 Aug (day 47) · reason      │
+│   "Changed my mind" · item marked unused.                │
+│   This decision was reviewed by a member of our team.    │
+│                                                          │
+│ Think we got it wrong?    [ Request a review ]           │
 └──────────────────────────────────────────────────────────┘
 ```
 
-- Progress updates while the AI checks run (polled), so the wait isn't a black box.
-- The final message gives the plain-English reason. A denial always says it was reviewed
-  by a person and shows the policy rule it was based on.
+- The outcome names the **policy rule** and the **evidence considered** (S3, M7), and says a
+  person made the denial (M1).
+- **Request a review** opens a short text box and sends the case back to the queue with the
+  reason *Customer requested review* (S2).
+- If evidence is missing, the status shows **"We need a photo of the damage to continue"**
+  with an upload button instead of a decision (M6).
 
-### 4.3 Reviewer — Queue
+### 5.3 Reviewer — Queue
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│ Review queue (7)        Filter: [ Needs review ▼ ]               │
-├──────┬──────────────────────┬────────┬───────────────┬───────────┤
-│ Case │ Item                 │ Refund │ AI suggests   │ Why here  │
-├──────┼──────────────────────┼────────┼───────────────┼───────────┤
-│ R-208│ White Leather Sneaker│ $89    │ Escalate      │ Low conf. │
-│ R-211│ Running Shorts       │ $35    │ Deny          │ Denial    │
-│ R-214│ Leather Office Chair │ $329   │ Approve       │ High value│
-│ R-215│ White Leather Sneaker│ $89    │ — (no photo)  │ Missing   │
-└──────┴──────────────────────┴────────┴───────────────┴───────────┘
+┌────────────────────────────────────────────────────────────────────────┐
+│ Review queue (6)            Filter: [ Needs review ▼ ]                 │
+├──────┬──────────────────────┬────────┬─────────────┬───────────────────┤
+│ Case │ Item                 │ Refund │ AI suggests │ Why here          │
+├──────┼──────────────────────┼────────┼─────────────┼───────────────────┤
+│ R-208│ White Leather Sneaker│ $89    │ Escalate    │ Ambiguous call    │
+│ R-211│ Running Shorts       │ $35    │ Deny        │ Proposed denial   │
+│ R-214│ Leather Office Chair │ $329   │ Approve     │ High value        │
+│ R-216│ White Leather Sneaker│ $89    │ Escalate    │ Unverified photo  │
+│ R-219│ Wool Sweater         │ $72    │ Deny        │ Customer review   │
+└──────┴──────────────────────┴────────┴─────────────┴───────────────────┘
 ```
 
-- **"Why here"** tells the reviewer what to focus on before opening the case (attention).
+- **"Why here"** shows one of a fixed set of named reasons (M2), so the reviewer knows what
+  to focus on before opening the case — and the admin can see which reasons drive volume.
+- Cases with missing evidence never appear here; they wait on the customer (M6).
 
-### 4.4 Reviewer — Case page (the core screen)
+### 5.4 Reviewer — Case page (the core screen)
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│ Case R-208 · Classic White Leather Sneakers · $89 · Jordan Lee       │
+│ Case R-208 · Classic White Leather Sneakers · $89                    │
+├──────────────────────────────────────────────────────────────────────┤
+│ ⚠ AMBIGUOUS CALL — wear (P3) vs. defect (P2) needs a person          │
 ├───────────────────────────────────┬──────────────────────────────────┤
 │ [AI] RECOMMENDATION               │ EVIDENCE                         │
-│ Escalate — Medium confidence (62%)│ Photos                           │
-│                                   │ [product photo] [customer photo] │
-│ Why not higher:                   │ ⚠ Photo check: shows wear,       │
-│ • Photo shows scuffing and creases│   not a clear defect (signal     │
-│   — could be normal wear (P3)     │   only)                          │
-│ • No clear manufacturing defect   │                                  │
-│                                   │ Policy used (version 2)          │
-│ Checks                            │ P3. Normal wear and tear ... is  │
-│ ✓ Data complete                   │ not a defect ...      [view all] │
-│ ✓ Within return window (day 21)   │                                  │
-│ ⚠ Photo: wear vs. defect unclear  │ Customer history                 │
-│ ✓ History: low risk (2/15 returns)│ Account 2 yrs · 15 orders ·      │
-│                                   │ 2 returns · no linked accounts   │
+│ Escalate                          │ Photos                           │
+│ Evidence strength: MIXED          │ [product photo] [customer photo] │
+│ (4 of 5 checks clear)             │ Match: same product ✓            │
+│                                   │ Authenticity: no issues found ✓  │
+│ Uncertain about:                  │ Condition: scuffing, creasing —  │
+│ • Scuffing and creases could be   │   wear or defect unclear ⚠       │
+│   normal wear (P3)                │                                  │
+│ • Customer says "poor quality"    │ Policy used (version 2)          │
+│   after a few weeks               │ P3. Normal wear and tear ... is  │
+│                                   │ not a defect ...      [view all] │
+│ Checks                            │                                  │
+│ ✓ Data complete                   │ Customer history                 │
+│ ✓ Within return window (day 21)   │ Account 2 yrs · 15 orders ·      │
+│ ✓ Photo matches product           │ 2 returns · no linked accounts   │
+│ ✓ Photo authenticity              │                                  │
+│ ⚠ Condition: wear vs. defect      │                                  │
 ├───────────────────────────────────┴──────────────────────────────────┤
 │ Your decision   [ Approve ]   [ Deny… ]                              │
 │ Disagree with the AI? Reason (required if you do): [            ]    │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
-**Trust-calibration cues on this screen**
-- **Confidence with reasons:** a band (High / Medium / Low) plus the number, and a "Why not
-  higher" list — never a bare score.
-- **Provenance:** every finding names its source — the policy clause **and version**, the
-  photo, the history record.
-- **Signals, not verdicts:** the photo check is labelled "signal only", and a possible
-  AI-generated photo gets a distinct warning.
-- **AI label:** AI-generated content is marked `[AI]` so the reviewer always knows which
-  text came from the model.
-- **Disagreement is captured:** overriding the AI requires a short reason, which is logged
-  and feeds the agreement rate.
+For an unverified photo (e.g. R-216), the authenticity row reads **"⚠ Not verified —
+possible AI-generated image"** and appears as a warning banner at the top.
 
-### 4.5 Reviewer — Deny confirmation
+**Trust-calibration cues on this screen**
+- **Evidence strength, not self-rated confidence (M3):** *Strong* (all checks clear),
+  *Mixed* (some warnings), *Weak* (a check failed or a photo is unverified) — computed from
+  the checks, with an **"Uncertain about"** list in plain words. No percentages.
+- **Why the case is here, first (M2, M4):** the escalation reason — e.g. the ambiguity
+  flag — is the first thing on the page.
+- **Photo authenticity is its own check (M5):** match, authenticity, and condition are
+  separate rows; "Not verified" is never hidden inside a summary.
+- **Provenance (M7):** every finding names the policy clause **and version**.
+- **AI label:** model-written text is marked `[AI]`.
+- **Disagreement is captured (S1):** overriding the AI needs a short reason, logged by
+  product type and escalation reason.
+
+### 5.5 Reviewer — Deny confirmation
 
 ```
 ┌──────────────────────────────────────────────┐
@@ -239,16 +293,16 @@ flowchart TD
 │ (delivered 15 Aug, day 47)                   │
 │                                              │
 │ The customer will be told this decision was  │
-│ made by a person.                            │
+│ made by a person, and can request a review.  │
 │                                              │
 │            [ Cancel ]   [ Confirm denial ]   │
 └──────────────────────────────────────────────┘
 ```
 
-- A denial is never one accidental click. The dialog restates the case and the policy basis
-  so the reviewer re-checks rather than rubber-stamps.
+- A denial is never one accidental click, and the customer's message is only written after
+  **Confirm denial** (M1).
 
-### 4.6 Admin — Settings
+### 5.6 Admin — Settings
 
 ```
 ┌──────────────────────────────────────────────────────────┐
@@ -256,69 +310,90 @@ flowchart TD
 │                                                          │
 │ Automatic approvals      ( ) Off   (•) On                │
 │ Risk must be below       [ 0.30 ]                        │
-│ Confidence must be above [ 0.80 ]                        │
 │ Refunds above this always need a person  [ $250 ]        │
 │                                                          │
-│ 🔒 The AI can never deny a return. (Not configurable.)   │
+│ 🔒 The AI can never deny a return.                       │
+│ 🔒 Unverified photos are never auto-approved.            │
+│ 🔒 Ambiguous calls always go to a person.                │
 │                                                          │
+│ Escalation rate (last 7 days): 31% of returns            │
 │ Reviewer agreed with AI: 87% of last 50 decisions        │
+│   Footwear 78% · Clothing 92% · Electronics 90%          │
+│   Most overrides: "Ambiguous call" (9)                   │
 │                                         [ Save changes ] │
 └──────────────────────────────────────────────────────────┘
 ```
 
-- The locked rule is shown, not hidden, so the admin's mental model of the system is
-  accurate.
-- The agreement rate sits next to the switch: evidence for turning automation on or off.
+- The fixed rules are shown, not hidden, so the admin's mental model is accurate (S4).
+- **Escalation rate** answers the reviewer's concern about being flooded; **agreement by
+  product type and reason** shows where the AI should defer more or less (S1).
 
-### 4.7 Admin — Audit log
-A filterable table: time · actor (AI step / reviewer / admin) · action · case · details.
-Opening a case shows its full history in order: each AI step's result, the gate's routing,
-and the human decision.
+### 5.7 Admin — Audit log
+A filterable table: time · actor (check / AI / gate / reviewer / admin / customer) · action
+· case · details. Opening a case shows its full history in order, including the gate's
+named reason and any customer review request (C2).
 
 ---
 
-## 5. Design system alignment — IBM Carbon
+## 6. Behind the screens — rules the UI depends on
+
+| Rule | Why | Feature |
+|---|---|---|
+| The data check is plain code and runs before any model call | Models denied claims for missing evidence (F2) | M6 |
+| The gate decides from check results, not from the model's decision label | Claude's label contradicted its own reasoning (F2) | M2 |
+| Date and threshold arithmetic is done in code | Keeps the window check exact; the model receives the result | M2 |
+| Customer names and gendered cues are removed from model inputs | Claude assumed a customer's gender from their name (F2) | C1 |
+| Every check, gate decision, and human action is written to the audit log | Accountability and override analysis | C2, S1 |
+
+---
+
+## 7. Design system alignment — IBM Carbon
 
 We follow **[IBM Carbon](https://carbondesignsystem.com/)**: it is built for data-heavy
-enterprise tools like the reviewer dashboard, and its AI guidance covers labelling
-AI-generated content and explaining it.
+enterprise tools like the reviewer dashboard, and its AI guidance covers labelling and
+explaining AI-generated content.
 
 | Need | Carbon pattern | Where we use it |
 |---|---|---|
-| Mark AI output | AI label + explainability popover | `[AI]` badge on the recommendation; "Why" opens the reasons |
-| Review queue | Data table with filters and status tags | Reviewer queue (4.3), audit log (4.7) |
-| Risky, irreversible action | Danger modal with explicit confirmation | Deny confirmation (4.5) |
-| Status of a return | Progress indicator | Customer status (4.2) |
-| Warnings about weak evidence | Inline notification (warning) | Photo and evidence warnings (4.4) |
-| Settings | Toggle, number input, read-only field | Admin settings (4.6) |
+| Mark AI output | AI label + explainability popover | `[AI]` badge on the recommendation |
+| Review queue | Data table with filters and status tags | Queue (5.3), audit log (5.7) |
+| Named escalation reasons | Tag | "Why here" column (5.3) |
+| Ambiguity / unverified photo | Inline notification (warning) at the top of the page | Case page (5.4) |
+| Evidence strength | Tag (Strong / Mixed / Weak) | Case page (5.4) |
+| Risky, irreversible action | Danger modal with explicit confirmation | Deny confirmation (5.5) |
+| Return progress | Progress indicator | Customer status (5.2) |
+| Request a review | Secondary button + text area | Customer outcome (5.2) |
+| Settings and fixed rules | Toggle, number input, read-only field | Admin settings (5.6) |
 
 The shop pages keep a simpler, consumer-friendly look; Carbon applies to the reviewer and
 admin screens.
 
 ---
 
-## 6. Traceability — every UI choice back to theory (and evidence)
+## 8. Traceability — every UI choice back to evidence and theory
 
-| UI choice | Pillar / principle (Gonzalez et al., 2026) | Evidence (filled after Steps 5–7) |
-|---|---|---|
-| Every denial goes to a reviewer; AI can't deny | Meta-coordination; **role partitioning** | Prompting F3; interviews (safety) |
-| Deny confirmation dialog restating the policy basis | Reasoning — human ethical authority; guards against rubber-stamping | |
-| Confidence band + "Why not higher" list | **Attention & interrogation orchestration** — confidence thresholds, interrogation | Prompting E1 (consistency, overconfidence) |
-| Policy clause and version shown with every finding | Memory — provenance; **knowledge infrastructure** | |
-| Photo check labelled "signal only"; synthetic-photo warning | Attention — AI misses "unknown unknowns"; humans handle exceptions | Prompting F1 |
-| "Why here" column in the queue | Attention orchestration — directs limited reviewer attention | |
-| Data check: photo required before submit; incomplete cases escalate | Memory — don't guess past missing information | Prompting F2 |
-| Override requires a reason; agreement rate shown | **Training & evaluation** — learning from disagreement | |
-| Automation switch + thresholds only an admin can change | **Goals & constraints**; meta-coordination | |
-| Customer told a person reviewed any denial | Trust calibration; accountability | Interviews (customer) |
+| UI choice | Feature | Evidence | Pillar / principle (Gonzalez et al., 2026) |
+|---|---|---|---|
+| Gate cannot deny; deny dialog restates the policy basis; message written after confirm | M1 | F3 (0 of 4 required sign-off); P1, P2 | Meta-coordination; **role partitioning**; goals & constraints |
+| "Why here" named reasons in the queue | M2 | P2 (*"filter cases intelligently"*); E1 | **Attention & interrogation orchestration** |
+| Evidence strength + "Uncertain about", no percentages | M3 | E1/F1/F2 (95–100% when wrong); P1 (C7); P2 (R10) | Trust calibration; attention & interrogation orchestration |
+| Ambiguity banner; ambiguous calls always escalate | M4 | E1 (3 of 4 denied); P2 (R2, R8) | Reasoning; role partitioning |
+| Photo authenticity row with "Not verified"; never auto-approved | M5 | F1 (0 of 4 detected the fake); P2 (R9) | Attention ("unknown unknowns"); knowledge infrastructure |
+| "We need a photo" instead of a decision | M6 | F2 (2 of 4 denied on missing evidence); P1 (C12) | Memory; goals & constraints |
+| Clause and version on every finding and outcome | M7 | P1 (C11); P2 (R6); F3 (invented rule) | Memory — provenance; knowledge infrastructure |
+| Override reason; agreement by product type and reason | S1 | P2 (R18) | **Training & evaluation** |
+| "Request a review" on a denial | S2 | P1 (C15, C16) | Meta-coordination; accountability |
+| Outcome shows the rule and evidence considered | S3 | P1 (C3, C11) | Trust calibration; knowledge infrastructure |
+| Admin switch, limits, and visible fixed rules; escalation rate | S4 | P1 (C4); P2 (R16) | Goals & constraints |
 
-**Design principle we commit to:** attention & interrogation orchestration — confidence
-thresholds and escalation rules decide when the AI defers to a human, and the case page is
-built for interrogating the AI's reasoning.
+**Design principle we commit to:** **attention & interrogation orchestration** — named
+escalation reasons decide when the AI defers to a person, and the case page is built so the
+reviewer can interrogate the evidence, not just accept a score.
 
 ---
 
-## 7. Out of scope for this spec
+## 9. Out of scope for this spec
 
-Appeals, reviewer follow-up questions to customers, multiple automation levels, fraud-ring
-visualizations, and analytics beyond the agreement rate.
+Multi-step appeals (e.g. routing to a different reviewer), reviewer follow-up questions to
+customers, multiple automation levels, fraud-ring visualisations, and analytics beyond
+agreement, overrides, and escalation rate. None were supported by the evidence collected.
