@@ -37,8 +37,8 @@ trace. Each scenario probes one part of that split.
 |---|---|---|---|
 | ChatGPT | closed (OpenAI) | Aditya | `transcripts/chatgpt_outputs.md` |
 | Claude (claude.ai) | closed (Anthropic) | Trupti | `transcripts/claude_outputs.md` |
-| Gemini | closed (Google) | Sharayu | `transcripts/gemini_outputs.md` |
-| Qwen Chat (chat.qwen.ai) | open-weight (Alibaba) | Avni | `transcripts/qwen_outputs.md` |
+| Gemini | closed (Google) | Avni | `transcripts/gemini_outputs.md` |
+| Qwen Chat (chat.qwen.ai) | open-weight (Alibaba) | Sharayu | `transcripts/qwen_outputs.md` |
 
 All four accept image uploads on the free tier. Each member runs all scenarios on their
 own tool. Qwen also doubles as research for the open-source vision model in the build plan.

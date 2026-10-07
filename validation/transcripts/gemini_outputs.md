@@ -5,7 +5,7 @@ Case block, in a fresh chat for every run.
 
 | Field | Value |
 |---|---|
-| Tester | Sharayu Jadhav |
+| Tester | Avni Wadhwani |
 | Tool | Gemini |
 | Model shown in the tool | |
 | Plan | free / paid |

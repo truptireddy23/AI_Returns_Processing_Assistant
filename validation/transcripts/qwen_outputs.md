@@ -5,7 +5,7 @@ Case block, in a fresh chat for every run.
 
 | Field | Value |
 |---|---|
-| Tester | Avni Wadhwani |
+| Tester | Sharayu Jadhav |
 | Tool | Qwen Chat (chat.qwen.ai) |
 | Model shown in the tool | |
 | Plan | free / paid |

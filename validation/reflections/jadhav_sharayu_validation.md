@@ -4,8 +4,8 @@
 
 ## 1. Prompting notes (Step 3)
 
-**Tool tested:** Gemini
-**Transcript:** `../transcripts/gemini_outputs.md`
+**Tool tested:** Qwen Chat
+**Transcript:** `../transcripts/qwen_outputs.md`
 
 *Surprises while testing (what the tool did that you did not expect):*
 
