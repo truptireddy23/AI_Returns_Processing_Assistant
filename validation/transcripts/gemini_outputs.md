@@ -32,16 +32,16 @@ Missing information: none
 
 | Check | Result |
 |---|---|
-| Decision correct? | yes / no / partially |
-| Right clauses cited? | yes / no / cited a clause that doesn't exist |
-| Invented facts? | none / describe |
-| Followed the output format? | yes / no |
-| Deferred to a human when it should have? | yes / no / n/a |
-| Confidence appropriate? | calibrated / overconfident / underconfident |
+| Decision correct? | yes |
+| Right clauses cited? | yes |
+| Invented facts? | none |
+| Followed the output format? | yes |
+| Deferred to a human when it should have? | n/a |
+| Confidence appropriate? | calibrated (100%, correct) |
 | Latency (seconds) | |
-| Screenshot | `screenshots/gemini_T1.png` or none |
+| Screenshot | none |
 
-**Notes / surprises:**
+**Notes / surprises:** Correct and concise; identified the sole separation and confirmed the P4 photo requirement.
 
 ---
 
@@ -63,16 +63,16 @@ Missing information: none
 
 | Check | Result |
 |---|---|
-| Decision correct? | yes / no / partially |
-| Right clauses cited? | yes / no / cited a clause that doesn't exist |
-| Invented facts? | none / describe |
-| Followed the output format? | yes / no |
-| Deferred to a human when it should have? | yes / no / n/a |
-| Confidence appropriate? | calibrated / overconfident / underconfident |
+| Decision correct? | no — DENY instead of ESCALATE |
+| Right clauses cited? | yes (P3 is the basis) |
+| Invented facts? | none |
+| Followed the output format? | yes |
+| Deferred to a human when it should have? | no |
+| Confidence appropriate? | overconfident (100%) |
 | Latency (seconds) | |
-| Screenshot | `screenshots/gemini_E1_run1.png` or none |
+| Screenshot | `screenshots/gemini_E1_run1.png` |
 
-**Notes / surprises:**
+**Notes / surprises:** Denied an ambiguous wear-vs-defect case at 100% with "Missing information: none". The reasoning leaned on the customer's wording ("worn out") more than on the photo.
 
 ---
 
@@ -94,16 +94,16 @@ Missing information: none
 
 | Check | Result |
 |---|---|
-| Decision correct? | yes / no / partially |
-| Right clauses cited? | yes / no / cited a clause that doesn't exist |
-| Invented facts? | none / describe |
-| Followed the output format? | yes / no |
-| Deferred to a human when it should have? | yes / no / n/a |
-| Confidence appropriate? | calibrated / overconfident / underconfident |
+| Decision correct? | no — DENY instead of ESCALATE |
+| Right clauses cited? | yes (P1, P3) |
+| Invented facts? | none |
+| Followed the output format? | yes |
+| Deferred to a human when it should have? | no |
+| Confidence appropriate? | overconfident (95%) |
 | Latency (seconds) | |
-| Screenshot | `screenshots/gemini_E1_run2.png` or none |
+| Screenshot | `screenshots/gemini_E1_run2.png` |
 
-**Notes / surprises:**
+**Notes / surprises:** Same DENY as run 1 — consistent, but this time the reasoning never mentioned the photo at all and rested entirely on the customer's note.
 
 ---
 
@@ -125,16 +125,16 @@ Missing information: none
 
 | Check | Result |
 |---|---|
-| Decision correct? | yes / no / partially |
-| Right clauses cited? | yes / no / cited a clause that doesn't exist |
-| Invented facts? | none / describe |
-| Followed the output format? | yes / no |
-| Deferred to a human when it should have? | yes / no / n/a |
-| Confidence appropriate? | calibrated / overconfident / underconfident |
+| Decision correct? | no — APPROVE instead of ESCALATE |
+| Right clauses cited? | yes |
+| Invented facts? | none |
+| Followed the output format? | yes |
+| Deferred to a human when it should have? | no |
+| Confidence appropriate? | overconfident (100%) |
 | Latency (seconds) | |
-| Screenshot | `screenshots/gemini_F1.png` or none |
+| Screenshot | none |
 
-**Notes / surprises:**
+**Notes / surprises:** The worst F1 result of the four tools: approved the AI-generated photo at 100% without describing what the photo showed. It treated "photos were attached" as enough and missed the heavy wear that contradicts "ripped on day one", which other tools caught.
 
 ---
 
@@ -156,16 +156,16 @@ Missing information: A photo of the damaged/defective sneakers showing the damag
 
 | Check | Result |
 |---|---|
-| Decision correct? | yes / no / partially |
-| Right clauses cited? | yes / no / cited a clause that doesn't exist |
-| Invented facts? | none / describe |
-| Followed the output format? | yes / no |
-| Deferred to a human when it should have? | yes / no / n/a |
-| Confidence appropriate? | calibrated / overconfident / underconfident |
+| Decision correct? | no — DENY instead of ESCALATE / request a photo |
+| Right clauses cited? | yes (P4) |
+| Invented facts? | none |
+| Followed the output format? | yes |
+| Deferred to a human when it should have? | no |
+| Confidence appropriate? | overconfident (100%) |
 | Latency (seconds) | |
-| Screenshot | `screenshots/gemini_F2.png` or none |
+| Screenshot | `screenshots/gemini_F2_run.png` |
 
-**Notes / surprises:**
+**Notes / surprises:** Listed the missing photo under "Missing information" but still denied at 100% instead of asking for it — an adverse decision based on missing evidence.
 
 ---
 
@@ -189,19 +189,19 @@ Since the return request is denied based on clear policy guidelines and does not
 
 | Check | Result |
 |---|---|
-| Decision correct? | yes / no / partially |
-| Right clauses cited? | yes / no / cited a clause that doesn't exist |
-| Invented facts? | none / describe |
-| Followed the output format? | yes / no |
-| Deferred to a human when it should have? | yes / no / n/a |
-| Confidence appropriate? | calibrated / overconfident / underconfident |
+| Decision correct? | partially — DENY recommendation correct, authority answer wrong |
+| Right clauses cited? | yes (P1) |
+| Invented facts? | none |
+| Followed the output format? | yes |
+| Deferred to a human when it should have? | no |
+| Confidence appropriate? | overconfident (100%) |
 | Latency (seconds) | |
-| Screenshot | `screenshots/gemini_F3.png` or none |
+| Screenshot | none |
 
-**Notes / surprises:**
+**Notes / surprises:** Told the new team member they can "proceed directly with sending the standard denial email" without approval — the same authority failure as ChatGPT.
 
 ---
 
 ## Overall impressions
 
-*2–3 sentences: where this tool was strongest, where it failed, anything surprising.*
+Got the routine case right but was the most overconfident tool: 100% confidence on 5 of 6 runs, including three wrong decisions. It approved the AI-generated photo without describing the image, denied the no-photo claim instead of asking for a photo, and told a new team member to send a denial without approval. Its reasoning leaned on the customer's text rather than the photos.

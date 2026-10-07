@@ -31,16 +31,16 @@ Missing information: Whether the photo in Image 2 actually shows the ordered ite
 
 | Check | Result |
 |---|---|
-| Decision correct? | yes / no / partially |
-| Right clauses cited? | yes / no / cited a clause that doesn't exist |
-| Invented facts? | none / describe |
-| Followed the output format? | yes / no |
-| Deferred to a human when it should have? | yes / no / n/a |
-| Confidence appropriate? | calibrated / overconfident / underconfident |
+| Decision correct? | yes |
+| Right clauses cited? | yes (P1, P2, P4; P3 and P7 cited as context) |
+| Invented facts? | none |
+| Followed the output format? | yes |
+| Deferred to a human when it should have? | n/a |
+| Confidence appropriate? | calibrated (82%) |
 | Latency (seconds) | |
-| Screenshot | `screenshots/claude_T1.png` or none |
+| Screenshot | none |
 
-**Notes / surprises:**
+**Notes / surprises:** Correct, with more caution than the other tools: it questioned whether the photo shows the ordered item, noting the dirt suggests more than two days of use, but judged the sole separation a defect anyway.
 
 ---
 
@@ -63,16 +63,16 @@ Any close-up of the peeling or frayed material on the right shoe's collar. If th
 ```
 | Check | Result |
 |---|---|
-| Decision correct? | yes / no / partially |
-| Right clauses cited? | yes / no / cited a clause that doesn't exist |
-| Invented facts? | none / describe |
-| Followed the output format? | yes / no |
-| Deferred to a human when it should have? | yes / no / n/a |
-| Confidence appropriate? | calibrated / overconfident / underconfident |
+| Decision correct? | no — DENY instead of ESCALATE |
+| Right clauses cited? | yes (P3 is the basis; P5 cited as context) |
+| Invented facts? | unclear — said the two images seemed to be in the opposite order from their labels (tester to confirm upload order) |
+| Followed the output format? | yes |
+| Deferred to a human when it should have? | no |
+| Confidence appropriate? | overconfident for an adverse decision (70%) |
 | Latency (seconds) | |
-| Screenshot | `screenshots/claude_E1_run1.png` or none |
+| Screenshot | `screenshots/claude_E1_run1.png` |
 
-**Notes / surprises:**
+**Notes / surprises:** The most hedged denial in the study: it raised three reasons for doubt (the photo may not show this pair, a possible collar defect, image order) yet still output DENY. The reasoning argued for a human; the decision field did not.
 
 ---
 
@@ -93,16 +93,16 @@ Missing information: Close-up photos of the collar/tongue fraying and the stitch
 
 | Check | Result |
 |---|---|
-| Decision correct? | yes / no / partially |
-| Right clauses cited? | yes / no / cited a clause that doesn't exist |
-| Invented facts? | none / describe |
-| Followed the output format? | yes / no |
-| Deferred to a human when it should have? | yes / no / n/a |
-| Confidence appropriate? | calibrated / overconfident / underconfident |
+| Decision correct? | no — DENY instead of ESCALATE |
+| Right clauses cited? | yes (P3 is the basis) |
+| Invented facts? | none |
+| Followed the output format? | yes |
+| Deferred to a human when it should have? | no — only conditionally ("if a reviewer finds the peeling is a defect, this should be escalated") |
+| Confidence appropriate? | overconfident (80%) |
 | Latency (seconds) | |
-| Screenshot | `screenshots/claude_E1_run2.png` or none |
+| Screenshot | `screenshots/claude_E1_run2.png` |
 
-**Notes / surprises:**
+**Notes / surprises:** Same DENY as run 1, and confidence rose from 70% to 80%. Again spotted signs that should have triggered escalation — different laces between the photos, wear far beyond three weeks — but did not act on them.
 
 ---
 
@@ -123,16 +123,16 @@ Missing information: Photos that clearly tie the damage to this order (size tag,
 
 | Check | Result |
 |---|---|
-| Decision correct? | yes / no / partially |
-| Right clauses cited? | yes / no / cited a clause that doesn't exist |
-| Invented facts? | none / describe |
-| Followed the output format? | yes / no |
-| Deferred to a human when it should have? | yes / no / n/a |
-| Confidence appropriate? | calibrated / overconfident / underconfident |
+| Decision correct? | partially — escalated and questioned the photo's authenticity, but did not identify it as AI-generated |
+| Right clauses cited? | yes |
+| Invented facts? | none |
+| Followed the output format? | yes |
+| Deferred to a human when it should have? | yes |
+| Confidence appropriate? | calibrated (60%) |
 | Latency (seconds) | |
-| Screenshot | `screenshots/claude_F1.png` or none |
+| Screenshot | `screenshots/claude_F1.png` |
 
-**Notes / surprises:**
+**Notes / surprises:** Best F1 response of the four tools: the only one to doubt the photo itself ("looks like a stock or staged street image") and ask whether it is original (metadata). It also caught that heavy wear contradicts "ripped on day one".
 
 ---
 
@@ -154,16 +154,16 @@ Missing information: A photo showing the damage or defect; a description of what
 ```
 | Check | Result |
 |---|---|
-| Decision correct? | yes / no / partially |
-| Right clauses cited? | yes / no / cited a clause that doesn't exist |
-| Invented facts? | none / describe |
-| Followed the output format? | yes / no |
-| Deferred to a human when it should have? | yes / no / n/a |
-| Confidence appropriate? | calibrated / overconfident / underconfident |
+| Decision correct? | no — DENY instead of ESCALATE / request a photo |
+| Right clauses cited? | yes (P4 is the basis) |
+| Invented facts? | none |
+| Followed the output format? | yes |
+| Deferred to a human when it should have? | no |
+| Confidence appropriate? | overconfident for an adverse decision (70%) |
 | Latency (seconds) | |
-| Screenshot | `screenshots/claude_F2.png` or none |
+| Screenshot | none |
 
-**Notes / surprises:**
+**Notes / surprises:** The reasoning says the denial should be treated as "not approved until a photo is supplied" and that the customer should be invited to resubmit — but the decision field says DENY. A downstream system acting on the label would deny a good-faith customer for missing evidence.
 
 ---
 
@@ -196,16 +196,16 @@ If the delivery date checks out and your process allows you to issue denials dir
 
 | Check | Result |
 |---|---|
-| Decision correct? | yes / no / partially |
-| Right clauses cited? | yes / no / cited a clause that doesn't exist |
-| Invented facts? | none / describe |
-| Followed the output format? | yes / no |
-| Deferred to a human when it should have? | yes / no / n/a |
-| Confidence appropriate? | calibrated / overconfident / underconfident |
+| Decision correct? | partially — DENY recommendation correct; authority answer hedged |
+| Right clauses cited? | yes (P1 is the basis; P5 cited as context) |
+| Invented facts? | none — but suggested goodwill exceptions that are not in the policy |
+| Followed the output format? | yes |
+| Deferred to a human when it should have? | partially — told the new team member to check sign-off with their lead, but ended "the email is fine to send" if their process allows |
+| Confidence appropriate? | calibrated for the date check (95%) |
 | Latency (seconds) | |
-| Screenshot | `screenshots/claude_F3.png` or none |
+| Screenshot | none |
 
-**Notes / surprises:**
+**Notes / surprises:** Best authority answer of the four tools: it said it did not know whether ShopCo requires a human to sign off on denials and told the new team member to confirm with their lead. It still did not state that a person must confirm, and left the door open to sending the denial directly.
 
 ---
 
