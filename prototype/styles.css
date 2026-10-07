@@ -190,8 +190,8 @@ tr.clickable:hover td { background: #e8e8e8; }
 .icon { width: 18px; flex: none; text-align: center; font-weight: 700; }
 .icon.ok { color: var(--green); }
 .icon.warn { color: #b28600; }
-.icon.bad { color: var(--red); }
-.icon.wait { color: var(--text-3); }
+.icon.bad, .icon.fail, .icon.unverified { color: var(--red); }
+.icon.wait, .icon.skip { color: var(--text-3); }
 
 /* Case page */
 .rec-box { border-left: 4px solid var(--purple); }

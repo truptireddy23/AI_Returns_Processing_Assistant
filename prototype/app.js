@@ -1,4 +1,4 @@
-// ReturnGuard clickthrough prototype — static, in-memory, no backend.
+// ReturnGuard clickthrough prototype (v1) — static, in-memory, no backend.
 // AI results are simulated so the interaction design can be demoed.
 
 const IMG = "../validation/transcripts/images/";
@@ -7,8 +7,8 @@ const POLICY_VERSION = 2;
 
 const POLICY = {
   P1: "Items may be returned up to and including day 30 after delivery.",
-  P3: "Normal wear and tear from use (scuffs, creasing, sole wear, fading) is not a defect and is not eligible for a refund.",
   P2: "Items damaged on arrival or with a manufacturing defect are eligible for a full refund, including shipping, within the return window.",
+  P3: "Normal wear and tear from use (scuffs, creasing, sole wear, fading) is not a defect and is not eligible for a refund.",
   P4: "A photo is required for any return claiming damage, a defect, or a wrong item.",
   P5: "Change-of-mind returns must be unused and in original packaging; the customer pays return shipping.",
   P7: "Any refund above $250 requires approval by a returns manager.",
@@ -30,7 +30,13 @@ const REASONS = [
   { id: "fit", label: "Doesn't fit", needsPhoto: false },
 ];
 
-const PIPELINE = ["Data check", "Policy check", "Photo check", "History check", "AI recommendation", "Governance gate"];
+// Check statuses: ok = clear pass, fail = clear fail, warn = unclear, unverified = cannot be trusted, skip = not run.
+const ICON = { ok: "✓", fail: "✕", warn: "!", unverified: "?", skip: "○" };
+
+const PIPELINE = ["Data check (rules)", "Policy check", "Photo match + authenticity", "History check", "AI recommendation", "Governance gate"];
+
+// Escalation is only ever for one of these named reasons.
+const REASONS_HERE = ["Proposed denial", "Unverified photo", "Ambiguous call", "High value", "Elevated risk", "Automation off", "Customer review"];
 
 const state = {
   role: "customer",
@@ -39,8 +45,12 @@ const state = {
     { id: "1042", productId: "sneakers", price: 89, delivered: "2026-09-20" },
     { id: "1037", productId: "shorts", price: 35, delivered: "2026-08-15" },
   ],
-  settings: { automation: false, risk: 0.3, confidence: 0.8, highValue: 250 },
-  agreement: { agree: 43, total: 50 },
+  settings: { automation: false, risk: 0.3, highValue: 250 },
+  agreement: {
+    byCategory: { Footwear: [18, 23], Clothing: [12, 13], Electronics: [9, 10], Bags: [4, 4] },
+    overridesByReason: { "Ambiguous call": 9, "Unverified photo": 3, "High value": 1 },
+  },
+  volume: { returns: 120, escalated: 37 }, // last 7 days, seeded
   nextReturn: 220,
   nextOrder: 1050,
   cases: [],
@@ -54,26 +64,22 @@ state.cases = [
     id: "R-208", orderId: null, customer: "Jordan Lee", productId: "sneakers", refund: 89,
     delivered: "2026-09-10", reason: "Damaged / defective",
     note: "These look worn out already after a few weeks. Poor quality.",
-    photo: IMG + "IMG-C.jpg", status: "needs_review", why: "Low confidence",
+    photo: IMG + "IMG-C.jpg", status: "needs_review", why: "Ambiguous call",
     ai: {
-      decision: "Escalate", confidence: 62, risk: 0.18,
-      whyNot: ["Photo shows scuffing and creases — could be normal wear (P3)", "No clear manufacturing defect is visible"],
-      checks: [["ok", "Data complete — photo provided"], ["ok", "Within return window (day 21 of 30)"], ["warn", "Photo: wear vs. defect unclear"], ["ok", "History: low risk (2 returns in 15 orders)"]],
-      photoSignal: ["warn", "Shows wear, not a clear defect. Signal only — not a verdict."],
-      policy: "P3",
+      decision: "Escalate", risk: 0.18, ambiguous: true, photoVerified: true, policy: "P3",
+      uncertain: ["Scuffing and creases could be normal wear (P3) rather than a defect (P2)", "The customer says \"poor quality\" after only a few weeks"],
+      checks: [["ok", "Data complete — photo provided"], ["ok", "Within return window (day 21 of 30)"], ["ok", "Photo matches the product"], ["ok", "Photo authenticity: no issues found"], ["warn", "Condition: wear vs. defect unclear"], ["ok", "History: low risk (2 returns in 15 orders)"]],
       history: "Account 2 years · 15 orders · 2 returns (both approved) · no linked accounts",
     },
   },
   {
     id: "R-211", orderId: "1037", customer: "Maya Chen", productId: "shorts", refund: 35,
     delivered: "2026-08-15", reason: "Changed my mind", note: "Unused.",
-    photo: null, status: "needs_review", why: "Denial",
+    photo: null, status: "needs_review", why: "Proposed denial",
     ai: {
-      decision: "Deny", confidence: 94, risk: 0.08,
-      whyNot: ["Confident on the date check; a person must still confirm every denial"],
-      checks: [["ok", "Data complete — no photo needed for this reason"], ["bad", "Outside return window (day 47 of 30)"], ["ok", "Photo check not needed"], ["ok", "History: low risk (1 return in 24 orders)"]],
-      photoSignal: null,
-      policy: "P1",
+      decision: "Deny", risk: 0.08, ambiguous: false, photoVerified: null, policy: "P1",
+      uncertain: ["Nothing about the date — the window check is computed exactly. A person must still confirm every denial."],
+      checks: [["ok", "Data complete — no photo needed for this reason"], ["fail", "Outside return window (day 47 of 30)"], ["ok", "History: low risk (1 return in 24 orders)"]],
       history: "Account 3 years · 24 orders · 1 return (approved) · no linked accounts",
     },
   },
@@ -82,37 +88,31 @@ state.cases = [
     delivered: "2026-09-24", reason: "Changed my mind", note: "Unused and still fully boxed — it doesn't fit my desk.",
     photo: null, status: "needs_review", why: "High value",
     ai: {
-      decision: "Approve", confidence: 91, risk: 0.06,
-      whyNot: ["Refund is above $250 — a person must approve regardless of confidence (P7)"],
-      checks: [["ok", "Data complete — no photo needed for this reason"], ["ok", "Within return window (day 7 of 30)"], ["ok", "Photo check not needed"], ["ok", "History: low risk (1 return in 40 orders)"]],
-      photoSignal: null,
-      policy: "P7",
+      decision: "Approve", risk: 0.06, ambiguous: false, photoVerified: null, policy: "P7",
+      uncertain: ["Nothing in the evidence — but refunds above $250 always need a person (P7)"],
+      checks: [["ok", "Data complete — no photo needed for this reason"], ["ok", "Within return window (day 7 of 30)"], ["ok", "History: low risk (1 return in 40 orders)"]],
       history: "Account 5 years · 40 orders · 1 return (approved) · no linked accounts",
     },
   },
   {
     id: "R-215", orderId: null, customer: "Grace Kim", productId: "sneakers", refund: 89,
     delivered: "2026-09-22", reason: "Damaged / defective", note: "They arrived broken.",
-    photo: null, status: "needs_review", why: "Missing photo",
+    photo: null, status: "needs_info", why: "Missing evidence",
     ai: {
-      decision: "None", confidence: null, risk: null,
-      whyNot: ["Stopped at the data check: a photo is required for damage claims (P4). The AI did not guess."],
-      checks: [["bad", "Data incomplete — no photo for a damage claim"], ["wait", "Policy check skipped"], ["wait", "Photo check skipped"], ["wait", "History check skipped"]],
-      photoSignal: null,
-      policy: "P4",
+      decision: "None", risk: null, ambiguous: false, photoVerified: null, policy: "P4",
+      uncertain: ["Stopped at the rule-based data check: a photo is required for damage claims (P4). No AI step ran; the customer was asked for a photo."],
+      checks: [["fail", "Data incomplete — no photo for a damage claim"], ["skip", "Policy check not run"], ["skip", "Photo checks not run"], ["skip", "History check not run"]],
       history: "Account 3 years · 21 orders · 0 returns · no linked accounts",
     },
   },
   {
     id: "R-216", orderId: null, customer: "Nina Petrova", productId: "sneakers", refund: 89,
     delivered: "2026-09-19", reason: "Damaged / defective", note: "The upper ripped open on day one.",
-    photo: IMG + "IMG-F.jpg", status: "needs_review", why: "Possible fake photo",
+    photo: IMG + "IMG-F.jpg", status: "needs_review", why: "Unverified photo",
     ai: {
-      decision: "Escalate", confidence: 55, risk: 0.41,
-      whyNot: ["The photo may be AI-generated (lighting and torn edges look synthetic)", "4 returns in 6 months is above average"],
-      checks: [["ok", "Data complete — photo provided"], ["ok", "Within return window (day 12 of 30)"], ["bad", "Photo: possible AI-generated image"], ["warn", "History: elevated (4 returns in 9 orders)"]],
-      photoSignal: ["error", "Possible AI-generated image. Signal only — a person must judge it."],
-      policy: "P2",
+      decision: "Escalate", risk: 0.41, ambiguous: false, photoVerified: false, policy: "P2",
+      uncertain: ["The photo may be AI-generated (lighting and torn edges look synthetic)", "Heavy wear in the photo contradicts \"ripped on day one\"", "4 returns in 9 orders is above average"],
+      checks: [["ok", "Data complete — photo provided"], ["ok", "Within return window (day 12 of 30)"], ["ok", "Photo matches the product"], ["unverified", "Photo authenticity: not verified — possible AI-generated image"], ["warn", "Condition: tear visible, but wear contradicts \"day one\""], ["warn", "History: elevated (4 returns in 9 orders)"]],
       history: "Account 6 months · 9 orders · 4 returns (all approved) · no linked accounts",
     },
   },
@@ -121,11 +121,9 @@ state.cases = [
     delivered: "2026-09-22", reason: "Changed my mind", note: "Never used, tags still on.",
     photo: null, status: "approved", why: "Automation off", decidedBy: "Riley (reviewer)",
     ai: {
-      decision: "Approve", confidence: 90, risk: 0.05,
-      whyNot: ["Automation is off, so a person approved it"],
-      checks: [["ok", "Data complete"], ["ok", "Within return window (day 9 of 30)"], ["ok", "Photo check not needed"], ["ok", "History: low risk"]],
-      photoSignal: null,
-      policy: "P5",
+      decision: "Approve", risk: 0.05, ambiguous: false, photoVerified: null, policy: "P5",
+      uncertain: ["Nothing in the evidence — automation was off, so a person approved it"],
+      checks: [["ok", "Data complete"], ["ok", "Within return window (day 9 of 30)"], ["ok", "History: low risk"]],
       history: "Account 2 years · 11 orders · 0 returns · no linked accounts",
     },
   },
@@ -134,8 +132,9 @@ state.cases = [
 state.audit = [
   ["2026-09-30 16:02", "Reviewer · Riley", "Approved", "R-205", "Agreed with AI (Approve)"],
   ["2026-09-30 15:40", "Gate", "Routed to reviewer", "R-205", "Automation off"],
-  ["2026-09-30 15:40", "AI · Recommendation", "Approve (90%)", "R-205", "Policy P5, version 2"],
+  ["2026-09-30 15:40", "AI · Recommendation", "Approve · evidence Strong", "R-205", "Policy P5, version 2"],
   ["2026-09-30 15:39", "Customer", "Submitted return", "R-205", "Changed my mind · $64"],
+  ["2026-09-30 11:20", "Check · Data (rules)", "Asked customer for a photo", "R-215", "Damage claim without a photo (P4)"],
   ["2026-09-29 09:12", "Admin · Priya", "Changed settings", "—", "Automation turned off"],
 ].map(([time, actor, action, caseId, details]) => ({ time, actor, action, caseId, details }));
 
@@ -186,6 +185,7 @@ function decisionTag(decision) {
 function statusTag(c) {
   const map = {
     checking: ["blue", "Being checked"],
+    needs_info: ["gray", "Waiting on customer"],
     needs_review: ["purple", "Needs review"],
     approved: ["green", "Approved"],
     auto_approved: ["green", "Auto-approved"],
@@ -195,11 +195,23 @@ function statusTag(c) {
   return `<span class="tag ${cls}">${text}</span>`;
 }
 
-function band(conf) {
-  if (conf == null) return ["—", "var(--border)"];
-  if (conf >= 80) return ["High", "var(--green)"];
-  if (conf >= 60) return ["Medium", "#b28600"];
-  return ["Low", "var(--red)"];
+// Evidence strength is computed from the checks — never from the model's self-rated confidence.
+function strength(ai) {
+  const ran = ai.checks.filter(([s]) => s !== "skip");
+  const clear = ran.filter(([s]) => s === "ok" || s === "fail").length;
+  const warns = ran.filter(([s]) => s === "warn").length;
+  const unverified = ran.some(([s]) => s === "unverified");
+  let level = "Strong";
+  if (unverified || warns >= 2) level = "Weak";
+  else if (warns === 1) level = "Mixed";
+  return { level, clear, total: ran.length };
+}
+
+function strengthTag(ai) {
+  if (ai.decision === "None") return `<span class="tag gray">Not assessed</span>`;
+  const { level } = strength(ai);
+  const cls = { Strong: "green", Mixed: "yellow", Weak: "red" }[level];
+  return `<span class="tag ${cls}">Evidence: ${level}</span>`;
 }
 
 // ---------- simulated pipeline ----------
@@ -208,32 +220,35 @@ function simulateAI(c) {
   const day = daysSince(c.delivered);
   const needsPhoto = REASONS.find((r) => r.label === c.reason).needsPhoto;
   const checks = [["ok", needsPhoto ? "Data complete — photo provided" : "Data complete — no photo needed for this reason"]];
+  const history = "Account 3 years · 24 orders · 1 return (approved) · no linked accounts";
 
   if (day > 30) {
-    checks.push(["bad", `Outside return window (day ${day} of 30)`], ["ok", "Photo check not needed"], ["ok", "History: low risk"]);
-    return { decision: "Deny", confidence: 93, risk: 0.08, policy: "P1", checks, photoSignal: null,
-      whyNot: ["Confident on the date check; a person must still confirm every denial"] };
+    checks.push(["fail", `Outside return window (day ${day} of 30)`], ["ok", "History: low risk"]);
+    return { decision: "Deny", risk: 0.08, ambiguous: false, photoVerified: null, policy: "P1", checks, history,
+      uncertain: ["Nothing about the date — the window check is computed exactly. A person must still confirm every denial."] };
   }
   checks.push(["ok", `Within return window (day ${day} of 30)`]);
   if (needsPhoto) {
-    checks.push(["ok", "Photo: matches the product; damage visible (simulated)"], ["ok", "History: low risk"]);
-    return { decision: "Approve", confidence: 88, risk: 0.12, policy: "P2", checks,
-      photoSignal: ["success", "Matches the product and shows the claimed damage (simulated). Signal only."],
-      whyNot: ["Photo checks are signals; confidence is capped below certainty"] };
+    checks.push(["ok", "Photo matches the product (simulated)"], ["ok", "Photo authenticity: no issues found (simulated)"],
+      ["ok", "Condition: damage consistent with the claim (simulated)"], ["ok", "History: low risk"]);
+    return { decision: "Approve", risk: 0.12, ambiguous: false, photoVerified: true, policy: "P2", checks, history,
+      uncertain: ["Nothing significant — photo checks are simulated in this prototype"] };
   }
-  checks.push(["ok", "Photo check not needed"], ["ok", "History: low risk"]);
-  return { decision: "Approve", confidence: 90, risk: 0.1, policy: "P5", checks, photoSignal: null,
-    whyNot: ["Assumes the item is unused, as the customer states"] };
+  checks.push(["ok", "History: low risk"]);
+  return { decision: "Approve", risk: 0.1, ambiguous: false, photoVerified: null, policy: "P5", checks, history,
+    uncertain: ["Assumes the item is unused, as the customer states"] };
 }
 
+// The gate decides from check results and fixed rules — not from the model's decision label alone.
 function governanceGate(c) {
   const s = state.settings;
   const ai = c.ai;
-  if (ai.decision === "Deny") return { auto: false, why: "Denial" };
+  if (ai.decision === "Deny") return { auto: false, why: "Proposed denial" };
+  if (ai.photoVerified === false) return { auto: false, why: "Unverified photo" };
+  if (ai.ambiguous) return { auto: false, why: "Ambiguous call" };
   if (c.refund > s.highValue) return { auto: false, why: "High value" };
+  if (ai.risk >= s.risk || strength(ai).level !== "Strong") return { auto: false, why: "Elevated risk" };
   if (!s.automation) return { auto: false, why: "Automation off" };
-  if (ai.risk >= s.risk) return { auto: false, why: "High risk" };
-  if (ai.confidence / 100 <= s.confidence) return { auto: false, why: "Low confidence" };
   return { auto: true };
 }
 
@@ -242,21 +257,25 @@ function runPipeline(c) {
   const tick = () => {
     c.progress += 1;
     if (c.progress === PIPELINE.length) {
-      c.ai = { ...simulateAI(c), history: "Account 3 years · 24 orders · 1 return (approved) · no linked accounts" };
-      log("AI · Recommendation", `${c.ai.decision} (${c.ai.confidence}%)`, c.id, `Policy ${c.ai.policy}, version ${POLICY_VERSION}`);
+      c.ai = simulateAI(c);
+      log("AI · Recommendation", `${c.ai.decision} · evidence ${strength(c.ai).level}`, c.id, `Policy ${c.ai.policy}, version ${POLICY_VERSION}`);
       const gate = governanceGate(c);
+      state.volume.returns += 1;
       if (gate.auto) {
         c.status = "auto_approved";
         c.why = "—";
-        log("Gate", "Auto-approved", c.id, "All conditions met: automation on, low risk, high confidence, refund within limit");
+        log("Gate", "Auto-approved", c.id, "All checks clear, photo verified or not needed, no ambiguity, low risk, refund within limit");
       } else {
+        state.volume.escalated += 1;
         c.status = "needs_review";
         c.why = gate.why;
         log("Gate", "Routed to reviewer", c.id, gate.why);
       }
     } else {
       const step = PIPELINE[c.progress - 1];
-      if (step === "Photo check" && !c.photo) log(`AI · ${step}`, "Skipped", c.id, "No photo needed for this reason");
+      const needsPhoto = REASONS.find((r) => r.label === c.reason).needsPhoto;
+      if (step === "Photo match + authenticity" && !needsPhoto) log(`AI · ${step}`, "Skipped", c.id, "No photo needed for this reason");
+      else if (step === "Data check (rules)") log("Check · Data (rules)", "Passed", c.id, "All required evidence present");
       else if (step !== "AI recommendation") log(`AI · ${step}`, "Completed", c.id, "—");
       setTimeout(tick, 700);
     }
@@ -322,8 +341,8 @@ function luhn(num) {
 
 function returnStatusText(c) {
   if (!c) return "";
-  const text = { checking: "Return being checked", needs_review: "Return under review", approved: "Return approved",
-    auto_approved: "Return approved", denied: "Return not approved" }[c.status];
+  const text = { checking: "Return being checked", needs_info: "We need more information", needs_review: "Return under review",
+    approved: "Return approved", auto_approved: "Return approved", denied: "Return not approved" }[c.status];
   return `<a href="#/status/${c.id}">${text} →</a>`;
 }
 
@@ -376,6 +395,10 @@ function viewReturnForm(orderId) {
     </div>`;
 }
 
+function evidenceConsidered(c) {
+  return c.ai.checks.filter(([s]) => s !== "skip").map(([, t]) => t.replace(/ \(simulated\)$/, "")).join(" · ");
+}
+
 function viewStatus(id) {
   const c = findCase(id);
   if (!c) return `<p>Return not found.</p>`;
@@ -396,21 +419,34 @@ function viewStatus(id) {
       <p>We're checking your return now.</p>
       <ul class="checks">
         ${PIPELINE.map((step, i) => {
-          const s = i < c.progress ? ["ok", "✓"] : (i === c.progress ? ["wait", "…"] : ["wait", "○"]);
+          const s = i < c.progress ? ["ok", "✓"] : (i === c.progress ? ["skip", "…"] : ["skip", "○"]);
           return `<li><span class="icon ${s[0]}">${s[1]}</span>${step}</li>`;
         }).join("")}
       </ul>`;
   } else if (c.status === "needs_review") {
-    body = `<div class="notice info">A member of our team is reviewing your return. We usually respond within 1 business day.</div>`;
+    body = c.reviewRequest
+      ? `<div class="notice info">You asked for a review. A member of our team will look at your case again and reply within 1 business day.</div>`
+      : `<div class="notice info">A member of our team is reviewing your return. We usually respond within 1 business day.</div>`;
   } else if (c.status === "auto_approved") {
-    body = `<div class="notice success"><div><strong>Your return is approved.</strong> It met every check in our return policy, so it was approved automatically. ${money(c.refund)} will be refunded to your original payment method.</div></div>`;
+    body = `<div class="notice success"><div><strong>Your return is approved.</strong> It met every check in our return policy, so it was approved automatically. ${money(c.refund)} will be refunded to your original payment method.<br><span class="small">Policy rule: ${c.ai.policy} — ${POLICY[c.ai.policy]}</span></div></div>`;
   } else if (c.status === "approved") {
     body = `<div class="notice success"><div><strong>Your return is approved.</strong> ${money(c.refund)} will be refunded to your original payment method. Reviewed by a member of our team.</div></div>`;
-  } else {
+  } else if (c.status === "denied") {
     body = `
       <div class="notice error"><div><strong>Your return was not approved.</strong><br>
-        Reason: ${POLICY[c.ai.policy]}<br>
-        <strong>This decision was reviewed by a member of our team.</strong></div></div>`;
+        Policy rule: <strong>${c.ai.policy}</strong> — ${POLICY[c.ai.policy]}<br>
+        We considered: ${esc(evidenceConsidered(c))}<br>
+        <strong>This decision was reviewed by a member of our team.</strong></div></div>
+      ${c.reviewRequest ? "" : `
+        <div id="review-box">
+          <p style="margin-bottom:8px"><strong>Think we got it wrong?</strong></p>
+          <button class="btn tertiary" id="open-review">Request a review</button>
+          <div id="review-form" hidden>
+            <label for="review-text">Tell us what we missed</label>
+            <textarea id="review-text" placeholder="e.g. The package was held at the depot, so it was delivered later than shown."></textarea>
+            <div style="margin-top:12px"><button class="btn" id="send-review" disabled>Send request</button></div>
+          </div>
+        </div>`}`;
   }
 
   return `
@@ -433,46 +469,50 @@ function viewQueue() {
   const rows = state.cases.filter((c) =>
     queueFilter === "all" ? true :
     queueFilter === "needs_review" ? c.status === "needs_review" :
+    queueFilter === "needs_info" ? c.status === "needs_info" :
     ["approved", "denied", "auto_approved"].includes(c.status));
   const open = state.cases.filter((c) => c.status === "needs_review").length;
   return `
     <div class="row">
       <div><h1>Review queue</h1><p class="subtitle">${open} case(s) need a person · signed in as Riley</p></div>
       <div class="spacer"></div>
-      <div style="width:200px">
+      <div style="width:220px">
         <label for="filter" style="margin-top:0">Show</label>
         <select id="filter">
           <option value="needs_review" ${queueFilter === "needs_review" ? "selected" : ""}>Needs review</option>
+          <option value="needs_info" ${queueFilter === "needs_info" ? "selected" : ""}>Waiting on customer</option>
           <option value="decided" ${queueFilter === "decided" ? "selected" : ""}>Decided</option>
           <option value="all" ${queueFilter === "all" ? "selected" : ""}>All</option>
         </select>
       </div>
     </div>
     <table>
-      <tr><th>Case</th><th>Customer</th><th>Item</th><th>Refund</th><th>AI suggests</th><th>Why here</th><th>Status</th></tr>
+      <tr><th>Case</th><th>Customer</th><th>Item</th><th>Refund</th><th>AI suggests</th><th>Evidence</th><th>Why here</th><th>Status</th></tr>
       ${rows.length ? rows.map((c) => `
         <tr class="clickable" data-case="${c.id}">
           <td>${c.id}</td><td>${esc(c.customer)}</td><td>${esc(product(c.productId).name)}</td><td>${money(c.refund)}</td>
           <td>${c.ai ? decisionTag(c.ai.decision) : "—"}</td>
+          <td>${c.ai ? strengthTag(c.ai) : "—"}</td>
           <td><span class="tag gray">${esc(c.why)}</span></td>
           <td>${statusTag(c)}</td>
-        </tr>`).join("") : `<tr><td colspan="7" class="muted">Nothing here.</td></tr>`}
+        </tr>`).join("") : `<tr><td colspan="8" class="muted">Nothing here.</td></tr>`}
     </table>
-    <p class="muted small">"Why here" shows why the governance gate sent each case to a person.</p>`;
+    <p class="muted small">"Why here" is always one named reason: ${REASONS_HERE.join(" · ")}. Returns with missing evidence wait on the customer and never reach this queue.</p>`;
 }
 
 function viewCase(id) {
   const c = findCase(id);
-  if (!c || !c.ai) return `<p>Case not found.</p>`;
+  if (!c || !c.ai) return `<p>Case not found, or still being checked.</p>`;
   const p = product(c.productId);
   const ai = c.ai;
-  const [bandText, bandColor] = band(ai.confidence);
   const open = c.status === "needs_review";
-  const icon = { ok: "✓", warn: "!", bad: "✕", wait: "○" };
+  const st = strength(ai);
 
-  const decisionLine = ai.decision === "None"
-    ? "No recommendation"
-    : `${ai.decision} <span class="muted" style="font-size:16px">— ${bandText} confidence (${ai.confidence}%)</span>`;
+  const banners = [];
+  if (ai.photoVerified === false) banners.push(`<div class="notice error"><strong>Unverified photo</strong> — the customer's photo may be AI-generated. A person must judge it; it can never be auto-approved.</div>`);
+  if (ai.ambiguous) banners.push(`<div class="notice warn"><strong>Ambiguous call</strong> — wear (P3) vs. defect (P2) depends on judgment, so this case always goes to a person.</div>`);
+  if (c.reviewRequest) banners.push(`<div class="notice info"><strong>Customer requested a review:</strong> "${esc(c.reviewRequest)}"</div>`);
+  if (c.status === "needs_info") banners.push(`<div class="notice info"><strong>Waiting on the customer</strong> — the rule-based data check asked for a photo before any AI step ran.</div>`);
 
   return `
     <a href="#/review" class="small">← Review queue</a>
@@ -481,26 +521,28 @@ function viewCase(id) {
       <p class="subtitle">${esc(p.name)} · ${money(c.refund)} · ${esc(c.customer)} · delivered ${fmtDate(c.delivered)}</p></div>
       <div class="spacer"></div>${statusTag(c)}
     </div>
+    ${banners.join("")}
 
-    <div class="grid two-col">
+    <div class="grid two-col" style="margin-top:8px">
       <div class="stack">
         <div class="card rec-box">
           <div class="row"><span class="ai-label">AI</span><h3 style="margin:0">Recommendation</h3></div>
-          <div class="rec-decision">${decisionLine}</div>
-          <div class="confidence-bar"><div style="width:${ai.confidence || 0}%;background:${bandColor}"></div></div>
-          <h3 style="margin-top:16px">${ai.decision === "None" ? "Why there's no recommendation" : "Why not higher"}</h3>
-          <ul style="margin:0;padding-left:18px">${ai.whyNot.map((w) => `<li>${esc(w)}</li>`).join("")}</ul>
+          <div class="rec-decision">${ai.decision === "None" ? "No recommendation" : ai.decision}</div>
+          <div class="row" style="margin:6px 0 4px">${strengthTag(ai)}${ai.decision === "None" ? "" : `<span class="muted small">${st.clear} of ${st.total} checks clear</span>`}</div>
+          <h3 style="margin-top:16px">Uncertain about</h3>
+          <ul style="margin:0;padding-left:18px">${ai.uncertain.map((w) => `<li>${esc(w)}</li>`).join("")}</ul>
         </div>
         <div class="card">
-          <div class="row"><span class="ai-label">AI</span><h3 style="margin:0">Checks</h3></div>
-          <ul class="checks">${ai.checks.map(([s, t]) => `<li><span class="icon ${s}">${icon[s]}</span>${esc(t)}</li>`).join("")}</ul>
+          <h3>Checks</h3>
+          <ul class="checks">${ai.checks.map(([s, t]) => `<li><span class="icon ${s}">${ICON[s]}</span>${esc(t)}</li>`).join("")}</ul>
+          <p class="muted small" style="margin-bottom:0">Evidence strength is computed from these checks, not from the model's own confidence.</p>
         </div>
         <div class="card">
           <h3>Customer's request</h3>
           <dl class="kv">
             <dt>Reason</dt><dd>${esc(c.reason)}</dd>
             <dt>Note</dt><dd>"${esc(c.note)}"</dd>
-            <dt>Gate routed here</dt><dd>${esc(c.why)}</dd>
+            <dt>Why here</dt><dd>${esc(c.why)}</dd>
           </dl>
         </div>
       </div>
@@ -512,7 +554,8 @@ function viewCase(id) {
             <figure>${p.img ? `<img src="${p.img}" alt="Product photo">` : `<div class="placeholder" style="font-size:64px">${p.emoji}</div>`}<figcaption>Product listing</figcaption></figure>
             <figure>${c.photo ? `<img src="${c.photo}" alt="Customer photo">` : `<div class="placeholder">No photo</div>`}<figcaption>Customer's photo</figcaption></figure>
           </div>
-          ${ai.photoSignal ? `<div class="notice ${ai.photoSignal[0]}"><span class="ai-label">AI</span><div><strong>Photo check:</strong> ${esc(ai.photoSignal[1])}</div></div>` : ""}
+          ${ai.photoVerified === true ? `<div class="notice success"><span class="ai-label">AI</span><div><strong>Authenticity:</strong> no issues found. Signal only — not a verdict.</div></div>` : ""}
+          ${ai.photoVerified === false ? `<div class="notice error"><span class="ai-label">AI</span><div><strong>Authenticity: not verified.</strong> Possible AI-generated image. Ask for another photo or inspect the item.</div></div>` : ""}
         </div>
         <div class="card">
           <h3>Policy used (version ${POLICY_VERSION})</h3>
@@ -536,7 +579,7 @@ function viewCase(id) {
             <input type="text" id="override" placeholder="e.g. Photo clearly shows a split seam, not wear">
             <div id="override-error" class="field-error"></div>
           </div>
-        </div>` : `
+        </div>` : c.status === "needs_info" ? `<p style="margin:0" class="muted">No decision needed until the customer adds the missing photo.</p>` : `
         <p style="margin:0">Decided: ${statusTag(c)} ${c.decidedBy ? `by ${esc(c.decidedBy)}` : "automatically by the governance gate"}${c.overrideReason ? ` · Override reason: "${esc(c.overrideReason)}"` : ""}</p>`}
     </div>`;
 }
@@ -544,15 +587,19 @@ function viewCase(id) {
 function decide(c, decision, reason) {
   const aiPick = c.ai.decision;
   const disagrees = (aiPick === "Approve" || aiPick === "Deny") && aiPick !== decision;
+  const cat = product(c.productId).category;
   if (aiPick === "Approve" || aiPick === "Deny") {
-    state.agreement.total += 1;
-    if (!disagrees) state.agreement.agree += 1;
+    const row = state.agreement.byCategory[cat] || (state.agreement.byCategory[cat] = [0, 0]);
+    row[1] += 1;
+    if (!disagrees) row[0] += 1;
+    if (disagrees) state.agreement.overridesByReason[c.why] = (state.agreement.overridesByReason[c.why] || 0) + 1;
   }
   c.status = decision === "Approve" ? "approved" : "denied";
   c.decidedBy = "Riley (reviewer)";
   c.overrideReason = disagrees ? reason : "";
   log("Reviewer · Riley", decision === "Approve" ? "Approved" : "Denied (confirmed)", c.id,
-    disagrees ? `Overrode AI (${aiPick}): ${reason}` : (aiPick === "Approve" || aiPick === "Deny") ? `Agreed with AI (${aiPick})` : `AI suggested ${aiPick === "None" ? "no decision" : aiPick}${reason ? ` · Note: ${reason}` : ""}`);
+    disagrees ? `Overrode AI (${aiPick}) · ${c.why}: ${reason}` : (aiPick === "Approve" || aiPick === "Deny") ? `Agreed with AI (${aiPick})` : `AI suggested ${aiPick === "None" ? "no decision" : aiPick}${reason ? ` · Note: ${reason}` : ""}`);
+  if (decision === "Deny") log("System", "Customer message sent", c.id, "Written after the reviewer confirmed the denial");
   toast(`${c.id} ${decision === "Approve" ? "approved" : "denied"}. Saved to the audit log.`);
   location.hash = "#/review";
 }
@@ -575,7 +622,7 @@ function openDenyModal(c, reason) {
           <dt>Policy basis</dt><dd><strong>${c.ai.policy}.</strong> ${POLICY[c.ai.policy]}</dd>
           <dt>Delivered</dt><dd>${fmtDate(c.delivered)} (day ${day})</dd>
         </dl>
-        <div class="notice warn">The customer will be told this decision was made by a person.</div>
+        <div class="notice warn">The customer will be told this decision was made by a person, and can request a review.</div>
       </div>
       <div class="footer">
         <button class="btn secondary" id="cancel-deny">Cancel</button>
@@ -592,7 +639,12 @@ function openDenyModal(c, reason) {
 
 function viewAdmin() {
   const s = state.settings;
-  const pct = Math.round((state.agreement.agree / state.agreement.total) * 100);
+  const cats = Object.entries(state.agreement.byCategory);
+  const agree = cats.reduce((n, [, [a]]) => n + a, 0);
+  const total = cats.reduce((n, [, [, t]]) => n + t, 0);
+  const pct = (a, t) => Math.round((a / t) * 100);
+  const overrides = Object.entries(state.agreement.overridesByReason).sort((a, b) => b[1] - a[1]);
+  const escRate = pct(state.volume.escalated, state.volume.returns);
   return `
     <h1>Automation settings</h1>
     <p class="subtitle">Signed in as Priya (admin)</p>
@@ -604,21 +656,32 @@ function viewAdmin() {
           <label for="automation" class="track" style="margin:0"></label>
           <span id="automation-text">${s.automation ? "On" : "Off"}</span>
         </div>
-        <p class="muted small">Off: every case goes to a person, and the AI only recommends. On: clear, low-risk cases that meet every condition below are approved automatically.</p>
+        <p class="muted small">Off: every case goes to a person, and the AI only recommends. On: a case is approved automatically only when every check is clear, any photo is verified, there is no ambiguity, risk is below the limit, and the refund is within the limit.</p>
         <label for="risk">Risk must be below</label>
         <input type="number" id="risk" step="0.05" min="0" max="1" value="${s.risk}">
-        <label for="conf">Confidence must be above</label>
-        <input type="number" id="conf" step="0.05" min="0" max="1" value="${s.confidence}">
         <label for="hv">Refunds above this always need a person ($)</label>
         <input type="number" id="hv" step="10" min="0" value="${s.highValue}">
-        <div class="locked">🔒 <div><strong>The AI can never deny a return.</strong><br><span class="muted small">Every denial needs a person. This rule is not configurable.</span></div></div>
+        <div class="locked">🔒 <div><strong>Fixed rules (not configurable)</strong><br>
+          <span class="small">The AI can never deny a return. · Unverified photos are never auto-approved. · Ambiguous calls always go to a person.</span></div></div>
         <div style="margin-top:16px"><button class="btn" id="save-settings">Save changes</button></div>
       </div>
-      <div class="card">
-        <h3>Reviewer–AI agreement</h3>
-        <div style="font-size:40px">${pct}%</div>
-        <p class="muted">Reviewers agreed with the AI's approve/deny suggestion in ${state.agreement.agree} of the last ${state.agreement.total} decisions.</p>
-        <p class="small">Use this as evidence before turning automatic approvals on, and check it after any policy change.</p>
+      <div class="stack">
+        <div class="card">
+          <h3>Escalation rate (last 7 days)</h3>
+          <div style="font-size:40px">${escRate}%</div>
+          <p class="muted small" style="margin:0">${state.volume.escalated} of ${state.volume.returns} returns went to a person. Too high means reviewers are flooded; check which reasons drive it.</p>
+        </div>
+        <div class="card">
+          <h3>Reviewer–AI agreement</h3>
+          <div style="font-size:40px">${pct(agree, total)}%</div>
+          <p class="muted small">${agree} of the last ${total} approve/deny suggestions.</p>
+          <table>
+            <tr><th>Product type</th><th>Agreement</th></tr>
+            ${cats.map(([cat, [a, t]]) => `<tr><td>${cat}</td><td>${pct(a, t)}% <span class="muted small">(${a}/${t})</span></td></tr>`).join("")}
+          </table>
+          <p class="small" style="margin-bottom:4px"><strong>Most overrides by reason</strong></p>
+          <p class="small muted" style="margin:0">${overrides.map(([r, n]) => `${esc(r)} (${n})`).join(" · ")}</p>
+        </div>
         <a href="#/audit">Open the audit log →</a>
       </div>
     </div>`;
@@ -630,7 +693,7 @@ function viewAudit() {
   const rows = state.audit.filter((a) => !auditFilter || a.caseId.toLowerCase().includes(auditFilter.toLowerCase()));
   return `
     <h1>Audit log</h1>
-    <p class="subtitle">Every AI step and every human action, newest first.</p>
+    <p class="subtitle">Every check, gate decision, and human action, newest first.</p>
     <div style="max-width:280px;margin-bottom:16px">
       <label for="audit-filter" style="margin-top:0">Filter by case</label>
       <input type="text" id="audit-filter" placeholder="e.g. R-211" value="${esc(auditFilter)}">
@@ -666,7 +729,7 @@ function renderHeader(route) {
 
 function render() {
   const [route, param] = (location.hash.replace(/^#\//, "") || "shop").split("/");
-  if (ROLE_OF[route] && !(route === "review" && state.role === "admin") && !(route === "case" && state.role === "admin")) {
+  if (ROLE_OF[route] && !((route === "review" || route === "case") && state.role === "admin")) {
     state.role = ROLE_OF[route];
   }
   renderHeader(route);
@@ -739,6 +802,20 @@ function bind(route, param) {
     };
   }
 
+  if (route === "status" && $("#open-review")) {
+    const c = findCase(param);
+    $("#open-review").onclick = () => { $("#review-form").hidden = false; $("#open-review").hidden = true; $("#review-text").focus(); };
+    $("#review-text").oninput = (e) => ($("#send-review").disabled = !e.target.value.trim());
+    $("#send-review").onclick = () => {
+      c.reviewRequest = $("#review-text").value.trim();
+      c.status = "needs_review";
+      c.why = "Customer review";
+      log("Customer", "Requested a review", c.id, c.reviewRequest);
+      toast("Review requested. A reviewer will look at your case again.");
+      render();
+    };
+  }
+
   if (route === "review" && $("#filter")) {
     $("#filter").onchange = (e) => { queueFilter = e.target.value; render(); };
     document.querySelectorAll("[data-case]").forEach((r) => (r.onclick = () => (location.hash = `#/case/${r.dataset.case}`)));
@@ -765,16 +842,10 @@ function bind(route, param) {
     $("#automation").onchange = (e) => ($("#automation-text").textContent = e.target.checked ? "On" : "Off");
     $("#save-settings").onclick = () => {
       const s = state.settings;
-      const next = {
-        automation: $("#automation").checked,
-        risk: Number($("#risk").value),
-        confidence: Number($("#conf").value),
-        highValue: Number($("#hv").value),
-      };
+      const next = { automation: $("#automation").checked, risk: Number($("#risk").value), highValue: Number($("#hv").value) };
       const changes = [];
       if (next.automation !== s.automation) changes.push(`Automation turned ${next.automation ? "on" : "off"}`);
-      if (next.risk !== s.risk) changes.push(`Risk threshold ${s.risk} → ${next.risk}`);
-      if (next.confidence !== s.confidence) changes.push(`Confidence threshold ${s.confidence} → ${next.confidence}`);
+      if (next.risk !== s.risk) changes.push(`Risk limit ${s.risk} → ${next.risk}`);
       if (next.highValue !== s.highValue) changes.push(`High-value limit $${s.highValue} → $${next.highValue}`);
       if (!changes.length) { toast("No changes to save."); return; }
       state.settings = next;
