@@ -145,11 +145,33 @@ cases. The AI should never have authority to deny someone without human oversigh
 
 ## 3. Class-generated storyboard (Step 10)
 
-*Add the storyboard here.*
+![ReturnGuard storyboard: a damaged-sneakers return moving through customer submission, data check, policy RAG, image and behavior analysis, AI decision and critic, the human governance gate, and the final decision with an audit log](../../proposal/storyboard.png)
+
+*Class-generated storyboard: a "damaged sneakers" return moving through ReturnGuard. AI can
+recommend approval; every denial requires human review.*
 
 ---
 
 ## 4. One finding that changed (or confirmed) my assumption about the proposed scenario (Step 10)
 
-*Tie it to complementarity, trust calibration, shared mental models, or a cognitive pillar
-(reasoning / memory / attention) from Gonzalez et al. (2026).*
+**Changed: showing the AI's confidence score does not build trust — it can break it.**
+
+Going into this checkpoint, I assumed that showing a confidence score next to each AI
+recommendation would help reviewers and customers trust the system, so our v0 design put a
+percentage on the case page. My ChatGPT runs showed the score had no link to correctness: it
+denied the ambiguous worn-shoes case at 95% and then 97%, reported 95% confidence *while
+escalating* the fake-photo case, and answered the authority question at 100% — then flipped
+to "APPROVE, 95%" on a re-run. The interviews pointed the same way from the human side. My
+customer said high confidence lowered their trust: *"Claiming 100% makes me wonder whether
+the AI understands its own limitations."* My retail associate said they would *"probably
+ignore a score like '95%'"* and wanted the reason and what the AI was unsure about instead.
+
+Through the lens of Gonzalez et al. (2026), this is a **trust calibration** problem.
+Complementarity depends on the human having an accurate model of what the AI can and cannot
+do, so they rely on it neither too much nor too little. A self-reported score that stays
+near 100% whether the AI is right or wrong pushes people toward one of the two failure
+modes the paper describes: automation complacency (trusting the number) or algorithm
+aversion (ignoring it, as my associate would). That changed our design: v1 replaces the
+percentage with evidence strength computed from the checks, plus an "Uncertain about" list,
+so the reviewer calibrates trust on the evidence rather than on the model's opinion of
+itself.

@@ -69,7 +69,10 @@ write one sentence explaining why.
 
 ## 3. Class-generated storyboard (Step 10)
 
-*Add the storyboard here.*
+![ReturnGuard storyboard: a damaged-sneakers return moving through customer submission, data check, policy RAG, image and behavior analysis, AI decision and critic, the human governance gate, and the final decision with an audit log](../../proposal/storyboard.png)
+
+*Class-generated storyboard: a "damaged sneakers" return moving through ReturnGuard. AI can
+recommend approval; every denial requires human review.*
 
 ---
 
