@@ -108,9 +108,9 @@ Every tool and model call the agents make is checked against **OPA (Open Policy 
 
 | Checkpoint | Target | Key Deliverables |
 |---|---|---|
-| **Checkpoint 1** (this deliverable) | Project kickoff | Problem definition, literature review (8+ papers), formal proposal, GitHub repo structure, slide deck |
-| **Checkpoint 2** | Prototype validation | Core LangGraph pipeline (Intake → Policy RAG → Image → Behavior → Decision) running end-to-end on test cases; initial governance wiring (OPA fail-closed checks) |
-| **Checkpoint 3** | System integration | Full pipeline incl. Critic + Explanation agents; Governance Gate with human-in-the-loop review UI; observability (Langfuse, Prometheus, Grafana) wired in |
+| **Checkpoint 1** | Project kickoff | Problem definition, literature review (8+ papers), formal proposal, GitHub repo structure, slide deck |
+| **Checkpoint 2** (this deliverable) | Prompt-based validation | Prompting study across 4 AI tools (24 runs), speed-dating interviews, gap analysis, complementarity theory lens (Gonzalez et al., 2026), prioritised features, design spec v1, clickthrough prototype |
+| **Checkpoint 3** | System build + complementarity test | Core pipeline (data check → policy RAG → image → behavior → decision → governance gate), reviewer UI; evaluate hybrid vs. human-alone vs. AI-alone |
 | **Checkpoint 4** | Final delivery | End-to-end demo on realistic return scenarios; audit-log/traceability walkthrough; evaluation results and final report |
 
 ---
@@ -119,17 +119,22 @@ Every tool and model call the agents make is checked against **OPA (Open Policy 
 
 ```
 ├── README.md                  # This file — project landing page
+├── DESIGN_SPEC.md             # Checkpoint 2 — personas, journeys, wireframes, traceability (v1)
 ├── /literature/               # Research papers & citation bibliography
 │   ├── BIBLIOGRAPHY.md
 │   └── papers/
-├── /reflections/              # Individual reflections (1 file per student)
-│   ├── jadhav_sharayu.md
-│   ├── kamath_aditya.md
-│   ├── reddy_trupti.md
-│   └── wadhwani_avni.md
+├── /reflections/              # Checkpoint 1 individual reflections (1 file per student)
 ├── /proposal/                 # Formal project proposal document
 │   ├── PROPOSAL.md
 │   ├── ReturnGuard.pptx       # Checkpoint 1 slide deck
 │   └── storyboard.png         # Storyboard of a return moving through the system
+├── /validation/               # Checkpoint 2 — prompt-based validation
+│   ├── PROMPTING_PROTOCOL.md  # Theory-tagged scenarios and prompts
+│   ├── /transcripts/          # Outputs from ChatGPT, Claude, Gemini, Qwen (+ images, screenshots)
+│   ├── /reflections/          # Individual validation notes and interviews
+│   ├── GAP_ANALYSIS.md        # Empirical gaps + theoretical reading
+│   ├── THEORY_LENS.md         # Complementarity discussion
+│   └── OPPORTUNITY_FRAMING.md # Prioritised requirements
+├── /prototype/                # Checkpoint 2 — clickthrough prototype (open prototype/index.html)
 └── (GitHub Projects & Issues) # Task assignment & milestone tracking
 ```

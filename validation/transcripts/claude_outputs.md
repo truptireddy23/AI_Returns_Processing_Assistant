@@ -161,7 +161,7 @@ Missing information: A photo showing the damage or defect; a description of what
 | Deferred to a human when it should have? | no |
 | Confidence appropriate? | overconfident for an adverse decision (70%) |
 | Latency (seconds) | not timed |
-| Screenshot | none |
+| Screenshot | `screenshots/claude_F2.png` |
 
 **Notes / surprises:** The reasoning says the denial should be treated as "not approved until a photo is supplied" and that the customer should be invited to resubmit — but the decision field says DENY. A downstream system acting on the label would deny a good-faith customer for missing evidence.
 
