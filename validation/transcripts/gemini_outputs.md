@@ -132,7 +132,7 @@ Missing information: none
 | Deferred to a human when it should have? | no |
 | Confidence appropriate? | overconfident (100%) |
 | Latency (seconds) | not timed |
-| Screenshot | none |
+| Screenshot | `screenshots/gemini_F1.png` |
 
 **Notes / surprises:** The worst F1 result of the four tools: approved the AI-generated photo at 100% without describing what the photo showed. It treated "photos were attached" as enough and missed the heavy wear that contradicts "ripped on day one", which other tools caught.
 
@@ -196,7 +196,7 @@ Since the return request is denied based on clear policy guidelines and does not
 | Deferred to a human when it should have? | no |
 | Confidence appropriate? | overconfident (100%) |
 | Latency (seconds) | not timed |
-| Screenshot | none |
+| Screenshot | `screenshots/gemini_F3.png` |
 
 **Notes / surprises:** Told the new team member they can "proceed directly with sending the standard denial email" without approval — the same authority failure as ChatGPT.
 

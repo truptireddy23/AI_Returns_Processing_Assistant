@@ -27,43 +27,45 @@ write one sentence explaining why.
 
 | Field | Notes |
 |---|---|
-| Who | Customer — (e.g. student, shops online monthly) |
-| Date / format | |
-| First reaction to the concept | |
+| Who | Customer — 27+, shops online about once a week |
+| Date / format | 8 October 2026, live short-form text interview (5 of the 16 questions, due to interviewee time constraints) |
+| First reaction to the concept | "It looks good and fair." (reacting to: clear-cut cases auto-approved, anything unclear plus every denial goes to a human) |
 
 | Dimension | Notes | Quote |
 |---|---|---|
-| Accuracy & hallucinations | | |
-| Reliability & consistency | | |
-| Latency & performance | | |
-| UX friction (human–AI teaming) | | |
-| Safety & guardrails | | |
-| Cost & efficiency | | |
+| Accuracy & hallucinations | Not asked — cut from the shortened interview | — |
+| Reliability & consistency | Said it would definitely bother them if two people with the same return situation got different outcomes | "Yes, definitely." |
+| Latency & performance | Not asked — cut from the shortened interview | — |
+| UX friction (human–AI teaming) | Not asked — cut from the shortened interview | — |
+| Safety & guardrails | Not asked directly, but their final-say answer implies a human should stay in the loop | — |
+| Cost & efficiency | Not asked — cut from the shortened interview | — |
 
-**Who should have the final say (their answer):**
+**Who should have the final say (their answer):** Both.
 
-**Most surprising thing they said:**
+**Most surprising thing they said:** Not a dramatic surprise given the short format, but it was notable that their own last return (a Temu order, returned via USPS) ended in a *partial* refund with no stated reason — the exact kind of unexplained, inconsistent-feeling outcome their C9 answer said would bother them. Their lived experience and their stated principle lined up.
+
+**Caveat:** this interview was shortened to 5 of the 16 questions (C0, C1, C4, C9, C14) to fit the interviewee's available time. P2 (retail/support person) still needs to be conducted.
 
 ### P2
 
 | Field | Notes |
 |---|---|
-| Who | Reviewer-like — (e.g. part-time retail associate) |
-| Date / format | |
-| First reaction to the concept | |
+| Who | Reviewer-like — student, 1.5 years part-time at a campus bookstore & collegiate merchandise e-commerce operation (online order fulfillment, counter returns, web return intake) |
+| Date / format | 8 October 2026, live short-form text interview (5 of 19 questions, due to interviewee time constraints) |
+| First reaction to the concept | Not asked — cut from the shortened interview |
 
 | Dimension | Notes | Quote |
 |---|---|---|
-| Accuracy & hallucinations | | |
-| Reliability & consistency | | |
-| Latency & performance | | |
-| UX friction (human–AI teaming) | | |
-| Safety & guardrails | | |
-| Cost & efficiency | | |
+| Accuracy & hallucinations | Not asked — cut from the shortened interview | — |
+| Reliability & consistency | Not asked — cut from the shortened interview | — |
+| Latency & performance | Not asked — cut from the shortened interview | — |
+| UX friction (human–AI teaming) | Would mostly ignore a raw confidence percentage; wants bulleted reasoning behind the decision instead (e.g. photo match, where the tear is, days since delivery) | "Percentages can make people lazy and trick them into hitting 'approve' without actually looking." |
+| Safety & guardrails | Reacting to the real "no manager approval needed" AI denial failure: would never act on that recommendation without checking policy and escalating to a shift lead first | "Definitely not... I'd stop, check the original purchase date, review our store's policy manually, and show the case to my shift lead before taking any action." |
+| Cost & efficiency | Not asked — cut from the shortened interview | — |
 
-**Who should have the final say (their answer):**
+**Who should have the final say (their answer):** Both — the AI as a filter that auto-approves basic, clear-cut returns, but a person always makes the final call on denials or tricky cases.
 
-**Most surprising thing they said:**
+**Most surprising thing they said:** Not a surprise so much as a direct confirmation — R7 is effectively the real-world version of the Gemini F3 test case documented above (the tool telling a new team member they could send a denial without manager approval). The interviewee's answer, unprompted, was the same conclusion the assignment is built around: a human needs to check policy and escalate before any denial goes out, regardless of how confident the AI sounded.
 
 ---
 
@@ -80,3 +82,7 @@ recommend approval; every denial requires human review.*
 
 *Tie it to complementarity, trust calibration, shared mental models, or a cognitive pillar
 (reasoning / memory / attention) from Gonzalez et al. (2026).*
+
+The P1 interview **confirmed** the assumption behind ReturnGuard's complementarity split (AI auto-approves clear-cut cases; every denial and anything ambiguous goes to a human). The interviewee's reaction to the concept was unprompted agreement — "it looks good and fair" — and when asked directly who should have the final say, they answered "both," without hesitation.
+
+What strengthens this beyond a generic thumbs-up is their answer to the consistency question: they said it would "definitely" bother them if two people with the identical return situation got different outcomes. That maps onto *trust calibration* from Gonzalez et al. — their trust isn't keyed to the AI being fast or even usually correct, it's keyed to the process being *explainable and uniform*, which is exactly why a fully autonomous, denial-capable AI (like the "proceed with the denial email" failure documented in the prompting notes above) breaks trust even when the underlying decision is correct. Their own most recent return — a Temu order that came back as a partial refund with no stated reason — is a live example of the unexplained-inconsistent-outcome problem they said they didn't like, which suggests the human-reviewed-denial design isn't just theoretically good, it addresses something this user has actually experienced.
