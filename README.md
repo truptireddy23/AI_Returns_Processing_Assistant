@@ -1,5 +1,5 @@
 # ReturnGuard - AI Returns Processing Assistant
-A human centered Generative AI system that helps consumers navigate product returns, understand policies, and complete return related tasks.
+A governed, human-centered Generative AI system that reviews e-commerce returns: the AI handles clear-cut cases, and a person owns every denial and every judgment call.
 
 ---
 
@@ -10,6 +10,7 @@ A human centered Generative AI system that helps consumers navigate product retu
 - [Target Users & Core Tasks](#target-users--core-tasks)
 - [Competitive Landscape](#competitive-landscape)
 - [Initial Concept & Value Proposition](#initial-concept--value-proposition)
+- [Checkpoint 2: Prompt-Based Validation](#checkpoint-2-prompt-based-validation)
 - [Milestones Roadmap](#milestones-roadmap)
 - [Repository Structure](#repository-structure)
 
@@ -100,7 +101,50 @@ A submitted return flows through a LangGraph pipeline of specialist agents: a **
 
 **Governance and auditability, by design:**
 
-Every tool and model call the agents make is checked against **OPA (Open Policy Agent)**, which fails closed — if a policy check errors out, the default is to block, not allow. **IBM ContextForge** governs tool orchestration at the MCP level. Combined with mandatory human review on every denial, the system is designed so AI can approve autonomously but can never unilaterally deny a customer. A hash-chained, append-only audit log (Postgres) plus tracing (Langfuse) and metrics (Prometheus/Grafana) make every decision inspectable after the fact — full architecture in `/proposal/PROPOSAL.md` and the system diagram below.
+Every tool and model call the agents make is checked against **OPA (Open Policy Agent)**, which fails closed — if a policy check errors out, the default is to block, not allow. **IBM ContextForge** governs tool orchestration at the MCP level. Combined with mandatory human review on every denial, the system is designed so AI can approve autonomously but can never unilaterally deny a customer. A hash-chained, append-only audit log (Postgres) plus tracing (Langfuse) and metrics (Prometheus/Grafana) make every decision inspectable after the fact — full architecture in `/proposal/PROPOSAL.md`; the design as refined by Checkpoint 2 evidence is in `DESIGN_SPEC.md`.
+
+---
+
+## Checkpoint 2: Prompt-Based Validation
+
+We tested where today's AI tools can and cannot be trusted with return decisions, read the
+failures through the human–AI complementarity framework of Gonzalez et al. (2026), and used
+that evidence to refine the design.
+
+**What we did**
+- **Prompting study:** 5 theory-tagged scenarios (typical, edge, failure) run on ChatGPT,
+  Claude, Gemini, and Qwen with identical prompts and photos — 24 scored runs.
+- **Speed-dating interviews:** 8 interviews — 4 customers and 4 retail, support, or returns
+  staff — shown the storyboard, the prototype, and real AI failures.
+- **Analysis and design:** a gap matrix, a complementarity theory lens, prioritised features,
+  design spec v1, and a clickthrough prototype.
+
+**What we found**
+- **0 of 4** AI tools detected an AI-generated damage photo — Gemini approved its own fake at 100%.
+- **0 of 4** said a person must confirm a denial; two told a new employee to send it without approval.
+- **3 of 4** confidently denied an ambiguous wear-vs-defect case; only open-weight Qwen escalated it.
+- **7 of 8** interviewees said a person must make denials, and **7 of 7** asked distrusted a bare confidence score.
+
+**What changed in the design (v0 → v1)**
+- Evidence strength computed from the checks replaces the model's self-rated confidence.
+- A separate photo authenticity check; unverified photos are never auto-approved.
+- A rule-based data check runs before any AI and asks the customer for missing evidence.
+- Ambiguous calls and every denial always go to a person, for a named reason.
+- Customers can request a review; reviewers see where to look and can disagree in one click.
+
+**Where to find it**
+
+| Deliverable | File |
+|---|---|
+| Prompting protocol | [`validation/PROMPTING_PROTOCOL.md`](validation/PROMPTING_PROTOCOL.md) |
+| Transcripts, scoring, screenshots | [`validation/transcripts/`](validation/transcripts/) |
+| Gap analysis | [`validation/GAP_ANALYSIS.md`](validation/GAP_ANALYSIS.md) |
+| Theory lens | [`validation/THEORY_LENS.md`](validation/THEORY_LENS.md) |
+| Opportunity framing | [`validation/OPPORTUNITY_FRAMING.md`](validation/OPPORTUNITY_FRAMING.md) |
+| Design specification (v1) | [`DESIGN_SPEC.md`](DESIGN_SPEC.md) |
+| Clickthrough prototype | [`prototype/`](prototype/) — run `python3 -m http.server 8765` from the repo root, then open `http://localhost:8765/prototype/index.html` |
+| Individual reflections | [`validation/reflections/`](validation/reflections/) |
+| Slides | [`validation/ReturnGuard_Checkpoint2_Slides.pdf`](validation/ReturnGuard_Checkpoint2_Slides.pdf) · [`.pptx`](validation/ReturnGuard_Checkpoint2_Slides.pptx) |
 
 ---
 
@@ -131,7 +175,7 @@ Every tool and model call the agents make is checked against **OPA (Open Policy 
 ├── /validation/               # Checkpoint 2 — prompt-based validation
 │   ├── PROMPTING_PROTOCOL.md  # Theory-tagged scenarios and prompts
 │   ├── /transcripts/          # Outputs from ChatGPT, Claude, Gemini, Qwen (+ images, screenshots)
-│   ├── /reflections/          # Individual validation notes and interviews
+│   ├── /reflections/          # Individual validation notes, interviews, and storyboards
 │   ├── GAP_ANALYSIS.md        # Empirical gaps + theoretical reading
 │   ├── THEORY_LENS.md         # Complementarity discussion
 │   ├── OPPORTUNITY_FRAMING.md # Prioritised requirements

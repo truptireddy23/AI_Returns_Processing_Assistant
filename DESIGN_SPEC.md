@@ -1,9 +1,11 @@
 # ReturnGuard — Design Specification
 
 > **Status: v1 (after evidence).** v0 was drafted from the concept alone. v1 revises it
-> using the prompting study (24 runs across ChatGPT, Claude, Gemini, and Qwen), the
-> speed-dating interviews, and the theory lens (Gonzalez et al., 2026). Every feature is
-> traced to `validation/OPPORTUNITY_FRAMING.md` (feature IDs M1–M7, S1–S4, C1–C2) — no
+> using the prompting study (24 runs across ChatGPT, Claude, Gemini, and Qwen), eight
+> speed-dating interviews (four customers, four retail, support, or returns staff), and the
+> theory lens (Gonzalez et al., 2026). Interviews are cited by member and interviewee — e.g.
+> *Trupti P2* is Trupti's reviewer-like interviewee. Every feature is
+> traced to `validation/OPPORTUNITY_FRAMING.md` (feature IDs M1–M8, S1–S5, C1–C3) — no
 > orphan features. Section 1 lists what changed from v0 and why.
 
 ---
@@ -12,15 +14,17 @@
 
 | v0 design | Evidence | v1 design | Feature |
 |---|---|---|---|
-| The case page showed the model's own confidence ("Medium, 62%") | Tools said 95–100% on wrong answers (E1, F1, F2). Customer: *"Claiming 100% makes me wonder whether the AI understands its own limitations."* Associate: *"I'd probably ignore a score like '95%'."* | **Evidence strength computed from the checks** (Strong / Mixed / Weak) plus an **"Uncertain about"** list. No model self-rated percentage anywhere | M3 |
-| Photo check was one "signal only" line | 0 of 4 tools detected the AI-generated photo; Gemini approved its own fake at 100% (F1). Associate: flag suspicious images *"instead of assuming every uploaded photo is genuine"* | A separate **photo authenticity** check with an explicit **"Not verified"** state. An unverified damage photo can never be auto-approved | M5 |
-| Incomplete returns went to the reviewer queue | Claude and Gemini *denied* a claim with no photo (F2). Customer: *"the customer could have additional context"* | A **rule-based data check runs before any AI**. Missing evidence goes back to the **customer** ("We need a photo"), not to a decision or a reviewer | M6 |
-| Escalated anything below a confidence threshold | Associate: *"The system should filter cases intelligently rather than just passing its uncertainty to employees."* | The gate escalates only for **named reasons** — ambiguous call, unverified photo, high value, proposed denial, elevated risk — shown in the queue | M2 |
-| No special handling for judgment calls | 3 of 4 tools denied the wear-vs-defect case at 70–100% (E1). Associate: *"High confidence shouldn't override obvious ambiguity."* | An **ambiguity flag**: when policy hinges on judgment (P2 defect vs. P3 wear), the gate always escalates and the case page says so first | M4 |
-| Customers could not challenge a decision (appeals out of scope) | Customer raised appeals unprompted: *"There should be an easy way for customers to appeal."* | **"Request a review"** on a denied return, with a short explanation, routed back to the reviewer queue | S2 |
-| Agreement rate was one overall number | Associate: *"track when employees override the AI, because those overrides could reveal where the AI isn't working well."* | Agreement and overrides **broken down by product type and escalation reason**; escalation rate shown to the admin | S1 |
-| Denials needed a reviewer | All 4 tools failed to require human sign-off (F3) — ChatGPT: *"no manager approval… is needed."* | **Confirmed and strengthened:** the gate structurally cannot deny, and the customer's denial message is written only after a reviewer confirms | M1 |
-| Policy clause and version shown with findings | Customer and associate both asked for *"the exact policy rule"*; Gemini invented an approval rule (F3) | **Confirmed:** every finding cites its clause and policy version | M7 |
+| The case page showed the model's own confidence ("Medium, 62%") | Tools said 95–100% on wrong answers (E1, F1, F2). **7 of 7** interviewees asked distrusted a bare score: *"Claiming 100% makes me wonder whether the AI understands its own limitations"* (Aditya P1); *"Percentages can make people lazy and trick them into hitting 'approve' without actually looking"* (Avni P2). | **Evidence strength computed from the checks** (Strong / Mixed / Weak) plus an **"Uncertain about"** list. No model self-rated percentage anywhere | M3 |
+| Photo check was one "signal only" line | 0 of 4 tools detected the AI-generated photo; Gemini approved its own fake at 100% (F1). **3 of 3** reviewer-like interviewees asked already check lighting, "too perfect" photos, metadata, or reverse image search (Aditya P2, Sharayu P2, Trupti P2) | A separate **photo authenticity** check with an explicit **"Not verified"** state. An unverified damage photo can never be auto-approved | M5 |
+| Incomplete returns went to the reviewer queue | Claude and Gemini *denied* a claim with no photo (F2). Customer: *"Tell me what's missing, not just that I'm wrong"* (Trupti P1) | A **rule-based data check runs before any AI**. Missing evidence goes back to the **customer** ("We need a photo"), not to a decision or a reviewer | M6 |
+| Escalated anything below a confidence threshold | *"The system should filter cases intelligently rather than just passing its uncertainty to employees"* (Aditya P2); *"If everything is 'needs review' in December, I'm back to doing it all by hand"* (Trupti P2) | The gate escalates only for **named reasons** — ambiguous call, unverified photo, high value, proposed denial, elevated risk — shown in the queue | M2 |
+| No special handling for judgment calls | 3 of 4 tools denied the wear-vs-defect case at 70–100% (E1). **3 of 3** reviewer-like interviewees asked trust AI on obvious damage, not wear vs. defect; *"High confidence shouldn't override obvious ambiguity"* (Aditya P2) | An **ambiguity flag**: when policy hinges on judgment (P2 defect vs. P3 wear), the gate always escalates and the case page says so first | M4 |
+| Customers could not challenge a decision (appeals out of scope) | **4 of 4** customers had a return outcome that felt unexplained or weakly evidenced; *"There should be an easy way for customers to appeal"* (Aditya P1) | **"Request a review"** on a denied return, with a short explanation, routed back to the reviewer queue | S2 |
+| Agreement rate was one overall number | Three reviewer-like interviewees asked for override tracking — *"those overrides could reveal where the AI isn't working well"* (Aditya P2; also Sharayu P2, Trupti P2) | Agreement and overrides **broken down by product type and escalation reason**; escalation rate shown to the admin | S1 |
+| Denials needed a reviewer | All 4 tools failed to require human sign-off (F3) — ChatGPT: *"no manager approval… is needed."* **7 of 8** interviewees said a person must make denials | **Confirmed and strengthened:** the gate structurally cannot deny, and the customer's denial message is written only after a reviewer confirms | M1 |
+| Policy clause and version shown with findings | Customers and reviewers asked for *"the exact policy rule"* (Aditya P1, P2; Sharayu P1); Gemini invented an approval rule (F3) | **Confirmed:** every finding cites its clause and policy version | M7 |
+| No bias handling | Claude assumed a customer's gender from their name (F2); a customer raised profiling of "high-risk" customers, unprompted (Sharayu P1) | **Bias safeguards:** names and gendered cues removed from model inputs; behavior risk audited for disparate impact | M8 |
+| The case page showed findings, but not where in the photo they came from | *"Show me where to look — I'll tell you if it's right"* (Trupti P2); fast recommendations turn reviewers into *"validators"* (Sharayu P2) | **Show the reviewer where to look:** the photo area behind each finding is highlighted, and disagreeing is one click with a predefined reason | S5 |
 
 ---
 
@@ -47,31 +51,37 @@ human reviewer **for a named reason** — and **every denial is made by a person
 ## 3. Personas and mental models
 
 ### P1 — Maya, the customer
-*Informed by interview P1: shops online weekly, has had a return questioned for "signs of
-use" with no way to challenge it.*
+*Informed by the four customer interviews: all four had a return outcome that felt
+unexplained or weakly evidenced, and three were questioned or refused for "signs of use /
+wear" with little evidence.*
 - **Goal:** a fair refund, without wondering what happens next.
 - **Mental model:** "A store employee checks my return." Distrusts automated certainty:
-  *"Real-world situations aren't usually that certain."*
+  *"Nobody is 100% sure about a photo"* (Trupti P1).
 - **Decision rights:** none over the outcome — but can **request a review** of a denial.
 - **Interrogation moments:** when a decision arrives (*why?*), and when it feels unfair
   (*can someone look again?*).
 - **Trust cues needed:** a clear status; the exact policy rule and the evidence considered;
-  for denials, an explicit statement that **a person reviewed it**, plus a way to ask for a
-  review. Would rather wait for a person than get a fast, wrong answer.
+  **who decided** — automatically or a person; for denials, a way to ask for a review. Would
+  rather wait a day or two for a person than get a fast, wrong answer — *"I can wait if I
+  know someone is actually looking at it"* (Trupti P1).
 
 ### P2 — Riley, the Trust & Safety reviewer
-*Informed by interview P2: two years handling returns; a normal case takes 2–3 minutes,
-mostly spent judging condition against policy.*
+*Informed by the four reviewer-like interviews (retail, support, warehouse, and bookstore
+returns staff): a case takes 1–15 minutes, longest when judging wear vs. defect; in two of
+their workplaces, condition-based denials already need a lead's approval.*
 - **Goal:** clear the queue without approving fraud or wrongly denying an honest customer —
   and without being flooded by cases the system should have handled.
 - **Mental model:** "The AI is a recommendation, not the final judge." Ignores percentages
-  without meaning; looks first at the return reason, then the photos.
+  without meaning; looks first at the return reason, the photos, and the history. Will only
+  sign what they actually checked: *"If my name is on the denial, I need to have actually
+  looked"* (Trupti P2).
 - **Decision rights:** **final sign-off on every escalated case and every denial.** Can
   agree with or override the AI (with a reason).
 - **Interrogation moments:** reading *why* the case is here; checking the cited clause;
   comparing photos and judging authenticity; disagreeing with the AI.
 - **Trust cues needed:** the recommendation, its reason, and what the AI is unsure about —
-  readable **in under a minute**; a clear warning when a photo is unverified.
+  readable **in under a minute**; **where in the photo to look**; a clear warning when a photo
+  is unverified; and a fast way to disagree, so validating never becomes rubber-stamping.
 
 ### P3 — Priya, the risk / platform admin
 - **Goal:** keep decisions consistent, policy-compliant, and auditable.
@@ -244,7 +254,7 @@ flowchart TD
 │ ⚠ AMBIGUOUS CALL — wear (P3) vs. defect (P2) needs a person          │
 ├───────────────────────────────────┬──────────────────────────────────┤
 │ [AI] RECOMMENDATION               │ EVIDENCE                         │
-│ Escalate                          │ Photos                           │
+│ Escalate                          │ Photos (area in question boxed)  │
 │ Evidence strength: MIXED          │ [product photo] [customer photo] │
 │ (4 of 5 checks clear)             │ Match: same product ✓            │
 │                                   │ Authenticity: no issues found ✓  │
@@ -262,7 +272,8 @@ flowchart TD
 │ ⚠ Condition: wear vs. defect      │                                  │
 ├───────────────────────────────────┴──────────────────────────────────┤
 │ Your decision   [ Approve ]   [ Deny… ]                              │
-│ Disagree with the AI? Reason (required if you do): [            ]    │
+│ Disagree? [ Looks like a defect | Looks like wear | Photo unclear |  │
+│             Other… ]  (one click; required when you disagree)        │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -279,8 +290,10 @@ possible AI-generated image"** and appears as a warning banner at the top.
   separate rows; "Not verified" is never hidden inside a summary.
 - **Provenance (M7):** every finding names the policy clause **and version**.
 - **AI label:** model-written text is marked `[AI]`.
-- **Disagreement is captured (S1):** overriding the AI needs a short reason, logged by
-  product type and escalation reason.
+- **Show where to look (S5):** the photo area behind each finding is boxed, so the reviewer
+  checks the evidence instead of trusting the summary.
+- **Disagreement is fast and captured (S1, S5):** disagreeing is one click with a predefined
+  reason (or "Other…"), logged by product type and escalation reason.
 
 ### 5.5 Reviewer — Deny confirmation
 
@@ -331,7 +344,7 @@ possible AI-generated image"** and appears as a warning banner at the top.
 ### 5.7 Admin — Audit log
 A filterable table: time · actor (check / AI / gate / reviewer / admin / customer) · action
 · case · details. Opening a case shows its full history in order, including the gate's
-named reason and any customer review request (C2).
+named reason and any customer review request (C1).
 
 ---
 
@@ -342,8 +355,9 @@ named reason and any customer review request (C2).
 | The data check is plain code and runs before any model call | Models denied claims for missing evidence (F2) | M6 |
 | The gate decides from check results, not from the model's decision label | Claude's label contradicted its own reasoning (F2) | M2 |
 | Date and threshold arithmetic is done in code | Keeps the window check exact; the model receives the result | M2 |
-| Customer names and gendered cues are removed from model inputs | Claude assumed a customer's gender from their name (F2) | C1 |
-| Every check, gate decision, and human action is written to the audit log | Accountability and override analysis | C2, S1 |
+| Customer names and gendered cues are removed from model inputs | Claude assumed a customer's gender from their name (F2) | M8 |
+| The behavior risk check is audited for disparate impact across customer groups | A customer raised profiling of "high-risk" customers (Sharayu P1) | M8 |
+| Every check, gate decision, and human action is written to the audit log | Accountability and override analysis | C1, S1 |
 
 ---
 
@@ -374,17 +388,19 @@ admin screens.
 
 | UI choice | Feature | Evidence | Pillar / principle (Gonzalez et al., 2026) |
 |---|---|---|---|
-| Gate cannot deny; deny dialog restates the policy basis; message written after confirm | M1 | F3 (0 of 4 required sign-off); P1, P2 | Meta-coordination; **role partitioning**; goals & constraints |
-| "Why here" named reasons in the queue | M2 | P2 (*"filter cases intelligently"*); E1 | **Attention & interrogation orchestration** |
-| Evidence strength + "Uncertain about", no percentages | M3 | E1/F1/F2 (95–100% when wrong); P1 (C7); P2 (R10) | Trust calibration; attention & interrogation orchestration |
-| Ambiguity banner; ambiguous calls always escalate | M4 | E1 (3 of 4 denied); P2 (R2, R8) | Reasoning; role partitioning |
-| Photo authenticity row with "Not verified"; never auto-approved | M5 | F1 (0 of 4 detected the fake); P2 (R9) | Attention ("unknown unknowns"); knowledge infrastructure |
-| "We need a photo" instead of a decision | M6 | F2 (2 of 4 denied on missing evidence); P1 (C12) | Memory; goals & constraints |
-| Clause and version on every finding and outcome | M7 | P1 (C11); P2 (R6); F3 (invented rule) | Memory — provenance; knowledge infrastructure |
-| Override reason; agreement by product type and reason | S1 | P2 (R18) | **Training & evaluation** |
-| "Request a review" on a denial | S2 | P1 (C15, C16) | Meta-coordination; accountability |
-| Outcome shows the rule and evidence considered | S3 | P1 (C3, C11) | Trust calibration; knowledge infrastructure |
-| Admin switch, limits, and visible fixed rules; escalation rate | S4 | P1 (C4); P2 (R16) | Goals & constraints |
+| Gate cannot deny; deny dialog restates the policy basis; message written after confirm | M1 | F3 (0 of 4 required sign-off); 7 of 8 interviewees | Meta-coordination; **role partitioning**; goals & constraints |
+| "Why here" named reasons in the queue | M2 | E1; Aditya P2 (*"filter cases intelligently"*); Trupti P2 | **Attention & interrogation orchestration** |
+| Evidence strength + "Uncertain about", no percentages | M3 | E1/F1/F2 (95–100% when wrong); 7 of 7 interviewees asked | Trust calibration; attention & interrogation orchestration |
+| Ambiguity banner; ambiguous calls always escalate | M4 | E1 (3 of 4 denied); 3 of 3 reviewer-like asked | Reasoning; role partitioning |
+| Photo authenticity row with "Not verified"; never auto-approved | M5 | F1 (0 of 4 detected the fake); Aditya P2, Sharayu P2, Trupti P2 | Attention ("unknown unknowns"); knowledge infrastructure |
+| "We need a photo" instead of a decision | M6 | F2 (2 of 4 denied on missing evidence); Trupti P1 | Memory; goals & constraints |
+| Clause and version on every finding and outcome | M7 | F3 (invented rule); Aditya P1, P2; Sharayu P1 | Memory — provenance; knowledge infrastructure |
+| Override reason; agreement by product type and reason | S1 | Aditya P2, Sharayu P2, Trupti P2 | **Training & evaluation** |
+| "Request a review" on a denial | S2 | 4 of 4 customers; Aditya P1, Sharayu P1 | Meta-coordination; accountability |
+| Outcome shows the rule, the evidence considered, and who decided | S3 | Aditya P1, Sharayu P1, Trupti P1 | Trust calibration; knowledge infrastructure |
+| Boxed photo area; one-click predefined override reasons | S5 | Aditya P2, Sharayu P2, Trupti P2 | **Attention & interrogation orchestration**; training & evaluation |
+| Names and gender cues removed; behavior risk audited | M8 | F2 (gender assumption); Sharayu P1 | Reasoning — bias detection |
+| Admin switch, limits, and visible fixed rules; escalation rate | S4 | Aditya P1, Sharayu P1; Aditya P2, Sharayu P2 | Goals & constraints |
 
 **Design principle we commit to:** **attention & interrogation orchestration** — named
 escalation reasons decide when the AI defers to a person, and the case page is built so the
