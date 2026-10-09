@@ -144,7 +144,7 @@ that evidence to refine the design.
 | Design specification (v1) | [`DESIGN_SPEC.md`](DESIGN_SPEC.md) |
 | Clickthrough prototype | [`prototype/`](prototype/) — run `python3 -m http.server 8765` from the repo root, then open `http://localhost:8765/prototype/index.html` |
 | Individual reflections | [`validation/reflections/`](validation/reflections/) |
-| Slides | [`validation/ReturnGuard_Checkpoint2_Slides.pdf`](validation/ReturnGuard_Checkpoint2_Slides.pdf) · [`.pptx`](validation/ReturnGuard_Checkpoint2_Slides.pptx) |
+| Slides | [`validation/ReturnGuard_Checkpoint2_Slides.pptx`](validation/ReturnGuard_Checkpoint2_Slides.pptx) |
 
 ---
 
@@ -179,8 +179,7 @@ that evidence to refine the design.
 │   ├── GAP_ANALYSIS.md        # Empirical gaps + theoretical reading
 │   ├── THEORY_LENS.md         # Complementarity discussion
 │   ├── OPPORTUNITY_FRAMING.md # Prioritised requirements
-│   ├── ReturnGuard_Checkpoint2_Slides.pdf  # Checkpoint 2 presentation (PDF)
-│   └── ReturnGuard_Checkpoint2_Slides.pptx # Checkpoint 2 presentation (editable)
+│   └── ReturnGuard_Checkpoint2_Slides.pptx # Checkpoint 2 presentation
 ├── /prototype/                # Checkpoint 2 — clickthrough prototype (open prototype/index.html)
 └── (GitHub Projects & Issues) # Task assignment & milestone tracking
 ```
