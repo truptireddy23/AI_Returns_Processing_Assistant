@@ -135,7 +135,8 @@ Every tool and model call the agents make is checked against **OPA (Open Policy 
 │   ├── GAP_ANALYSIS.md        # Empirical gaps + theoretical reading
 │   ├── THEORY_LENS.md         # Complementarity discussion
 │   ├── OPPORTUNITY_FRAMING.md # Prioritised requirements
-│   └── ReturnGuard_Checkpoint2_Slides.pdf # Checkpoint 2 presentation
+│   ├── ReturnGuard_Checkpoint2_Slides.pdf  # Checkpoint 2 presentation (PDF)
+│   └── ReturnGuard_Checkpoint2_Slides.pptx # Checkpoint 2 presentation (editable)
 ├── /prototype/                # Checkpoint 2 — clickthrough prototype (open prototype/index.html)
 └── (GitHub Projects & Issues) # Task assignment & milestone tracking
 ```
