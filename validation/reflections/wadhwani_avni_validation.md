@@ -76,6 +76,13 @@ write one sentence explaining why.
 *Class-generated storyboard: a "damaged sneakers" return moving through ReturnGuard. AI can
 recommend approval; every denial requires human review.*
 
+**My v1 storyboard.** The fake-photo case (F1) retold through the v1 design: the same
+AI-generated image Gemini approved at 100% now fails the separate authenticity check, the
+evidence strength drops to Weak, and the gate routes it to a reviewer for a named reason —
+an unverified photo can never be auto-approved.
+
+![Avni's ReturnGuard v1 storyboard: nine panels following an AI-generated damage photo — Jordan submits a return with the fake image, a rule-based data check, policy check, photo checks where authenticity is not verified, history check, AI recommendation with Weak evidence, the governance gate routing it to a reviewer, Riley deciding with a confirm step, and Jordan seeing the outcome with a request-a-review option](wadhwani_avni_storyboard_v1.png)
+
 ---
 
 ## 4. One finding that changed (or confirmed) my assumption about the proposed scenario (Step 10)
