@@ -132,6 +132,12 @@ approvals. The AI's job is to show the person where to look.
 *Class-generated storyboard: a "damaged sneakers" return moving through ReturnGuard. AI can
 recommend approval; every denial requires human review.*
 
+**My storyboard.** A redrawn seven-panel version of the damaged-sneakers return: customer
+submission, data check, policy RAG, image and behavior analysis, AI decision plus critic, the
+human governance gate, and the final decision with an audit log.
+
+![Trupti's ReturnGuard storyboard: seven panels — customer submits a damaged-sneakers return, data check, policy RAG, image and behavior analysis, AI decision plus critic (low risk recommends approval, high risk requires review), human governance gate, and final decision with audit log; footer: AI may recommend approval, every denial recommendation requires human review](reddy_trupti_storyboard.png)
+
 ---
 
 ## 4. One finding that changed (or confirmed) my assumption about the proposed scenario (Step 10)
