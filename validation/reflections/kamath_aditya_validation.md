@@ -150,6 +150,14 @@ cases. The AI should never have authority to deny someone without human oversigh
 *Class-generated storyboard: a "damaged sneakers" return moving through ReturnGuard. AI can
 recommend approval; every denial requires human review.*
 
+**My v1 storyboard (after Checkpoint 2).** The same damaged-sneakers return, retold through
+the refined design. Panels marked *NEW in v1* come from the prompting and interview evidence:
+the rule-based data check, separate photo authenticity check, evidence strength instead of a
+confidence percentage, a gate that escalates only for named reasons, and a customer's
+request a review.
+
+![ReturnGuard v1 storyboard: Maya submits a damaged-sneakers return; a rule-based data check, policy check, photo match/authenticity/condition checks, and history check run; the AI recommends with evidence strength; the governance gate auto-approves only when all checks are clear or routes to a reviewer for a named reason; Riley decides with a confirm step for denials; Maya sees the rule, the evidence, and a request-a-review option](kamath_aditya_storyboard_v1.png)
+
 ---
 
 ## 4. One finding that changed (or confirmed) my assumption about the proposed scenario (Step 10)

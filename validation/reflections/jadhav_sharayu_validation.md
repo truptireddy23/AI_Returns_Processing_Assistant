@@ -28,7 +28,7 @@ write one sentence explaining why.
 | Field | Notes |
 |---|---|
 | Who | Customer — age 25–34, shops online 2–3 times a month |
-| Date / format | not recorded |
+| Date / format | 6 October 2026 · online |
 | First reaction to the concept | Helpful if it speeds things up; likes that unclear cases and denials still go to a human ("a safety net"). Main concern: whether the AI can really judge wear and tear from photos without being too strict. |
 
 | Dimension | Notes | Quote |
@@ -85,7 +85,7 @@ ambiguous case.
 | Field | Notes |
 |---|---|
 | Who | Reviewer-like — 3 years as an e-commerce customer support specialist handling returns for a mid-sized online clothing retailer |
-| Date / format | not recorded |
+| Date / format | 6 October 2026 · online |
 | First reaction to the concept | Helpful: photos, history, and policy in one place would stop the tab-switching and speed things up — but they would need to trust the data it presents. |
 
 | Dimension | Notes | Quote |
@@ -150,5 +150,26 @@ recommend approval; every denial requires human review.*
 
 ## 4. One finding that changed (or confirmed) my assumption about the proposed scenario (Step 10)
 
-*Tie it to complementarity, trust calibration, shared mental models, or a cognitive pillar
-(reasoning / memory / attention) from Gonzalez et al. (2026).*
+**Confirmed — with a sharper line: humans should own judgment calls, not just "denials".**
+
+I started with our team's assumption that the key split was simple: the AI approves, a
+person denies. My testing and interviews confirmed that humans must own adverse decisions,
+but showed the real line is **judgment**. Qwen, the tool I tested, was the only one of the
+four that escalated the worn-shoes case in both runs, explaining that *"a definitive APPROVE
+or DENY carries a high risk of error given the visual ambiguity"* — yet on the authority
+question it recommended a denial at 100% confidence and silently skipped asking whether a
+person should confirm it. Every tool handled the objective date check correctly. My support
+specialist described the same split from inside a real returns team: they can deny an
+out-of-window return alone, but a denial based on condition ("item appears worn") needs a
+team lead's approval first. My customer put it simply: *"AI can recommend, but humans
+decide when it's a 'no.'"*
+
+Through Gonzalez et al. (2026), this is **role partitioning** grounded in the **reasoning**
+pillar. Complementarity works when human and AI error patterns differ: the AI was reliable
+on rule-based facts like return windows but unreliable on subjective condition calls and on
+knowing its own authority — exactly where humans add judgment, context, and accountability.
+It confirmed our "AI never denies" rule and explains why v1 adds an ambiguity flag that
+always escalates judgment calls. My specialist's warning that fast recommendations turn
+reviewers into "validators" also showed me that partitioning roles is not enough on its own:
+the interface has to make disagreeing with the AI as easy as agreeing, or the human check
+becomes a rubber stamp.
