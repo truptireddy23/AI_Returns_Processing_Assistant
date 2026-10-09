@@ -146,6 +146,14 @@ must have the final say.
 *Class-generated storyboard: a "damaged sneakers" return moving through ReturnGuard. AI can
 recommend approval; every denial requires human review.*
 
+**My v1 storyboard.** The ambiguous worn-shoes case (E1) — the one three of four AI tools
+denied and only Qwen escalated — retold through the v1 design. The AI settles the objective
+facts (return window, history, photo match and authenticity); the wear-vs-defect question is
+flagged as a judgment call and always goes to a person, whose screen is built for validating
+rather than rubber-stamping.
+
+![Sharayu's ReturnGuard v1 storyboard: nine panels following an ambiguous worn-shoes return — Jordan submits it, a rule-based data check, objective checks the AI handles (window, history), photo checks with condition unclear, an ambiguity flag, an Escalate recommendation with Mixed evidence, the governance gate routing ambiguous calls to a person, Riley judging the condition with highlighted evidence and predefined override reasons, and Jordan seeing the outcome with a request-a-review option](jadhav_sharayu_storyboard_v1.png)
+
 ---
 
 ## 4. One finding that changed (or confirmed) my assumption about the proposed scenario (Step 10)
