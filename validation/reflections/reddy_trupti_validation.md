@@ -2,12 +2,12 @@
 
 ---
 
-## 1. Prompting notes (Step 3)
+## 1. Prompting notes
 
 **Tool tested:** Claude (claude.ai)
 **Transcript:** `../transcripts/claude_outputs.md`
 
-*Surprises while testing (what the tool did that you did not expect):*
+**Surprises while testing:**
 
 - **It behaved like an investigator, not a decider.** Almost every "Missing information" field became a list of requests, size tags, box labels, carrier tracking records, close-ups, even photo metadata, far beyond what the format asked for.
 - **It questioned the inputs themselves.** In E1 run 1 it said the two images *"appear to be in the opposite order from how they are labeled"*; in run 2 it spotted different laces between the photos and wear too heavy for three weeks. No other tool noticed these.
@@ -18,17 +18,14 @@
 
 ---
 
-## 2. Speed-dating interview notes (Step 4)
-
-Anonymous — no names or contact details. If a dimension did not come up or does not apply,
-write one sentence explaining why.
+## 2. Speed-dating interview notes
 
 ### P1
 
 | Field | Notes |
 |---|---|
 | Who | Customer — age 18–24, graduate student, shops online weekly (clothing, electronics accessories) |
-| Date / format | 7 October 2026 |
+| Date / format | 7 October 2026 · online |
 | First reaction to the concept | Likes instant approvals, but worries "unclear" becomes a black hole , wants to be told the case was escalated and when a person will look at it. |
 
 | Dimension | Notes | Quote |
@@ -77,7 +74,7 @@ decides any denial — and the decision should say *which one* made it.
 | Field | Notes |
 |---|---|
 | Who | Reviewer-like — 18 months as a returns-processing associate at a warehouse for an online apparel and footwear retailer; inspects returned items by hand |
-| Date / format | 7 October 2026 |
+| Date / format | 7 October 2026 · online |
 | First reaction to the concept | Useful for triage, but "a photo is not the item" — the AI's photo check should be a pre-check before physical inspection. |
 
 | Dimension | Notes | Quote |
@@ -125,7 +122,7 @@ approvals. The AI's job is to show the person where to look.
 
 ---
 
-## 3. Class-generated storyboard (Step 10)
+## 3. Class-generated storyboard
 
 ![ReturnGuard storyboard: a damaged-sneakers return moving through customer submission, data check, policy RAG, image and behavior analysis, AI decision and critic, the human governance gate, and the final decision with an audit log](../../proposal/storyboard.png)
 
@@ -140,7 +137,7 @@ human governance gate, and the final decision with an audit log.
 
 ---
 
-## 4. One finding that changed (or confirmed) my assumption about the proposed scenario (Step 10)
+## 4. One finding that changed (or confirmed) my assumption about the proposed scenario
 
 **Changed: an AI that notices more does not decide better — its decision label can ignore
 what its reasoning noticed.**

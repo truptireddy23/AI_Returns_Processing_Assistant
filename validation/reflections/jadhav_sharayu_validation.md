@@ -2,12 +2,12 @@
 
 ---
 
-## 1. Prompting notes (Step 3)
+## 1. Prompting notes
 
 **Tool tested:** Qwen Chat
 **Transcript:** `../transcripts/qwen_outputs.md`
 
-*Surprises while testing (what the tool did that you did not expect):*
+**Surprises while testing:**
 
 - **It was the only tool that escalated the ambiguous case** — both E1 runs — and named its own limits: *"A definitive APPROVE or DENY carries a high risk of error given the visual ambiguity."* The three closed models all denied.
 - **It proposed who should do what (F2).** Instead of denying the no-photo claim, it said *"A human agent needs to contact the customer to request the necessary photos before a final decision can be made"* — assigning the next step to a person.
@@ -18,10 +18,7 @@
 
 ---
 
-## 2. Speed-dating interview notes (Step 4)
-
-Anonymous — no names or contact details. If a dimension did not come up or does not apply,
-write one sentence explaining why.
+## 2. Speed-dating interview notes
 
 ### P1
 
@@ -139,7 +136,7 @@ must have the final say.
 
 ---
 
-## 3. Class-generated storyboard (Step 10)
+## 3. Class-generated storyboard
 
 ![ReturnGuard storyboard: a damaged-sneakers return moving through customer submission, data check, policy RAG, image and behavior analysis, AI decision and critic, the human governance gate, and the final decision with an audit log](../../proposal/storyboard.png)
 
@@ -156,7 +153,7 @@ rather than rubber-stamping.
 
 ---
 
-## 4. One finding that changed (or confirmed) my assumption about the proposed scenario (Step 10)
+## 4. One finding that changed (or confirmed) my assumption about the proposed scenario
 
 **Confirmed — with a sharper line: humans should own judgment calls, not just "denials".**
 

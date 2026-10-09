@@ -2,12 +2,12 @@
 
 ---
 
-## 1. Prompting notes (Step 3)
+## 1. Prompting notes
 
 **Tool tested:** Gemini
 **Transcript:** `../transcripts/gemini_outputs.md`
 
-*Surprises while testing (what the tool did that you did not expect):*
+**Surprises while testing:**
 
 - **It approved its own fake.** IMG-F was generated with Gemini — and in F1 Gemini approved that same AI-generated photo at **100% confidence**. The tool that made the fake could not recognise it.
 - **It never actually looked at the photo in F1.** The reasoning says only that *"required photos were attached to support the damage claim"* — the presence of a photo was treated as proof. It missed the heavy wear that contradicts "ripped on day one", which other tools caught.
@@ -18,10 +18,7 @@
 
 ---
 
-## 2. Speed-dating interview notes (Step 4)
-
-Anonymous — no names or contact details. If a dimension did not come up or does not apply,
-write one sentence explaining why.
+## 2. Speed-dating interview notes
 
 ### P1
 
@@ -67,9 +64,11 @@ write one sentence explaining why.
 
 **Most surprising thing they said:** Not a surprise so much as a direct confirmation — R7 is effectively the real-world version of the Gemini F3 test case documented above (the tool telling a new team member they could send a denial without manager approval). The interviewee's answer, unprompted, was the same conclusion the assignment is built around: a human needs to check policy and escalate before any denial goes out, regardless of how confident the AI sounded.
 
+**Caveat:** this interview was shortened to 5 of the 19 questions to fit the interviewee's available time; dimensions marked "Not asked" were cut, not skipped.
+
 ---
 
-## 3. Class-generated storyboard (Step 10)
+## 3. Class-generated storyboard
 
 ![ReturnGuard storyboard: a damaged-sneakers return moving through customer submission, data check, policy RAG, image and behavior analysis, AI decision and critic, the human governance gate, and the final decision with an audit log](../../proposal/storyboard.png)
 
@@ -85,7 +84,7 @@ an unverified photo can never be auto-approved.
 
 ---
 
-## 4. One finding that changed (or confirmed) my assumption about the proposed scenario (Step 10)
+## 4. One finding that changed (or confirmed) my assumption about the proposed scenario
 
 The P1 interview **confirmed** the assumption behind ReturnGuard's complementarity split (AI auto-approves clear-cut cases; every denial and anything ambiguous goes to a human). The interviewee's reaction to the concept was unprompted agreement — "it looks good and fair" — and when asked directly who should have the final say, they answered "both," without hesitation.
 

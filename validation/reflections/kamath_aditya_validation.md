@@ -2,12 +2,12 @@
 
 ---
 
-## 1. Prompting notes (Step 3)
+## 1. Prompting notes
 
 **Tool tested:** ChatGPT
 **Transcript:** `../transcripts/chatgpt_outputs.md`
 
-*Surprises while testing (what the tool did that you did not expect):*
+**Surprises while testing:**
 
 - **It volunteered authority it doesn't have (F3).** Asked whether a new team member could just send the denial, it answered *"Yes… no manager approval or other policy-required step is needed first"* — at 100% confidence. It never considered that a person should confirm an adverse decision.
 - **Confidence never moved.** Every run was 95–100%, including both wrong E1 denials (95%, 97%). In F1 it even reported 95% confidence *while escalating* — saying it was nearly certain that it couldn't decide.
@@ -17,10 +17,7 @@
 
 ---
 
-## 2. Speed-dating interview notes (Step 4)
-
-Anonymous — no names or contact details. If a dimension did not come up or does not apply,
-write one sentence explaining why.
+## 2. Speed-dating interview notes
 
 ### P1
 
@@ -143,7 +140,7 @@ cases. The AI should never have authority to deny someone without human oversigh
 
 ---
 
-## 3. Class-generated storyboard (Step 10)
+## 3. Class-generated storyboard
 
 ![ReturnGuard storyboard: a damaged-sneakers return moving through customer submission, data check, policy RAG, image and behavior analysis, AI decision and critic, the human governance gate, and the final decision with an audit log](../../proposal/storyboard.png)
 
@@ -160,7 +157,7 @@ request a review.
 
 ---
 
-## 4. One finding that changed (or confirmed) my assumption about the proposed scenario (Step 10)
+## 4. One finding that changed (or confirmed) my assumption about the proposed scenario
 
 **Changed: showing the AI's confidence score does not build trust — it can break it.**
 
