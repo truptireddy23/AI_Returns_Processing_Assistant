@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app/backend
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: returnguard
+          POSTGRES_PASSWORD: returnguard
+          POSTGRES_DB: returnguard
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U returnguard -d returnguard"
+          --health-interval 2s --health-timeout 3s --health-retries 30
+    env:
+      DATABASE_URL: postgresql+asyncpg://returnguard:returnguard@localhost:5432/returnguard
+      ENVIRONMENT: test
+      REQUIRE_DB: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.9.21"
+          enable-cache: true
+      - run: uv sync --frozen
+      - name: Lint
+        run: uv run ruff check . ../../tests && uv run ruff format --check . ../../tests
+      - name: Type check
+        run: uv run mypy src ../../tests
+      - name: requirements.txt matches uv.lock
+        run: |
+          uv export --frozen --no-dev --no-hashes --no-emit-project -o requirements.txt
+          git diff --exit-code -- requirements.txt
+      - name: Tests
+        run: uv run pytest -v
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: app/frontend/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Lint
+        run: npm run lint
+      - name: Type check
+        run: npm run typecheck
+      - name: Build
+        run: npm run build
+
+  images:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker images
+        working-directory: app
+        run: |
+          cp .env.example .env
+          docker compose build
