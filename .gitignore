@@ -5,3 +5,13 @@ Instructions
 .env
 .env.*
 !.env.example
+
+# Build and tool caches
+__pycache__/
+*.pyc
+.venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+node_modules/
+.next/

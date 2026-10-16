@@ -181,5 +181,13 @@ that evidence to refine the design.
 │   ├── OPPORTUNITY_FRAMING.md # Prioritised requirements
 │   └── ReturnGuard_Checkpoint2_Slides.pptx # Checkpoint 2 presentation
 ├── /prototype/                # Checkpoint 2 — clickthrough prototype (open prototype/index.html)
+├── /app/                      # Checkpoint 3 — the working application (setup: app/INSTALL.md)
+│   ├── /backend/              # FastAPI API + pipeline worker (Python, uv, Alembic)
+│   ├── /frontend/             # Next.js shop, reviewer, and admin UI
+│   ├── /prompts/              # Versioned prompts, output schemas, model settings
+│   ├── docker-compose.yml     # db (Postgres + pgvector), api, worker, web
+│   └── Makefile               # One command per operation (`make help`)
+├── /tests/                    # Backend unit + integration tests
+├── .github/workflows/ci.yml   # Lint, type check, tests, builds on every push and PR
 └── (GitHub Projects & Issues) # Task assignment & milestone tracking
 ```
