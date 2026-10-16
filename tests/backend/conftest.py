@@ -1,8 +1,9 @@
 """Shared fixtures for backend tests.
 
-Database tests run against a separate `<name>_test` database (created and
-migrated once per session), and each test runs inside a transaction that is
-rolled back afterwards — so tests never see each other's data or your dev data.
+Database tests run against a separate `returnguard_test` database on the local
+Postgres (created and migrated once per session), never the hosted one. Each test
+runs inside a transaction that is rolled back afterwards, so tests never see each
+other's data or your demo data.
 
 Locally, database tests are skipped when Postgres is down; in CI
 (`REQUIRE_DB=1`) they fail instead, so a missing database can't pass silently.
@@ -20,15 +21,19 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from returnguard.config import get_settings
+from returnguard.db import LOCAL_DATABASE_URL
 
 # --- Point the app at the test database before anything reads settings. ------
-_base_url = make_url(
-    os.environ.get("DATABASE_URL") or get_settings().database_url.get_secret_value()
+# Tests never use DATABASE_URL from app/.env (that may be the shared Neon
+# database): they use TEST_DATABASE_URL, or a `_test` database on the local
+# docker-compose Postgres.
+TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL") or (
+    make_url(LOCAL_DATABASE_URL)
+    .set(database="returnguard_test")
+    .render_as_string(hide_password=False)
 )
-TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL") or _base_url.set(
-    database=f"{_base_url.database}_test"
-).render_as_string(hide_password=False)
 os.environ["DATABASE_URL"] = TEST_DATABASE_URL
+os.environ["DATABASE_URL_UNPOOLED"] = TEST_DATABASE_URL
 os.environ.setdefault("ENVIRONMENT", "test")
 get_settings.cache_clear()
 

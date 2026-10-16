@@ -4,7 +4,9 @@ x-backend: &backend
   build: ./backend
   env_file: .env
   environment:
-    DATABASE_URL: postgresql+asyncpg://returnguard:returnguard@db:5432/returnguard
+    # DATABASE_URL from app/.env (e.g. Neon), or the local `db` service when empty.
+    DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://returnguard:returnguard@db:5432/returnguard}
+    DATABASE_URL_UNPOOLED: ${DATABASE_URL_UNPOOLED:-}
     # Trust X-Forwarded-For from the Next.js server, so rate limits see the
     # browser's address. The API port is bound to localhost only.
     FORWARDED_ALLOW_IPS: "*"

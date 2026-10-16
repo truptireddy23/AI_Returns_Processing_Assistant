@@ -4,12 +4,10 @@ import asyncio
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import pool
+from sqlalchemy import NullPool
 from sqlalchemy.engine import Connection
-from sqlalchemy.ext.asyncio import create_async_engine
 
-from returnguard import models  # noqa: F401  (registers every table on Base.metadata)
-from returnguard.config import get_settings
+from returnguard import db, models  # noqa: F401  (models registers every table)
 from returnguard.db import Base
 
 config = context.config
@@ -17,12 +15,13 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
-database_url = get_settings().database_url.get_secret_value()
+# Migrations always use a direct connection, never a transaction pooler.
+database_url = db.direct_database_url()
 
 
 def run_migrations_offline() -> None:
     context.configure(
-        url=database_url,
+        url=database_url.render_as_string(hide_password=False),
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
@@ -38,7 +37,7 @@ def do_run_migrations(connection: Connection) -> None:
 
 
 async def run_async_migrations() -> None:
-    engine = create_async_engine(database_url, poolclass=pool.NullPool)
+    engine = db.create_engine(database_url, poolclass=NullPool)
     async with engine.connect() as connection:
         await connection.run_sync(do_run_migrations)
     await engine.dispose()

@@ -19,7 +19,12 @@ log = structlog.get_logger(__name__)
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
     configure_logging(settings.log_level, settings.log_json)
-    log.info("api.startup", version=__version__, environment=settings.environment)
+    log.info(
+        "api.startup",
+        version=__version__,
+        environment=settings.environment,
+        **db.describe(db.database_url()),
+    )
     yield
     await db.dispose_engine()
     log.info("api.shutdown")
