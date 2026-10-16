@@ -31,7 +31,7 @@ async def test_readyz_returns_503_when_database_is_down(
 
 
 @pytest.mark.db
-@pytest.mark.usefixtures("database")
+@pytest.mark.usefixtures("migrated_db")
 async def test_readyz_ok_with_database(client: httpx.AsyncClient) -> None:
     res = await client.get("/api/readyz")
     assert res.status_code == 200

@@ -5,6 +5,9 @@ x-backend: &backend
   env_file: .env
   environment:
     DATABASE_URL: postgresql+asyncpg://returnguard:returnguard@db:5432/returnguard
+    # Trust X-Forwarded-For from the Next.js server, so rate limits see the
+    # browser's address. The API port is bound to localhost only.
+    FORWARDED_ALLOW_IPS: "*"
   depends_on:
     db:
       condition: service_healthy
@@ -44,10 +47,9 @@ services:
     stop_grace_period: 30s
 
   web:
-    build:
-      context: ./frontend
-      args:
-        API_INTERNAL_URL: http://api:8000
+    build: ./frontend
+    environment:
+      API_INTERNAL_URL: http://api:8000
     ports:
       - "127.0.0.1:3000:3000"
     depends_on:

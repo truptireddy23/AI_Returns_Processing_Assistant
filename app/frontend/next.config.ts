@@ -1,9 +1,5 @@
 import type { NextConfig } from "next";
 
-// Where the FastAPI server is reachable from the Next.js server. next.config is
-// read at build time, so the Docker image receives this as a build argument.
-const apiInternalUrl = process.env.API_INTERNAL_URL ?? "http://localhost:8000";
-
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },
@@ -24,11 +20,8 @@ const nextConfig: NextConfig = {
       },
     },
   },
-  // The browser only ever talks to this origin; /api/* is proxied to FastAPI so
-  // the session cookie stays same-origin.
-  async rewrites() {
-    return [{ source: "/api/:path*", destination: `${apiInternalUrl}/api/:path*` }];
-  },
+  // The browser only ever talks to this origin; /api/* is proxied to FastAPI by
+  // src/app/api/[...path]/route.ts so the session cookie stays same-origin.
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

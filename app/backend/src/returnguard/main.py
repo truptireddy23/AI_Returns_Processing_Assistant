@@ -7,9 +7,10 @@ import structlog
 from asgi_correlation_id import CorrelationIdMiddleware
 from fastapi import FastAPI, Response, status
 
-from returnguard import __version__, db
+from returnguard import __version__, auth, db
 from returnguard.config import get_settings
 from returnguard.log_config import configure_logging
+from returnguard.routers import admin, orders, review
 
 log = structlog.get_logger(__name__)
 
@@ -33,6 +34,10 @@ def create_app() -> FastAPI:
         openapi_url="/api/openapi.json",
     )
     app.add_middleware(CorrelationIdMiddleware, header_name="X-Request-ID")
+    app.include_router(auth.router)
+    app.include_router(orders.router)
+    app.include_router(review.router)
+    app.include_router(admin.router)
 
     @app.get("/api/healthz", tags=["health"])
     async def healthz() -> dict[str, str]:
