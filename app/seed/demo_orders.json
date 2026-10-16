@@ -1,0 +1,14 @@
+{
+  "_comment": "Recent orders that set up each live-demo case (BUILD_PLAN.md section 14.4). Dates are relative to when the seed runs. The returns themselves are submitted live during the demo.",
+  "orders": [
+    { "customer": "jordan", "sku": "FW-001", "delivered_days_ago": 10, "demo_case": "Clean defect, genuine photo, low value: auto-approve" },
+    { "customer": "dana", "sku": "EL-003", "delivered_days_ago": 6, "demo_case": "Damage claimed with no photo: back to the customer" },
+    { "customer": "morgan", "sku": "FW-002", "delivered_days_ago": 21, "demo_case": "Worn item claimed as defective: ambiguous call" },
+    { "customer": "quinn", "sku": "FW-003", "delivered_days_ago": 7, "demo_case": "AI-generated damage photo; shared-address account" },
+    { "customer": "morgan", "sku": "CL-005", "delivered_days_ago": 47, "demo_case": "Late return: proposed denial, then a review request" },
+    { "customer": "jordan", "sku": "HM-001", "delivered_days_ago": 5, "demo_case": "High value ($329): always a person" },
+    { "customer": "avery", "sku": "EL-002", "delivered_days_ago": 9, "demo_case": "Prompt-injection note; high return rate" },
+    { "customer": "taylor", "sku": "CL-001", "delivered_days_ago": 3, "demo_case": "Brand-new account" },
+    { "customer": "dana", "sku": "FW-005", "delivered_days_ago": 4, "demo_case": "Final Sale item" }
+  ]
+}

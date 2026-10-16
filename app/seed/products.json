@@ -1,0 +1,25 @@
+[
+  { "sku": "FW-001", "category": "footwear", "name": "Trailrunner Mesh Sneaker", "price_cents": 8900, "description": "Breathable mesh running shoe with a cushioned foam midsole and a grippy rubber outsole." },
+  { "sku": "FW-002", "category": "footwear", "name": "Classic Leather Court Shoe", "price_cents": 11900, "description": "Full-grain white leather low-top with a stitched cupsole." },
+  { "sku": "FW-003", "category": "footwear", "name": "Waterproof Hiking Boot", "price_cents": 15900, "description": "Mid-height boot with a waterproof membrane and lugged outsole for rough trails." },
+  { "sku": "FW-004", "category": "footwear", "name": "Canvas Slip-On", "price_cents": 4900, "description": "Lightweight cotton canvas slip-on with elastic side gussets." },
+  { "sku": "FW-005", "category": "footwear", "name": "Wool Lounge Slipper", "price_cents": 3900, "is_final_sale": true, "description": "Felted wool slipper with a soft suede sole. Clearance item." },
+
+  { "sku": "CL-001", "category": "clothing", "name": "Merino Crew Sweater", "price_cents": 7200, "description": "Fine-gauge merino wool crewneck, machine washable on a wool cycle." },
+  { "sku": "CL-002", "category": "clothing", "name": "Lightweight Rain Jacket", "price_cents": 12900, "description": "Packable waterproof shell with taped seams and an adjustable hood." },
+  { "sku": "CL-003", "category": "clothing", "name": "Stretch Chino Trousers", "price_cents": 6800, "description": "Slim-fit cotton chinos with a touch of stretch." },
+  { "sku": "CL-004", "category": "clothing", "name": "Organic Cotton Tee (3-Pack)", "price_cents": 3500, "description": "Three crewneck tees in organic cotton jersey." },
+  { "sku": "CL-005", "category": "clothing", "name": "Performance Running Shorts", "price_cents": 3500, "description": "Quick-dry running shorts with a zip pocket and built-in liner." },
+  { "sku": "CL-006", "category": "clothing", "name": "Linen Button-Down Shirt", "price_cents": 5800, "is_final_sale": true, "description": "Relaxed-fit linen shirt. Clearance item." },
+
+  { "sku": "EL-001", "category": "electronics", "name": "Wireless Noise-Cancelling Headphones", "price_cents": 19900, "description": "Over-ear headphones with active noise cancelling and 30-hour battery life." },
+  { "sku": "EL-002", "category": "electronics", "name": "Portable Bluetooth Speaker", "price_cents": 7900, "description": "Water-resistant speaker with 12-hour battery life." },
+  { "sku": "EL-003", "category": "electronics", "name": "Smart Fitness Band", "price_cents": 9900, "description": "Activity and sleep tracker with heart-rate monitoring and a colour display." },
+  { "sku": "EL-004", "category": "electronics", "name": "4K Action Camera", "price_cents": 27900, "description": "Waterproof 4K camera with image stabilisation and a mounting kit." },
+  { "sku": "EL-005", "category": "electronics", "name": "USB-C Charging Hub", "price_cents": 4500, "description": "Four-port 65 W USB-C charging hub." },
+
+  { "sku": "HM-001", "category": "home", "name": "Ergonomic Office Chair", "price_cents": 32900, "description": "Mesh-back task chair with adjustable lumbar support and 4D armrests." },
+  { "sku": "HM-002", "category": "home", "name": "Ceramic Pour-Over Coffee Set", "price_cents": 5400, "description": "Ceramic dripper, glass carafe, and two cups." },
+  { "sku": "HM-003", "category": "home", "name": "Stainless Steel Cookware Set", "price_cents": 18900, "description": "Five-piece tri-ply stainless set, induction compatible." },
+  { "sku": "HM-004", "category": "home", "name": "Memory Foam Pillow", "price_cents": 4200, "description": "Contoured memory foam pillow with a removable cover." }
+]

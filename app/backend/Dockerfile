@@ -26,4 +26,7 @@ RUN useradd --system --uid 10001 --no-create-home returnguard
 USER returnguard
 
 EXPOSE 8000
-CMD ["uvicorn", "returnguard.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
+# Keep idle connections open longer than the Next.js proxy does, so the proxy
+# always closes first and never reuses a connection the API just dropped.
+CMD ["uvicorn", "returnguard.main:app", "--host", "0.0.0.0", "--port", "8000", \
+     "--proxy-headers", "--timeout-keep-alive", "75"]

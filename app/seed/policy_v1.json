@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "title": "ShopCo Returns Policy",
+  "effective_date": "2026-09-01",
+  "clauses": [
+    {
+      "clause_id": "P1",
+      "title": "Return window",
+      "body": "Items may be returned up to and including day 30 after delivery. The day of delivery is day 0."
+    },
+    {
+      "clause_id": "P2",
+      "title": "Damaged or defective items",
+      "body": "Items that arrive damaged, or that have a manufacturing defect, are eligible for a full refund, including original shipping."
+    },
+    {
+      "clause_id": "P3",
+      "title": "Normal wear and tear",
+      "body": "Normal wear and tear from use (for example scuffs, creasing, sole wear, pilling, or fading) is not a defect and is not eligible for a refund under P2."
+    },
+    {
+      "clause_id": "P4",
+      "title": "Photo evidence",
+      "body": "A photo of the item is required for any return claiming damage, a defect, a wrong item, or an item not as described."
+    },
+    {
+      "clause_id": "P5",
+      "title": "Change of mind",
+      "body": "Change-of-mind returns must be unused and in their original packaging. A return shipping fee of $6.95 is deducted from the refund."
+    },
+    {
+      "clause_id": "P6",
+      "title": "Final Sale items",
+      "body": "Items marked Final Sale cannot be returned, unless they arrived damaged, defective, or were the wrong item."
+    },
+    {
+      "clause_id": "P7",
+      "title": "High-value refunds",
+      "body": "Any refund above $250 requires approval by a returns manager before it is issued."
+    },
+    {
+      "clause_id": "P8",
+      "title": "Wrong item or not as described",
+      "body": "If we sent the wrong item, or the item is materially different from its product description, the customer receives a full refund including original shipping."
+    },
+    {
+      "clause_id": "P9",
+      "title": "Refund method and timing",
+      "body": "Approved refunds are issued to the original payment method within 5 to 7 business days of approval."
+    }
+  ]
+}

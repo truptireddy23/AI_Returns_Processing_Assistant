@@ -1,0 +1,6 @@
+# Same rules as the backend, minus the ones that flag test fixtures.
+extend = "../app/backend/pyproject.toml"
+
+[lint]
+# Tests use fixed fake credentials.
+extend-ignore = ["S105", "S106", "S107"]

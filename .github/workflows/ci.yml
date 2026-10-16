@@ -48,6 +48,10 @@ jobs:
         run: |
           uv export --frozen --no-dev --no-hashes --no-emit-project -o requirements.txt
           git diff --exit-code -- requirements.txt
+      - name: OpenAPI schema matches the code
+        run: |
+          uv run python scripts/export_openapi.py ../frontend/openapi.json
+          git diff --exit-code -- ../frontend/openapi.json
       - name: Tests
         run: uv run pytest -v
 
@@ -64,6 +68,10 @@ jobs:
           cache: npm
           cache-dependency-path: app/frontend/package-lock.json
       - run: npm ci --no-audit --no-fund
+      - name: Generated API types match openapi.json
+        run: |
+          npm run gen:api
+          git diff --exit-code -- src/lib/api-schema.d.ts
       - name: Lint
         run: npm run lint
       - name: Type check

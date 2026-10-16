@@ -5,8 +5,8 @@ BACKEND := cd backend &&
 FRONTEND := cd frontend &&
 
 .DEFAULT_GOAL := help
-.PHONY: help env up down logs ps migrate psql dev-api dev-worker dev-web \
-        install test lint typecheck fmt check requirements clean
+.PHONY: help env up down logs ps migrate seed reset-db psql dev-api dev-worker dev-web \
+        install test lint typecheck fmt check api-types requirements clean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-14s %s\n", $$1, $$2}'
@@ -26,6 +26,15 @@ logs: ## Follow logs for all services
 
 ps: ## Show service status
 	$(COMPOSE) ps
+
+seed: ## Load demo data (does nothing if users already exist)
+	$(COMPOSE) run --rm -v ./seed:/srv/seed:ro -e SEED_DIR=/srv/seed api python -m returnguard.seed
+
+reset-db: ## Delete all data, then migrate and seed again
+	$(COMPOSE) stop api worker
+	$(COMPOSE) exec db psql -U returnguard -d postgres -c "DROP DATABASE returnguard WITH (FORCE)" -c "CREATE DATABASE returnguard OWNER returnguard"
+	$(MAKE) migrate seed
+	$(COMPOSE) start api worker
 
 migrate: ## Apply database migrations
 	$(COMPOSE) run --rm api alembic upgrade head
@@ -63,6 +72,10 @@ fmt: ## Auto-format backend code
 	$(BACKEND) uv run ruff check --fix . ../../tests && uv run ruff format . ../../tests
 
 check: lint typecheck test ## Everything CI runs
+
+api-types: ## Regenerate openapi.json and the frontend's typed API client
+	$(BACKEND) uv run python scripts/export_openapi.py ../frontend/openapi.json
+	$(FRONTEND) npm run gen:api
 
 requirements: ## Regenerate backend/requirements.txt from uv.lock
 	$(BACKEND) uv export --frozen --no-dev --no-hashes --no-emit-project -o requirements.txt

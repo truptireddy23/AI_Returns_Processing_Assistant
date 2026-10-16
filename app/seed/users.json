@@ -1,0 +1,92 @@
+{
+  "_comment": "Demo accounts for local development only. The seed script refuses to run when ENVIRONMENT=production. Customer profiles drive the generated order and return history.",
+  "passwords": {
+    "customer": "rg-customer-PHNal7QLoJmy",
+    "reviewer": "rg-reviewer-0xV5ymIcTPUC",
+    "admin": "rg-admin-MEgCMKHrvDGd"
+  },
+  "staff": [
+    { "email": "riley.chen@example.com", "display_name": "Riley Chen", "role": "reviewer" },
+    { "email": "jamie.ortiz@example.com", "display_name": "Jamie Ortiz", "role": "reviewer" },
+    { "email": "priya.shah@example.com", "display_name": "Priya Shah", "role": "admin" }
+  ],
+  "customers": [
+    {
+      "key": "jordan",
+      "email": "jordan.ellis@example.com",
+      "display_name": "Jordan Ellis",
+      "profile": "Established, clean history",
+      "account_age_days": 1100,
+      "history_orders": 14,
+      "history_returns": { "approved": 1, "denied": 0 },
+      "address": { "line1": "418 Maple Grove Ave", "city": "Champaign", "postal_code": "61820" },
+      "card_last4": "4242"
+    },
+    {
+      "key": "avery",
+      "email": "avery.collins@example.com",
+      "display_name": "Avery Collins",
+      "profile": "High return rate",
+      "account_age_days": 400,
+      "history_orders": 10,
+      "history_returns": { "approved": 4, "denied": 2 },
+      "address": { "line1": "77 Harbor View Rd, Apt 3", "city": "Urbana", "postal_code": "61801" },
+      "card_last4": "1881"
+    },
+    {
+      "key": "casey",
+      "email": "casey.morgan@example.com",
+      "display_name": "Casey Morgan",
+      "profile": "Shares a shipping address with Quinn Brooks",
+      "account_age_days": 60,
+      "history_orders": 3,
+      "history_returns": { "approved": 2, "denied": 0 },
+      "address": { "line1": "1200 W Springfield Ave", "city": "Champaign", "postal_code": "61821" },
+      "card_last4": "5009"
+    },
+    {
+      "key": "quinn",
+      "email": "quinn.brooks@example.com",
+      "display_name": "Quinn Brooks",
+      "profile": "Shares a shipping address with Casey Morgan",
+      "account_age_days": 45,
+      "history_orders": 3,
+      "history_returns": { "approved": 2, "denied": 0 },
+      "address": { "line1": "1200  w. Springfield Ave", "city": "CHAMPAIGN", "postal_code": "61821" },
+      "card_last4": "7310"
+    },
+    {
+      "key": "taylor",
+      "email": "taylor.kim@example.com",
+      "display_name": "Taylor Kim",
+      "profile": "Brand-new account",
+      "account_age_days": 5,
+      "history_orders": 0,
+      "history_returns": { "approved": 0, "denied": 0 },
+      "address": { "line1": "9 Orchard Lane", "city": "Savoy", "postal_code": "61874" },
+      "card_last4": "6006"
+    },
+    {
+      "key": "morgan",
+      "email": "morgan.lee@example.com",
+      "display_name": "Morgan Lee",
+      "profile": "Established, ordinary history",
+      "account_age_days": 700,
+      "history_orders": 8,
+      "history_returns": { "approved": 1, "denied": 0 },
+      "address": { "line1": "305 E Green St", "city": "Urbana", "postal_code": "61801" },
+      "card_last4": "3141"
+    },
+    {
+      "key": "dana",
+      "email": "dana.whitfield@example.com",
+      "display_name": "Dana Whitfield",
+      "profile": "Established, no returns",
+      "account_age_days": 900,
+      "history_orders": 6,
+      "history_returns": { "approved": 0, "denied": 0 },
+      "address": { "line1": "52 Prairie Rose Ct", "city": "Mahomet", "postal_code": "61853" },
+      "card_last4": "2718"
+    }
+  ]
+}
