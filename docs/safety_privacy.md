@@ -53,9 +53,22 @@ production deployment we'd add a CAPTCHA or email unlock instead of a hard block
 - Demo data and accounts can't be loaded in production: the seed script refuses when
   `ENVIRONMENT=production`.
 
+## Hosted database (Neon)
+
+- Connections to Neon always use TLS (`sslmode=require`, passed to the driver as
+  `ssl=require`); the password-based login is SCRAM.
+- The app uses Neon's pooled endpoint; migrations use the direct one, and refuse to run
+  through the pooler.
+- Only synthetic demo data is stored there: invented customers at `example.com`
+  addresses, and no real payment details (last 4 digits of test card numbers only).
+- Tests never touch it: they run on a separate local database, whatever `app/.env` says.
+- Startup logs name the database host and whether it's pooled, never the credentials.
+
 ## Secrets
 
-- `app/.env` is git-ignored; only `app/.env.example` (no values) is committed.
+- `app/.env` (and the root `.env` the Neon CLI writes) are git-ignored; only
+  `app/.env.example` (no values) is committed. The Neon link file `.neon` is git-ignored
+  too.
 - Log entries whose keys look like secrets (`password`, `token`, `api_key`,
   `authorization`, `cookie`, …) are redacted before they're written.
 

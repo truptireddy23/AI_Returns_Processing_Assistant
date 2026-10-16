@@ -12,6 +12,44 @@ providers (Groq, OpenAI) and Langfuse Cloud, which are added in later milestones
 | uv | 0.9+ | Backend development and tests (optional for just running) |
 | Node.js + npm | 24 + 11 | Frontend development (optional for just running) |
 
+## Choose a database
+
+The app runs on either database; `DATABASE_URL` in `app/.env` decides.
+
+| | Hosted: **Neon** (shared demo data) | Local: Docker Postgres |
+|---|---|---|
+| Use it for | The team's shared data and the live demo | Working offline, or a private copy |
+| Set up | See [Connect to Neon](#connect-to-neon) | Leave `DATABASE_URL` and `DATABASE_URL_UNPOOLED` empty |
+
+Tests always use their own local database (`returnguard_test`), whichever you choose, so
+`make up` still starts the local Postgres container.
+
+### Connect to Neon
+
+The project is `returnguard` (`patient-cake-09777018`), branch `production`, in
+`aws-us-east-2`. Ask Aditya to invite you to the Neon organization, then:
+
+```bash
+npm i -g neon               # Neon CLI
+neon login                  # finish signing in in the browser
+neon link --project-id patient-cake-09777018 --branch production -y   # from the repo root
+neon env pull --file app/.env
+```
+
+That writes two connection strings into `app/.env`; paste them as-is, the app adapts
+them for its driver:
+
+- `DATABASE_URL` — pooled (`-pooler` in the host). The app and worker use it.
+- `DATABASE_URL_UNPOOLED` — direct. `make migrate` uses it, because migrations must
+  not go through a transaction pooler.
+
+Neon scales to zero after a few idle minutes: the first request afterwards takes a
+moment longer while it wakes. The worker deliberately doesn't query the database while
+it's idle, so the database can sleep and stay within the free plan's compute hours.
+
+`neon.ts` (repo root) declares the Neon services this project uses — Postgres only so
+far. `neon deploy` applies it.
+
 ## Run the stack
 
 All commands run from the `app/` directory.
@@ -23,6 +61,9 @@ make up         # builds and starts db, api, worker, web; waits until healthy
 make migrate    # applies database migrations
 make seed       # loads the demo data (safe to re-run; does nothing if already loaded)
 ```
+
+On Neon, `migrate` and `seed` only need running once for the whole team; they're already
+done for the `production` branch.
 
 Open <http://localhost:3000>. The **System status** panel should show **API ok** and
 **Database ok**. Then **Sign in** with one of the demo accounts.
@@ -48,13 +89,14 @@ sharing an address, a brand-new account); see `seed/users.json` and
 |---|---|---|
 | web | <http://localhost:3000> | Next.js frontend (proxies `/api/*` to the API) |
 | api | <http://localhost:8000/api/docs> | FastAPI, with interactive API docs |
-| db | `localhost:5432` | Postgres 16 + pgvector (user / password / db: `returnguard`) |
+| db | `localhost:5432` | Local Postgres 16 + pgvector (user / password / db: `returnguard`); used by tests, and by the app when `DATABASE_URL` is empty |
 | worker | — | Pipeline worker (logs only: `docker compose logs -f worker`) |
 
 All ports are bound to `127.0.0.1` only.
 
-Stop with `make down` (keeps data), `make reset-db` (wipes and re-seeds the data), or
-`make clean` (deletes the database volume).
+Stop with `make down` (keeps data). `make reset-db` wipes and re-seeds whichever database
+`DATABASE_URL` points at, **including Neon, for everyone**, so check before running it.
+`make clean` deletes the local database volume.
 
 ## Develop
 
@@ -83,5 +125,8 @@ Run `make help` for every command.
   left-hand port in `docker-compose.yml`.
 - **"Too many attempts" when signing in** — sign-in is rate limited per address and per
   account (counters are in memory); `docker compose restart api` clears them locally.
+- **`Migrations need a direct connection`** — set `DATABASE_URL_UNPOOLED` (run
+  `neon env pull --file app/.env` again).
+- **First request is slow / times out once** — Neon was asleep; retry.
 - **Database shows "unavailable"** — `docker compose ps` to check the `db` container; the
   API and worker recover on their own once it is back.

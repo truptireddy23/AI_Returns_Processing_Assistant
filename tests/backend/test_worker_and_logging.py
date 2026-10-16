@@ -3,6 +3,7 @@ import asyncio
 import pytest
 
 from returnguard import db, worker
+from returnguard.config import Settings
 from returnguard.log_config import _redact_secrets
 
 
@@ -33,6 +34,26 @@ async def test_worker_survives_database_outage(monkeypatch: pytest.MonkeyPatch) 
     stop.set()
     await asyncio.wait_for(task, timeout=1)
     assert calls >= 1
+
+
+async def test_idle_worker_does_not_keep_querying_the_database(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A hosted database (Neon) only scales to zero if nothing touches it."""
+    calls = 0
+
+    async def counting_ping() -> None:
+        nonlocal calls
+        calls += 1
+
+    monkeypatch.setattr(db, "ping", counting_ping)
+    monkeypatch.setattr(worker, "get_settings", lambda: Settings(worker_poll_seconds=0.01))
+    stop = asyncio.Event()
+    task = asyncio.create_task(worker.run(stop))
+    await asyncio.sleep(0.2)  # ~20 idle loops
+    stop.set()
+    await asyncio.wait_for(task, timeout=1)
+    assert calls == 1  # the startup check only
 
 
 def test_secrets_are_redacted_from_log_events() -> None:

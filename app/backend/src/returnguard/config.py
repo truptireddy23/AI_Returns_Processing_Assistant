@@ -1,22 +1,31 @@
 """Runtime settings, read from environment variables (and `.env` in local runs)."""
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
 from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# app/.env, wherever the process is started from (inside Docker the file doesn't
+# exist and the variables come from docker-compose instead).
+APP_ENV_FILE = Path(__file__).resolve().parents[3] / ".env"
+
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=APP_ENV_FILE, extra="ignore")
 
     environment: Literal["local", "test", "production"] = "local"
     log_level: str = "INFO"
     log_json: bool = True
 
-    database_url: SecretStr = SecretStr(
-        "postgresql+asyncpg://returnguard:returnguard@localhost:5432/returnguard"
-    )
+    # Any Postgres URL, e.g. the pooled connection string Neon gives you. Empty
+    # means the local docker-compose database (returnguard.db.LOCAL_DATABASE_URL).
+    database_url: SecretStr = SecretStr("")
+    # Direct (non-pooled) URL for migrations and session features such as
+    # LISTEN/NOTIFY. Neon provides it as DATABASE_URL_UNPOOLED; when empty,
+    # DATABASE_URL is used.
+    database_url_unpooled: SecretStr = SecretStr("")
 
     worker_poll_seconds: float = 2.0
 

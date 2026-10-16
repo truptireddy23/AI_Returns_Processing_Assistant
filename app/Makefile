@@ -30,16 +30,14 @@ ps: ## Show service status
 seed: ## Load demo data (does nothing if users already exist)
 	$(COMPOSE) run --rm -v ./seed:/srv/seed:ro -e SEED_DIR=/srv/seed api python -m returnguard.seed
 
-reset-db: ## Delete all data, then migrate and seed again
-	$(COMPOSE) stop api worker
-	$(COMPOSE) exec db psql -U returnguard -d postgres -c "DROP DATABASE returnguard WITH (FORCE)" -c "CREATE DATABASE returnguard OWNER returnguard"
+reset-db: ## Delete all data, then migrate and seed again (local or Neon)
+	$(COMPOSE) run --rm api alembic downgrade base
 	$(MAKE) migrate seed
-	$(COMPOSE) start api worker
 
-migrate: ## Apply database migrations
+migrate: ## Apply database migrations (to DATABASE_URL_UNPOOLED, or DATABASE_URL)
 	$(COMPOSE) run --rm api alembic upgrade head
 
-psql: ## Open a psql shell on the database
+psql: ## Open a psql shell on the local Docker database
 	$(COMPOSE) exec db psql -U returnguard -d returnguard
 
 # --- Local development (outside Docker; needs `make up` for the db) ---

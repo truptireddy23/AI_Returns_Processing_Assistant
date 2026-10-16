@@ -1,7 +1,11 @@
 """Pipeline worker process.
 
-M1: the loop, heartbeat logging, and graceful shutdown only. Job claiming
+For now: startup check, the loop, and graceful shutdown. Job claiming
 (`FOR UPDATE SKIP LOCKED` on the `jobs` table) and the pipeline arrive in M4.
+
+The idle loop must not query the database: a hosted database such as Neon scales
+to zero only when nothing touches it, and a query every few seconds would keep it
+awake (and billing compute) around the clock.
 """
 
 import asyncio
@@ -18,13 +22,18 @@ log = structlog.get_logger(__name__)
 
 async def run(stop: asyncio.Event) -> None:
     settings = get_settings()
-    log.info("worker.startup", version=__version__, poll_seconds=settings.worker_poll_seconds)
+    log.info(
+        "worker.startup",
+        version=__version__,
+        poll_seconds=settings.worker_poll_seconds,
+        **db.describe(db.database_url()),
+    )
+    try:
+        await db.ping()
+    except Exception as exc:
+        # Keep running: the database may be waking up or briefly unreachable.
+        log.warning("worker.database_unreachable", error=type(exc).__name__)
     while not stop.is_set():
-        try:
-            await db.ping()
-            log.debug("worker.heartbeat")
-        except Exception as exc:
-            log.warning("worker.database_unreachable", error=type(exc).__name__)
         try:
             await asyncio.wait_for(stop.wait(), timeout=settings.worker_poll_seconds)
         except TimeoutError:
