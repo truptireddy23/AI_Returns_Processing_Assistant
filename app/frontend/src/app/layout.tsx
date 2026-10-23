@@ -4,6 +4,7 @@ import "./globals.css";
 
 import { SiteHeader } from "@/components/site-header";
 import { AuthProvider } from "@/lib/auth";
+import { CartProvider } from "@/lib/cart";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,8 +29,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col">
         <AuthProvider>
-          <SiteHeader />
-          <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col px-4 py-10">{children}</main>
+          <CartProvider>
+            <SiteHeader />
+            <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-4 py-10">{children}</main>
+          </CartProvider>
         </AuthProvider>
       </body>
     </html>

@@ -70,6 +70,8 @@ class FailureLimit:
         await _limiter.hit(self.item, self.scope, key)
 
 
-async def reset() -> None:
-    """Clear all counters (tests)."""
-    await _storage.reset()
+def reset() -> None:
+    """Clear all counters (tests) by starting from empty storage."""
+    global _storage, _limiter
+    _storage = MemoryStorage()
+    _limiter = MovingWindowRateLimiter(_storage)

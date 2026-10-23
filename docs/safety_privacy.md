@@ -72,11 +72,41 @@ production deployment we'd add a CAPTCHA or email unlock instead of a hard block
 - Log entries whose keys look like secrets (`password`, `token`, `api_key`,
   `authorization`, `cookie`, …) are redacted before they're written.
 
+## Photo uploads (built in M3)
+
+`app/backend/src/returnguard/images.py` treats every upload as hostile:
+
+| Step | How |
+|---|---|
+| Size | Read at most `UPLOAD_MAX_BYTES` (10 MB) + 1 byte; anything bigger gets `413`. |
+| Real type | Decided from the bytes, not the filename or `Content-Type`; only JPEG, PNG, WebP. A PDF, executable, script or GIF renamed to `.jpg` is refused (`422`). |
+| Decompression bombs | Pixel count capped (`upload_max_pixels`, 40 M) before decoding; Pillow's bomb warning is treated as an error. |
+| Integrity | `verify()` on the parsed file, then a full decode; truncated or corrupt files are refused. |
+| Metadata | Read *first*, as evidence for the photo-authenticity check: whether EXIF exists, camera make/model, capture time, editing software, and generator hints in PNG text chunks. **GPS coordinates are never stored**, only whether they were present. |
+| Re-encoding | The pixels are rotated per EXIF, converted to RGB, scaled to at most 3000 px, and saved as a fresh JPEG. All metadata and anything hidden in the original file are dropped. |
+| Fingerprints | SHA-256 of the original (same file reused) and a 64-bit difference hash of the image (near-duplicates, e.g. a catalog photo resubmitted as "damage"). |
+
+Stored photos live in a **private** Neon Object Storage bucket (`return-photos`, keys
+`returns/<return id>/<random uuid>.jpg`). The browser never gets a bucket URL: the API serves
+each photo only to the customer who owns the return and to reviewers/admins, with
+`Cache-Control: private, no-store` and `X-Content-Type-Options: nosniff`; anyone else gets
+`404`, the same as a missing photo. If storage is down, starting a return fails cleanly
+(`503`, nothing saved); if the database write fails after the upload, the orphaned object
+is deleted.
+
+## Checkout (built in M3)
+
+- Only published **test** card numbers are accepted (e.g. `4242 4242 4242 4242`), so
+  nobody can type a real card into the demo. Card number and CVC are `SecretStr` (never
+  logged or echoed); only the last 4 digits are stored.
+- Prices and totals are computed on the server from the database; the browser only sends
+  product IDs and quantities (1–5 each, at most 20 lines).
+- Rate limited: `CHECKOUT_RATE_LIMIT` and `RETURN_RATE_LIMIT` (10/minute per client IP).
+- A return can only be started by the customer who owns the order item, once per item,
+  after delivery; the refund amount is computed by the server.
+
 ## Planned
 
-- *(M3)* Upload handling: file type checked from bytes, size and dimension caps,
-  metadata read for the authenticity check, then the image is re-encoded to strip it.
-- *(M3)* Rate limits on checkout and return submission.
 - *(M5)* Masking customer names, emails, addresses, and gendered words before every
   model call (M8); Langfuse receives masked inputs only.
 - *(M5)* Prompt-injection handling: customer text is passed as quoted data; the gate is

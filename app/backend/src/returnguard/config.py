@@ -35,6 +35,25 @@ class Settings(BaseSettings):
     login_rate_limit: str = "10/minute"  # per client IP
     login_account_failure_limit: str = "20/hour"  # failed attempts per account
 
+    # Public write endpoints (per client IP)
+    checkout_rate_limit: str = "10/minute"
+    return_rate_limit: str = "10/minute"
+
+    # Return photo storage. With AWS_ENDPOINT_URL_S3 set (Neon Object Storage,
+    # pulled by `neon env pull`), photos go to the S3 bucket; otherwise to a
+    # local folder (offline work and tests).
+    storage_bucket: str = "return-photos"
+    aws_endpoint_url_s3: str = ""
+    aws_access_key_id: SecretStr = SecretStr("")
+    aws_secret_access_key: SecretStr = SecretStr("")
+    aws_region: str = "us-east-2"
+    local_storage_dir: str = str(Path(__file__).resolve().parents[3] / "storage")
+
+    # Uploads
+    upload_max_bytes: int = 10 * 1024 * 1024  # 10 MB
+    upload_max_pixels: int = 40_000_000  # ~ 8000 x 5000; guards against decompression bombs
+    upload_max_side: int = 3000  # stored copies are scaled down to this
+
     # Seeding (local and test only)
     seed_dir: str = "../seed"
 

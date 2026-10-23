@@ -10,7 +10,8 @@ from fastapi import FastAPI, Response, status
 from returnguard import __version__, auth, db
 from returnguard.config import get_settings
 from returnguard.log_config import configure_logging
-from returnguard.routers import admin, orders, review
+from returnguard.routers import admin, catalog, orders, returns, review
+from returnguard.storage import get_storage
 
 log = structlog.get_logger(__name__)
 
@@ -23,6 +24,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         "api.startup",
         version=__version__,
         environment=settings.environment,
+        storage=get_storage().name,
         **db.describe(db.database_url()),
     )
     yield
@@ -40,7 +42,9 @@ def create_app() -> FastAPI:
     )
     app.add_middleware(CorrelationIdMiddleware, header_name="X-Request-ID")
     app.include_router(auth.router)
+    app.include_router(catalog.router)
     app.include_router(orders.router)
+    app.include_router(returns.router)
     app.include_router(review.router)
     app.include_router(admin.router)
 
