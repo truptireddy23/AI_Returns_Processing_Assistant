@@ -10,6 +10,8 @@ x-backend: &backend
     # Trust X-Forwarded-For from the Next.js server, so rate limits see the
     # browser's address. The API port is bound to localhost only.
     FORWARDED_ALLOW_IPS: "*"
+    # The API wakes the worker here when it queues a job (internal network only).
+    WORKER_WAKE_URL: http://worker:8001/wake
   depends_on:
     db:
       condition: service_healthy
@@ -47,6 +49,12 @@ services:
     <<: *backend
     command: ["python", "-m", "returnguard.worker"]
     stop_grace_period: 30s
+    # Port 8001 (wake-ups) is not published: only the API, on this network, can reach it.
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/healthz')"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
   web:
     build: ./frontend

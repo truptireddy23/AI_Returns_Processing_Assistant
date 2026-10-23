@@ -107,6 +107,28 @@ is deleted.
 - A return can only be started by the customer who owns the order item, once per item,
   after delivery; the refund amount is computed by the server.
 
+## Decisions and fail-safes (built in M4)
+
+- **One finalizer.** Only the governance gate (`pipeline/gate.py`, a pure function) turns
+  a review into an outcome. It decides from the check results, not from the model's
+  label, so "approve" can't carry a case past a failed check.
+- **Fixed rules**, enforced in code and tested exhaustively: the AI never denies (a
+  proposed denial always goes to a person, and the database rejects an automatic denial);
+  an unverified photo is never auto-approved; an ambiguous call always goes to a person.
+- **Auto-approval** needs automation switched on *and* every check clear: eligible,
+  photo verified or not needed, no ambiguity, no critic concern, risk below the limit,
+  refund at or below the high-value limit; then 10% are still sampled to a person (QA).
+- **Missing evidence goes back to the customer**, never to a decision.
+- **Fail closed.** A job that fails is retried with backoff (30 s, then 2 min); after 3
+  attempts the case goes to a person as "Pipeline error". A worker that crashes mid-job
+  leaves it "running"; it is reclaimed after 10 minutes. Jobs are written in the same
+  transaction as the return, so none can be lost.
+- **Behaviour risk is transparent and limited** (`pipeline/behavior.py`): return rate,
+  recent returns, account age, accounts sharing a shipping address (by fingerprint), and
+  refund size, each with a published weight. No names, demographics, or raw addresses.
+- **The worker's wake-up port** (8001) is not published outside the Docker network; a
+  wake-up carries no data, so the worst a stray request can do is make it look for jobs.
+
 ## Planned
 
 - *(M5)* Masking customer names, emails, addresses, and gendered words before every
