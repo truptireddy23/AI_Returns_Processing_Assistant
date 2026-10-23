@@ -83,6 +83,9 @@ only; the seed refuses to run when `ENVIRONMENT=production`).
 | Reviewer | `riley.chen@example.com` | Review queue |
 | Admin | `priya.shah@example.com` | Automation settings |
 
+Anyone can also **Create account** (customers only; staff accounts come from the seed).
+Passwords need at least 10 characters and can't be your email or a common password.
+
 Customers can browse the **Shop**, add to the **Cart**, and check out with the test card
 `4242 4242 4242 4242` (any future expiry, any 3-digit code; no money moves, and only test
 card numbers are accepted). Delivery is instant in the demo, so **My orders → Return item**

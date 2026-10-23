@@ -13,14 +13,15 @@ from typing import Annotated
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from sqlalchemy import delete, func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from returnguard import audit, security
 from returnguard.config import get_settings
 from returnguard.db import get_session
-from returnguard.models import Role, Session, User
+from returnguard.models import ActorType, Role, Session, User
 from returnguard.ratelimit import FailureLimit, rate_limit
 
 log = structlog.get_logger(__name__)
@@ -38,6 +39,14 @@ DbSession = Annotated[AsyncSession, Depends(get_session)]
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=1, max_length=200)
+
+
+class SignupRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")  # e.g. a "role" field is refused, not ignored
+
+    email: EmailStr
+    password: str = Field(min_length=1, max_length=200)
+    display_name: str = Field(min_length=1, max_length=100)
 
 
 class UserOut(BaseModel):
@@ -94,6 +103,43 @@ def require_role(*roles: Role) -> Callable[[Session], Awaitable[User]]:
     return dependency
 
 
+# --- Sessions ---------------------------------------------------------------
+
+
+async def _start_session(
+    db: AsyncSession, user: User, request: Request, response: Response, *, action: str
+) -> Session:
+    """Create a session for `user`, commit, and set the session cookie."""
+    settings = get_settings()
+    # Drop this user's expired sessions while we're here.
+    await db.execute(
+        delete(Session).where(Session.user_id == user.id, Session.expires_at <= func.now())
+    )
+    token = security.new_token()
+    session = Session(
+        token_hash=security.hash_token(token),
+        user_id=user.id,
+        csrf_token=security.new_token(),
+        expires_at=datetime.now(UTC) + timedelta(hours=settings.session_ttl_hours),
+        user_agent=(request.headers.get("user-agent") or "")[:255] or None,
+    )
+    db.add(session)
+    audit.record(
+        db, actor_type=audit.actor_for_role(user.role), actor_user_id=user.id, action=action
+    )
+    await db.commit()
+    response.set_cookie(
+        SESSION_COOKIE,
+        token,
+        max_age=settings.session_ttl_hours * 3600,
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite="lax",
+        path="/",
+    )
+    return session
+
+
 # --- Routes -----------------------------------------------------------------
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -111,7 +157,6 @@ _account_failures = FailureLimit(get_settings().login_account_failure_limit, "lo
 async def login(
     body: LoginRequest, request: Request, response: Response, db: DbSession
 ) -> AuthState:
-    settings = get_settings()
     account_key = body.email.lower()
     await _account_failures.check(account_key)
     user = await db.scalar(select(User).where(func.lower(User.email) == account_key))
@@ -122,38 +167,44 @@ async def login(
         log.info("auth.login_failed", known_user=user is not None)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid email or password")
 
-    # Drop this user's expired sessions while we're here.
-    await db.execute(
-        delete(Session).where(Session.user_id == user.id, Session.expires_at <= func.now())
-    )
-
-    token = security.new_token()
-    session = Session(
-        token_hash=security.hash_token(token),
-        user_id=user.id,
-        csrf_token=security.new_token(),
-        expires_at=datetime.now(UTC) + timedelta(hours=settings.session_ttl_hours),
-        user_agent=(request.headers.get("user-agent") or "")[:255] or None,
-    )
-    db.add(session)
-    audit.record(
-        db,
-        actor_type=audit.actor_for_role(user.role),
-        actor_user_id=user.id,
-        action="auth.login",
-    )
-    await db.commit()
-
-    response.set_cookie(
-        SESSION_COOKIE,
-        token,
-        max_age=settings.session_ttl_hours * 3600,
-        httponly=True,
-        secure=settings.cookie_secure,
-        samesite="lax",
-        path="/",
-    )
+    session = await _start_session(db, user, request, response, action="auth.login")
     log.info("auth.login", user_id=str(user.id), role=user.role.value)
+    return AuthState(user=_user_out(user), csrf_token=session.csrf_token)
+
+
+@router.post(
+    "/signup",
+    response_model=AuthState,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(rate_limit(get_settings().signup_rate_limit, "signup"))],
+)
+async def signup(
+    body: SignupRequest, request: Request, response: Response, db: DbSession
+) -> AuthState:
+    """Create a **customer** account and sign it in. Staff accounts can't be self-created."""
+    email = body.email.strip()
+    if problem := security.password_problem(body.password, email):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, problem)
+    if await db.scalar(select(User.id).where(func.lower(User.email) == email.lower())):
+        raise HTTPException(status.HTTP_409_CONFLICT, "An account with this email already exists")
+
+    user = User(
+        email=email,
+        display_name=body.display_name.strip(),
+        role=Role.CUSTOMER,  # never taken from the request
+        password_hash=security.hash_password(body.password),
+    )
+    db.add(user)
+    try:
+        await db.flush()
+    except IntegrityError as exc:  # two sign-ups with the same email at once
+        await db.rollback()
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "An account with this email already exists"
+        ) from exc
+    audit.record(db, actor_type=ActorType.CUSTOMER, actor_user_id=user.id, action="auth.signup")
+    session = await _start_session(db, user, request, response, action="auth.login")
+    log.info("auth.signup", user_id=str(user.id))
     return AuthState(user=_user_out(user), csrf_token=session.csrf_token)
 
 

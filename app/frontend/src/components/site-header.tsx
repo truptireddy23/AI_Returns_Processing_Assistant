@@ -62,6 +62,9 @@ export function SiteHeader() {
           <nav className="flex items-center gap-4 text-sm" aria-label="Account">
             <Link href="/shop" className="hover:underline">Shop</Link>
             <Link href="/login" className="hover:underline">Sign in</Link>
+            <Link href="/signup" className="rounded bg-zinc-900 px-2 py-1 text-white hover:opacity-90 dark:bg-zinc-100 dark:text-zinc-900">
+              Create account
+            </Link>
           </nav>
         ) : null}
       </div>

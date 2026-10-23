@@ -9,8 +9,11 @@ type AuthState =
   | { status: "signed_out"; user: null }
   | { status: "signed_in"; user: User };
 
+type AuthResult = { ok: true; user: User } | { ok: false; message: string };
+
 type AuthContextValue = AuthState & {
-  login: (email: string, password: string) => Promise<{ ok: true; user: User } | { ok: false; message: string }>;
+  login: (email: string, password: string) => Promise<AuthResult>;
+  signup: (email: string, password: string, displayName: string) => Promise<AuthResult>;
   /** Ends the session. Resolves false if the server couldn't, so the UI never
    * shows a signed-out state while the session is still live. */
   logout: () => Promise<boolean>;
@@ -52,6 +55,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { ok: true as const, user: data.user };
   }, []);
 
+  const signup = useCallback(async (email: string, password: string, displayName: string) => {
+    const { data, error, response } = await api.POST("/api/auth/signup", {
+      body: { email, password, display_name: displayName },
+    });
+    if (!data) {
+      const fallback =
+        response.status === 429 ? "Too many sign-ups from this address. Please try later." : "Sign-up failed.";
+      return { ok: false as const, message: errorMessage(error, fallback) };
+    }
+    setCsrfToken(data.csrf_token);
+    setState({ status: "signed_in", user: data.user });
+    return { ok: true as const, user: data.user };
+  }, []);
+
   const logout = useCallback(async () => {
     let status: number;
     try {
@@ -66,7 +83,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return true;
   }, []);
 
-  const value = useMemo(() => ({ ...state, login, logout }), [state, login, logout]);
+  const value = useMemo(() => ({ ...state, login, signup, logout }), [state, login, signup, logout]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

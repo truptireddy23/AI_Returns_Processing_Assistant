@@ -11,6 +11,7 @@ grows with each milestone; sections marked *(planned)* describe work not built y
 | Sessions | A random 256-bit token in an `httpOnly`, `SameSite=Lax` cookie. The database stores only its SHA-256 hash, so a database leak doesn't hand out live sessions. Sessions expire after `SESSION_TTL_HOURS` (default 12); signing out deletes the row. |
 | HTTPS cookies | `COOKIE_SECURE=true` sends the cookie over HTTPS only. The API refuses to start in production without it. |
 | CSRF | Every state-changing request from a signed-in user must send the session's CSRF token in `X-CSRF-Token`. The token is held in browser memory, not storage. |
+| Sign-up | Self-service sign-up creates **customer** accounts only: the request schema forbids extra fields, so a `role` can't be smuggled in, and the role is set in code. Passwords: at least 10 characters, not the email (or its name part), not a common password, not one repeated character. Rate limited (`SIGNUP_RATE_LIMIT`, 5/hour per client IP) and audited (`auth.signup`). An email already in use gets a `409`, which does reveal that the account exists; the rate limit bounds that, and a production shop would switch to email verification. |
 | Roles | `customer`, `reviewer`, `admin`, checked on the server for every endpoint. Customers see only their own orders. Admins hold every reviewer right. |
 | Failed sign-ins | One generic message ("Invalid email or password") whether the email exists, the password is wrong, or the account is disabled; unknown emails still run a password check so timing doesn't reveal which accounts exist. |
 | Sign-out | The UI only shows "signed out" once the server confirms it; if the API is unreachable it says so and keeps the user signed in rather than pretending. |
@@ -21,6 +22,7 @@ grows with each milestone; sections marked *(planned)* describe work not built y
 | Limit | Default | Key |
 |---|---|---|
 | Sign-in attempts | `LOGIN_RATE_LIMIT=10/minute` | Client IP |
+| New accounts | `SIGNUP_RATE_LIMIT=5/hour` | Client IP |
 | Failed sign-ins | `LOGIN_ACCOUNT_FAILURE_LIMIT=20/hour` | Account email |
 
 Over the limit, the API answers `429 Too Many Requests` with a `Retry-After` header.

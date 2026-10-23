@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     cookie_secure: bool = False  # must be true in production (HTTPS only)
     login_rate_limit: str = "10/minute"  # per client IP
     login_account_failure_limit: str = "20/hour"  # failed attempts per account
+    signup_rate_limit: str = "5/hour"  # new accounts per client IP
 
     # Public write endpoints (per client IP)
     checkout_rate_limit: str = "10/minute"
