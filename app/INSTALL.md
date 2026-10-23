@@ -89,7 +89,9 @@ Passwords need at least 10 characters and can't be your email or a common passwo
 Customers can browse the **Shop**, add to the **Cart**, and check out with the test card
 `4242 4242 4242 4242` (any future expiry, any 3-digit code; no money moves, and only test
 card numbers are accepted). Delivery is instant in the demo, so **My orders → Return item**
-works straight away.
+works straight away. Click an order in **My orders** for its details (order ID, who
+ordered it, placed and delivered times, shipping and billing addresses, the card's last 4
+digits) and to return items from there.
 
 Each customer is set up for a demo case (clean history, high return rate, two accounts
 sharing an address, a brand-new account); see `seed/users.json` and

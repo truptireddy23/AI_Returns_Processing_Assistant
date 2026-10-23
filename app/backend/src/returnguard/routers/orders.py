@@ -68,7 +68,7 @@ class CartLine(BaseModel):
     quantity: int = Field(ge=1, le=MAX_QUANTITY)
 
 
-class ShippingAddress(BaseModel):
+class Address(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     line1: str = Field(min_length=1, max_length=200)
     city: str = Field(min_length=1, max_length=100)
@@ -84,8 +84,21 @@ class TestCard(BaseModel):
 
 class CheckoutRequest(BaseModel):
     items: list[CartLine] = Field(min_length=1, max_length=20)
-    shipping: ShippingAddress
+    shipping: Address
+    billing: Address | None = None  # None: billed to the shipping address
     card: TestCard
+
+
+class BillingAddressOut(Address):
+    same_as_shipping: bool
+
+
+class OrderDetailOut(OrderOut):
+    customer_name: str
+    customer_email: str
+    shipping: Address
+    billing: BillingAddressOut
+    items_total_cents: int
 
 
 # --- Helpers ----------------------------------------------------------------
@@ -180,6 +193,7 @@ async def checkout(body: CheckoutRequest, user: Customer, db: DbSession) -> Orde
 
     now = datetime.now(UTC)
     ship = body.shipping
+    bill = body.billing or ship
     items = [
         OrderItem(product_id=pid, quantity=qty, unit_price_cents=products[pid].price_cents)
         for pid, qty in quantities.items()
@@ -193,6 +207,10 @@ async def checkout(body: CheckoutRequest, user: Customer, db: DbSession) -> Orde
         shipping_line1=ship.line1,
         shipping_city=ship.city,
         shipping_postal_code=ship.postal_code,
+        billing_name=bill.name,
+        billing_line1=bill.line1,
+        billing_city=bill.city,
+        billing_postal_code=bill.postal_code,
         address_fingerprint=addresses.fingerprint(ship.line1, ship.city, ship.postal_code),
         card_last4=last4,
         total_cents=sum(i.unit_price_cents * i.quantity for i in items),
@@ -218,3 +236,45 @@ async def checkout(body: CheckoutRequest, user: Customer, db: DbSession) -> Orde
     )
     assert fresh is not None
     return (await _order_out(db, [fresh]))[0]
+
+
+def _shipping(o: Order) -> Address:
+    return Address(
+        name=o.shipping_name,
+        line1=o.shipping_line1,
+        city=o.shipping_city,
+        postal_code=o.shipping_postal_code,
+    )
+
+
+def _billing(o: Order) -> BillingAddressOut:
+    shipping = _shipping(o)
+    if o.billing_line1 is None:  # placed before billing was collected
+        return BillingAddressOut(**shipping.model_dump(), same_as_shipping=True)
+    billing = Address(
+        name=o.billing_name or o.shipping_name,
+        line1=o.billing_line1,
+        city=o.billing_city or "",
+        postal_code=o.billing_postal_code or "",
+    )
+    return BillingAddressOut(**billing.model_dump(), same_as_shipping=billing == shipping)
+
+
+@router.get("/{order_id}", response_model=OrderDetailOut)
+async def get_my_order(order_id: uuid.UUID, user: Customer, db: DbSession) -> OrderDetailOut:
+    order = await db.scalar(
+        select(Order)
+        .where(Order.id == order_id, Order.customer_id == user.id)
+        .options(selectinload(Order.items).selectinload(OrderItem.product))
+    )
+    if order is None:  # someone else's order looks the same as a missing one
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
+    summary = (await _order_out(db, [order]))[0]
+    return OrderDetailOut(
+        **summary.model_dump(),
+        customer_name=user.display_name,
+        customer_email=user.email,
+        shipping=_shipping(order),
+        billing=_billing(order),
+        items_total_cents=sum(i.unit_price_cents * i.quantity for i in order.items),
+    )

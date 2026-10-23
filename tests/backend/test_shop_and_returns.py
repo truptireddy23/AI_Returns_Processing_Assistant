@@ -375,3 +375,91 @@ async def test_customers_see_a_failed_review_as_under_review(
     reviewer = await make_user(db_session, Role.REVIEWER)
     await sign_in(db_client, reviewer)
     assert (await db_client.get(f"/api/returns/{ret.id}")).json()["status"] == "failed"
+
+
+# --- Order details ------------------------------------------------------------
+
+BILLING = {"name": "Pat Payer", "line1": "9 Billing Rd", "city": "Payville", "postal_code": "11111"}
+
+
+async def place_order(client: httpx.AsyncClient, product: Product, **extra: Any) -> dict[str, Any]:
+    res = await client.post(
+        "/api/orders",
+        json={
+            "items": [{"product_id": str(product.id), "quantity": 2}],
+            "shipping": SHIPPING,
+            "card": CARD,
+            **extra,
+        },
+    )
+    assert res.status_code == 201, res.text
+    order: dict[str, Any] = res.json()
+    return order
+
+
+async def test_order_details_show_people_addresses_card_and_times(
+    db_client: httpx.AsyncClient, db_session: AsyncSession
+) -> None:
+    customer = await make_user(db_session)
+    mug = await make_product(db_session, price=1250)
+    await sign_in(db_client, customer)
+    order = await place_order(db_client, mug, billing=BILLING)
+
+    res = await db_client.get(f"/api/orders/{order['id']}")
+
+    assert res.status_code == 200, res.text
+    d = res.json()
+    assert d["order_number"] == order["order_number"]
+    assert d["customer_name"] == customer.display_name
+    assert d["customer_email"] == customer.email
+    assert d["shipping"] == SHIPPING
+    assert d["billing"] == {**BILLING, "same_as_shipping": False}
+    assert d["card_last4"] == "4242"
+    assert d["placed_at"] and d["delivered_at"]
+    assert d["items_total_cents"] == d["total_cents"] == 2500
+    assert d["items"][0]["return_id"] is None  # returnable from the page
+
+
+async def test_billing_defaults_to_the_shipping_address(
+    db_client: httpx.AsyncClient, db_session: AsyncSession
+) -> None:
+    customer = await make_user(db_session)
+    mug = await make_product(db_session)
+    await sign_in(db_client, customer)
+    order = await place_order(db_client, mug)
+
+    d = (await db_client.get(f"/api/orders/{order['id']}")).json()
+
+    assert d["billing"] == {**SHIPPING, "same_as_shipping": True}
+
+
+async def test_orders_from_before_billing_was_collected_show_shipping(
+    db_client: httpx.AsyncClient, db_session: AsyncSession
+) -> None:
+    customer = await make_user(db_session)
+    order = await make_order(db_session, customer)  # no billing columns set
+    await sign_in(db_client, customer)
+
+    d = (await db_client.get(f"/api/orders/{order.id}")).json()
+
+    assert d["billing"]["same_as_shipping"] is True
+    assert d["billing"]["line1"] == order.shipping_line1
+
+
+async def test_only_the_owner_can_see_an_order(
+    db_client: httpx.AsyncClient, db_session: AsyncSession
+) -> None:
+    owner = await make_user(db_session)
+    order = await make_order(db_session, owner)
+
+    stranger = await make_user(db_session)
+    await sign_in(db_client, stranger)
+    assert (await db_client.get(f"/api/orders/{order.id}")).status_code == 404
+    assert (await db_client.get(f"/api/orders/{uuid.uuid4()}")).status_code == 404
+
+    reviewer = await make_user(db_session, Role.REVIEWER)
+    await sign_in(db_client, reviewer)
+    assert (await db_client.get(f"/api/orders/{order.id}")).status_code == 403
+
+    db_client.cookies.clear()
+    assert (await db_client.get(f"/api/orders/{order.id}")).status_code == 401
