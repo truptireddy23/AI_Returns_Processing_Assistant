@@ -7,7 +7,8 @@ import { useEffect, useState } from "react";
 
 import { RequireRole } from "@/components/require-role";
 import { StatusBadge } from "@/components/status-badge";
-import { api, errorMessage, formatDate, formatMoney, REASON_LABELS, type ReturnCase, type ReturnStatus } from "@/lib/api";
+import { api, csrfHeaders, errorMessage, formatDate, formatMoney, REASON_LABELS, type ReturnCase, type ReturnStatus } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 
 const STEPS = ["Submitted", "Being checked", "Under review", "Done"] as const;
 const STEP_OF: Record<ReturnStatus, number> = {
@@ -22,7 +23,7 @@ const STEP_OF: Record<ReturnStatus, number> = {
 // Keep checking while the pipeline is working on it, backing off so an open
 // tab doesn't keep a scale-to-zero database awake.
 const POLL_WHILE: ReturnStatus[] = ["submitted", "checking"];
-const POLL_START_MS = 3000;
+const POLL_START_MS = 1500;
 const POLL_MAX_MS = 30_000;
 
 export function ReturnStatusView() {
@@ -34,6 +35,9 @@ function Status() {
   const [ret, setRet] = useState<ReturnCase | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [offline, setOffline] = useState(false);
+  const [reload, setReload] = useState(0); // bump to start checking again
+  const auth = useAuth();
+  const isOwner = auth.status === "signed_in" && auth.user.role === "customer";
 
   useEffect(() => {
     let cancelled = false;
@@ -70,7 +74,7 @@ function Status() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [id]);
+  }, [id, reload]);
 
   if (error) return <p role="alert" className="text-red-700">{error}</p>;
   if (!ret) return <p className="text-zinc-500">{offline ? "Can't reach the server. Retrying…" : "Loading…"}</p>;
@@ -103,12 +107,16 @@ function Status() {
         ) : null}
       </div>
 
-      {ret.status === "needs_info" && ret.photo_required && ret.photos.length === 0 ? (
-        <p role="status" className="rounded bg-amber-50 p-3 text-sm text-amber-900">
-          We need a photo of the problem to continue.
-        </p>
+      {ret.status === "needs_info" ? (
+        <div role="status" className="flex flex-col gap-3 rounded bg-amber-50 p-3 text-sm text-amber-900">
+          <p>{ret.customer_message ?? "We need more information to continue."}</p>
+          {isOwner && ret.photo_required ? (
+            <AddPhoto returnId={ret.id} onSent={(updated) => { setRet(updated); setReload((n) => n + 1); }} />
+          ) : null}
+        </div>
+      ) : ret.customer_message ? (
+        <p className="rounded border border-zinc-200 p-3 text-sm dark:border-zinc-800">{ret.customer_message}</p>
       ) : null}
-      {ret.customer_message ? <p className="rounded border border-zinc-200 p-3 text-sm dark:border-zinc-800">{ret.customer_message}</p> : null}
 
       <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
         <dt className="text-zinc-500">Item</dt>
@@ -141,5 +149,58 @@ function Status() {
 
       <Link href="/orders" className="text-sm underline">Back to my orders</Link>
     </section>
+  );
+}
+
+const ACCEPTED = "image/jpeg,image/png,image/webp";
+const MAX_PHOTO_MB = 10;
+
+function AddPhoto({ returnId, onSent }: { returnId: string; onSent: (r: ReturnCase) => void }) {
+  const [file, setFile] = useState<File | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+
+  function choose(f: File | undefined) {
+    setError(null);
+    if (!f) return setFile(null);
+    if (!ACCEPTED.split(",").includes(f.type)) return setError("Please choose a JPEG, PNG, or WebP photo.");
+    if (f.size > MAX_PHOTO_MB * 1024 * 1024) return setError(`Photos must be under ${MAX_PHOTO_MB} MB.`);
+    setFile(f);
+  }
+
+  async function send() {
+    if (!file) return;
+    const body = new FormData();
+    body.set("photo", file);
+    setPending(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/returns/${returnId}/photos`, { method: "POST", body, headers: csrfHeaders() });
+      const json: unknown = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(errorMessage(json, "We couldn't send your photo."));
+      onSent(json as ReturnCase);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "We couldn't send your photo.");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <label className="flex flex-col gap-1">
+        Add a photo of the problem
+        <input type="file" accept={ACCEPTED} onChange={(e) => choose(e.target.files?.[0])} />
+      </label>
+      {error ? <p role="alert" className="text-red-700">{error}</p> : null}
+      <button
+        type="button"
+        onClick={send}
+        disabled={!file || pending}
+        className="w-fit rounded-md bg-zinc-900 px-3 py-1.5 text-white disabled:opacity-50"
+      >
+        {pending ? "Sending…" : "Send photo"}
+      </button>
+    </div>
   );
 }

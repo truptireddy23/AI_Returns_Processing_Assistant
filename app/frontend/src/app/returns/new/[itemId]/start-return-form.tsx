@@ -50,7 +50,9 @@ function Form() {
   useEffect(() => () => (preview ? URL.revokeObjectURL(preview) : undefined), [preview]);
 
   const needsPhoto = reason !== "" && PHOTO_REASONS.includes(reason);
-  const ready = reason !== "" && (!needsPhoto || photo !== null) && !pending;
+  // A missing photo doesn't block submitting: the data check asks for it and
+  // review waits until it arrives (missing evidence goes back to the customer).
+  const ready = reason !== "" && !pending;
 
   function onPhoto(file: File | undefined) {
     setError(null);
@@ -150,9 +152,14 @@ function Form() {
       {needsPhoto ? (
         <div className="flex flex-col gap-2 text-sm">
           <label className="flex flex-col gap-1">
-            Photo (required for this reason)
+            Photo (needed for this reason)
             <input type="file" accept={ACCEPTED} onChange={(e) => onPhoto(e.target.files?.[0])} />
           </label>
+          {!photo ? (
+            <p className="text-xs text-amber-800">
+              You can submit now and add the photo later, but we can&apos;t review your return until you do.
+            </p>
+          ) : null}
           <p className="text-xs text-zinc-500">
             Show the damage or problem clearly. JPEG, PNG or WebP, up to {MAX_PHOTO_MB} MB. We remove location data from photos.
           </p>

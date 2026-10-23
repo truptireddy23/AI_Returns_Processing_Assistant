@@ -219,6 +219,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/returns/{return_id}/photos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Photo
+         * @description Send the photo the data check asked for; the return is then reviewed again (M6).
+         */
+        post: operations["add_photo_api_returns__return_id__photos_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/returns/{return_id}/photos/{photo_id}": {
         parameters: {
             query?: never;
@@ -262,6 +282,11 @@ export interface components {
             /** Csrf Token */
             csrf_token: string;
             user: components["schemas"]["UserOut"];
+        };
+        /** Body_add_photo_api_returns__return_id__photos_post */
+        Body_add_photo_api_returns__return_id__photos_post: {
+            /** Photo */
+            photo: string;
         };
         /** Body_start_return_api_returns_post */
         Body_start_return_api_returns_post: {
@@ -901,6 +926,41 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReturnOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_photo_api_returns__return_id__photos_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                return_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_add_photo_api_returns__return_id__photos_post"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
