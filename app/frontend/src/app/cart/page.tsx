@@ -20,6 +20,7 @@ function Cart() {
   const [products, setProducts] = useState<Record<string, Product>>({});
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [billingSame, setBillingSame] = useState(true);
 
   useEffect(() => {
     api.GET("/api/products").then(({ data }) => {
@@ -45,6 +46,14 @@ function Cart() {
           city: String(f.get("city")),
           postal_code: String(f.get("postal_code")),
         },
+        billing: billingSame
+          ? null
+          : {
+              name: String(f.get("billing_name")),
+              line1: String(f.get("billing_line1")),
+              city: String(f.get("billing_city")),
+              postal_code: String(f.get("billing_postal_code")),
+            },
         card: {
           number: String(f.get("card")),
           exp_month: month || 0,
@@ -111,6 +120,23 @@ function Cart() {
             <input name="city" required placeholder="City" autoComplete="address-level2" className={`${inputClass} flex-1`} />
             <input name="postal_code" required placeholder="ZIP" autoComplete="postal-code" className={`${inputClass} w-24`} />
           </div>
+        </fieldset>
+        <fieldset className="flex flex-col gap-2">
+          <legend className="text-sm font-medium">Billing</legend>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={billingSame} onChange={(e) => setBillingSame(e.target.checked)} />
+            Billing address same as shipping
+          </label>
+          {billingSame ? null : (
+            <>
+              <input name="billing_name" required placeholder="Name on card" autoComplete="billing name" className={inputClass} />
+              <input name="billing_line1" required placeholder="Billing street address" autoComplete="billing address-line1" className={inputClass} />
+              <div className="flex gap-2">
+                <input name="billing_city" required placeholder="City" autoComplete="billing address-level2" className={`${inputClass} flex-1`} />
+                <input name="billing_postal_code" required placeholder="ZIP" autoComplete="billing postal-code" className={`${inputClass} w-24`} />
+              </div>
+            </>
+          )}
         </fieldset>
         <fieldset className="flex flex-col gap-2">
           <legend className="text-sm font-medium">Payment (test cards only)</legend>

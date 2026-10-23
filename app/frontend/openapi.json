@@ -1,6 +1,42 @@
 {
   "components": {
     "schemas": {
+      "Address": {
+        "properties": {
+          "city": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "City",
+            "type": "string"
+          },
+          "line1": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Line1",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "postal_code": {
+            "maxLength": 20,
+            "minLength": 3,
+            "title": "Postal Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "line1",
+          "city",
+          "postal_code"
+        ],
+        "title": "Address",
+        "type": "object"
+      },
       "AuthState": {
         "properties": {
           "csrf_token": {
@@ -16,6 +52,47 @@
           "csrf_token"
         ],
         "title": "AuthState",
+        "type": "object"
+      },
+      "BillingAddressOut": {
+        "properties": {
+          "city": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "City",
+            "type": "string"
+          },
+          "line1": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Line1",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "postal_code": {
+            "maxLength": 20,
+            "minLength": 3,
+            "title": "Postal Code",
+            "type": "string"
+          },
+          "same_as_shipping": {
+            "title": "Same As Shipping",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "line1",
+          "city",
+          "postal_code",
+          "same_as_shipping"
+        ],
+        "title": "BillingAddressOut",
         "type": "object"
       },
       "Body_start_return_api_returns_post": {
@@ -77,6 +154,16 @@
       },
       "CheckoutRequest": {
         "properties": {
+          "billing": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Address"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "card": {
             "$ref": "#/components/schemas/TestCard"
           },
@@ -90,7 +177,7 @@
             "type": "array"
           },
           "shipping": {
-            "$ref": "#/components/schemas/ShippingAddress"
+            "$ref": "#/components/schemas/Address"
           }
         },
         "required": [
@@ -159,6 +246,84 @@
           "password"
         ],
         "title": "LoginRequest",
+        "type": "object"
+      },
+      "OrderDetailOut": {
+        "properties": {
+          "billing": {
+            "$ref": "#/components/schemas/BillingAddressOut"
+          },
+          "card_last4": {
+            "title": "Card Last4",
+            "type": "string"
+          },
+          "customer_email": {
+            "title": "Customer Email",
+            "type": "string"
+          },
+          "customer_name": {
+            "title": "Customer Name",
+            "type": "string"
+          },
+          "delivered_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivered At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OrderItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "items_total_cents": {
+            "title": "Items Total Cents",
+            "type": "integer"
+          },
+          "order_number": {
+            "title": "Order Number",
+            "type": "integer"
+          },
+          "placed_at": {
+            "format": "date-time",
+            "title": "Placed At",
+            "type": "string"
+          },
+          "shipping": {
+            "$ref": "#/components/schemas/Address"
+          },
+          "total_cents": {
+            "title": "Total Cents",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "order_number",
+          "placed_at",
+          "delivered_at",
+          "total_cents",
+          "card_last4",
+          "items",
+          "customer_name",
+          "customer_email",
+          "shipping",
+          "billing",
+          "items_total_cents"
+        ],
+        "title": "OrderDetailOut",
         "type": "object"
       },
       "OrderItemOut": {
@@ -629,42 +794,6 @@
         "title": "SettingsOut",
         "type": "object"
       },
-      "ShippingAddress": {
-        "properties": {
-          "city": {
-            "maxLength": 100,
-            "minLength": 1,
-            "title": "City",
-            "type": "string"
-          },
-          "line1": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Line1",
-            "type": "string"
-          },
-          "name": {
-            "maxLength": 100,
-            "minLength": 1,
-            "title": "Name",
-            "type": "string"
-          },
-          "postal_code": {
-            "maxLength": 20,
-            "minLength": 3,
-            "title": "Postal Code",
-            "type": "string"
-          }
-        },
-        "required": [
-          "name",
-          "line1",
-          "city",
-          "postal_code"
-        ],
-        "title": "ShippingAddress",
-        "type": "object"
-      },
       "SignupRequest": {
         "additionalProperties": false,
         "properties": {
@@ -1029,6 +1158,49 @@
           }
         },
         "summary": "Checkout",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/api/orders/{order_id}": {
+      "get": {
+        "operationId": "get_my_order_api_orders__order_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderDetailOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get My Order",
         "tags": [
           "orders"
         ]

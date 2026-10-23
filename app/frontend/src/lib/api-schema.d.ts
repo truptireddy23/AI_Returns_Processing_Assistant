@@ -130,6 +130,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/orders/{order_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get My Order */
+        get: operations["get_my_order_api_orders__order_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/products": {
         parameters: {
             query?: never;
@@ -257,11 +274,35 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** Address */
+        Address: {
+            /** City */
+            city: string;
+            /** Line1 */
+            line1: string;
+            /** Name */
+            name: string;
+            /** Postal Code */
+            postal_code: string;
+        };
         /** AuthState */
         AuthState: {
             /** Csrf Token */
             csrf_token: string;
             user: components["schemas"]["UserOut"];
+        };
+        /** BillingAddressOut */
+        BillingAddressOut: {
+            /** City */
+            city: string;
+            /** Line1 */
+            line1: string;
+            /** Name */
+            name: string;
+            /** Postal Code */
+            postal_code: string;
+            /** Same As Shipping */
+            same_as_shipping: boolean;
         };
         /** Body_start_return_api_returns_post */
         Body_start_return_api_returns_post: {
@@ -291,10 +332,11 @@ export interface components {
         };
         /** CheckoutRequest */
         CheckoutRequest: {
+            billing?: components["schemas"]["Address"] | null;
             card: components["schemas"]["TestCard"];
             /** Items */
             items: components["schemas"]["CartLine"][];
-            shipping: components["schemas"]["ShippingAddress"];
+            shipping: components["schemas"]["Address"];
         };
         /**
          * Decision
@@ -321,6 +363,34 @@ export interface components {
             email: string;
             /** Password */
             password: string;
+        };
+        /** OrderDetailOut */
+        OrderDetailOut: {
+            billing: components["schemas"]["BillingAddressOut"];
+            /** Card Last4 */
+            card_last4: string;
+            /** Customer Email */
+            customer_email: string;
+            /** Customer Name */
+            customer_name: string;
+            /** Delivered At */
+            delivered_at: string | null;
+            /** Id */
+            id: string;
+            /** Items */
+            items: components["schemas"]["OrderItemOut"][];
+            /** Items Total Cents */
+            items_total_cents: number;
+            /** Order Number */
+            order_number: number;
+            /**
+             * Placed At
+             * Format: date-time
+             */
+            placed_at: string;
+            shipping: components["schemas"]["Address"];
+            /** Total Cents */
+            total_cents: number;
         };
         /** OrderItemOut */
         OrderItemOut: {
@@ -482,17 +552,6 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
-        };
-        /** ShippingAddress */
-        ShippingAddress: {
-            /** City */
-            city: string;
-            /** Line1 */
-            line1: string;
-            /** Name */
-            name: string;
-            /** Postal Code */
-            postal_code: string;
         };
         /** SignupRequest */
         SignupRequest: {
@@ -741,6 +800,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OrderOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_my_order_api_orders__order_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderDetailOut"];
                 };
             };
             /** @description Validation Error */
