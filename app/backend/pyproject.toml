@@ -8,11 +8,14 @@ dependencies = [
     "argon2-cffi>=25.1.0",
     "asgi-correlation-id>=4.3",
     "asyncpg>=0.30",
+    "boto3>=1.43.118",
     "email-validator>=2.3.0",
     "fastapi>=0.115",
     "limits>=5.8.0",
     "pgvector>=0.5.1",
+    "pillow>=13.0.0",
     "pydantic-settings>=2.6",
+    "python-multipart>=0.0.32",
     "sqlalchemy[asyncio]>=2.0.36",
     "structlog>=24.4",
     "uvicorn[standard]>=0.32",
@@ -20,6 +23,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "boto3-stubs[s3]>=1.43.118",
     "httpx>=0.28",
     "mypy>=1.13",
     "pytest>=8.3",

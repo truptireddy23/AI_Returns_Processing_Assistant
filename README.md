@@ -185,10 +185,12 @@ that evidence to refine the design.
 │   ├── /backend/              # FastAPI API + pipeline worker (Python, uv, Alembic)
 │   ├── /frontend/             # Next.js shop, reviewer, and admin UI
 │   ├── /prompts/              # Versioned prompts, output schemas, model settings
-│   ├── /seed/                 # Synthetic demo data: products, policy, customers, demo orders
+│   ├── /seed/                 # Synthetic demo data: products, policy, customers, demo orders,
+│   │                          #   and the script that draws the product images
 │   ├── docker-compose.yml     # db (Postgres + pgvector), api, worker, web
 │   └── Makefile               # One command per operation (`make help`)
 ├── /docs/                     # Checkpoint 3 docs (safety_privacy.md so far)
+├── neon.ts                    # Neon services: Postgres + private `return-photos` bucket
 ├── /tests/                    # Backend unit + integration tests
 ├── .github/workflows/ci.yml   # Lint, type check, tests, builds on every push and PR
 └── (GitHub Projects & Issues) # Task assignment & milestone tracking

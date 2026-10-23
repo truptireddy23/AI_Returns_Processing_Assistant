@@ -110,6 +110,7 @@ async def seed(session: AsyncSession, seed_dir: Path, now: datetime | None = Non
             category=ProductCategory(p["category"]),
             price_cents=p["price_cents"],
             is_final_sale=p.get("is_final_sale", False),
+            photo_key=f"/products/{p['sku']}.png",
         )
     session.add_all(products.values())
     summary.products = len(products)

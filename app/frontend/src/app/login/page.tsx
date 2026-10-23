@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -68,6 +69,12 @@ export default function LoginPage() {
           {pending ? "Signing in…" : "Sign in"}
         </button>
       </form>
+      <p className="text-sm">
+        New here?{" "}
+        <Link href="/signup" className="underline">
+          Create an account
+        </Link>
+      </p>
       <p className="text-xs text-zinc-500">Demo accounts are listed in app/seed/users.json.</p>
     </div>
   );

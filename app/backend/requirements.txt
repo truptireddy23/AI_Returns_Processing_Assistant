@@ -18,6 +18,12 @@ asgi-correlation-id==5.0.1
     # via returnguard
 asyncpg==0.32.0
     # via returnguard
+boto3==1.43.118
+    # via returnguard
+botocore==1.43.118
+    # via
+    #   boto3
+    #   s3transfer
 cffi==2.1.1
     # via argon2-cffi-bindings
 click==8.5.0
@@ -40,6 +46,10 @@ idna==3.20
     # via
     #   anyio
     #   email-validator
+jmespath==1.1.0
+    # via
+    #   boto3
+    #   botocore
 limits==5.8.0
     # via returnguard
 mako==1.4.3
@@ -52,6 +62,8 @@ packaging==26.3
     # via limits
 pgvector==0.5.1
     # via returnguard
+pillow==13.0.0
+    # via returnguard
 pycparser==3.11 ; implementation_name != 'PyPy'
     # via cffi
 pydantic==2.14.1
@@ -62,12 +74,20 @@ pydantic-core==2.50.1
     # via pydantic
 pydantic-settings==2.16.0
     # via returnguard
+python-dateutil==2.9.0.post0
+    # via botocore
 python-dotenv==1.2.4
     # via
     #   pydantic-settings
     #   uvicorn
+python-multipart==0.0.32
+    # via returnguard
 pyyaml==6.0.3
     # via uvicorn
+s3transfer==0.19.3
+    # via boto3
+six==1.17.0
+    # via python-dateutil
 sqlalchemy==2.1.4
     # via
     #   alembic
@@ -95,6 +115,8 @@ typing-inspection==0.4.4
     #   fastapi
     #   pydantic
     #   pydantic-settings
+urllib3==2.8.0
+    # via botocore
 uvicorn==0.54.0
     # via returnguard
 uvloop==0.23.0 ; platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32'

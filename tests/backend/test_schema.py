@@ -32,7 +32,7 @@ async def test_migrations_match_the_models(db_session: AsyncSession) -> None:
 
     conn = await db_session.connection()
     assert await conn.run_sync(diff) == []
-    assert await db_session.scalar(text("SELECT version_num FROM alembic_version")) == "0002"
+    assert await db_session.scalar(text("SELECT version_num FROM alembic_version")) == "0003"
     assert await db_session.scalar(text("SELECT 1 FROM pg_extension WHERE extname = 'vector'"))
 
 

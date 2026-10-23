@@ -235,6 +235,6 @@ async def test_successful_logins_do_not_count_toward_the_account_limit(
         res = await login(db_client, user.email)
         assert res.status_code in (200, 429)
         if res.status_code == 429:  # the per-IP limit, not the account one
-            await ratelimit.reset()
-    await ratelimit.reset()
+            ratelimit.reset()
+    ratelimit.reset()
     assert (await login(db_client, user.email)).status_code == 200

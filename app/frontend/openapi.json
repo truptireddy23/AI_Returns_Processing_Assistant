@@ -18,6 +18,89 @@
         "title": "AuthState",
         "type": "object"
       },
+      "Body_start_return_api_returns_post": {
+        "properties": {
+          "order_item_id": {
+            "format": "uuid",
+            "title": "Order Item Id",
+            "type": "string"
+          },
+          "photo": {
+            "anyOf": [
+              {
+                "contentMediaType": "application/octet-stream",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Photo"
+          },
+          "reason": {
+            "$ref": "#/components/schemas/ReturnReason"
+          },
+          "reason_text": {
+            "default": "",
+            "maxLength": 1000,
+            "title": "Reason Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "order_item_id",
+          "reason"
+        ],
+        "title": "Body_start_return_api_returns_post",
+        "type": "object"
+      },
+      "CartLine": {
+        "properties": {
+          "product_id": {
+            "format": "uuid",
+            "title": "Product Id",
+            "type": "string"
+          },
+          "quantity": {
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Quantity",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "product_id",
+          "quantity"
+        ],
+        "title": "CartLine",
+        "type": "object"
+      },
+      "CheckoutRequest": {
+        "properties": {
+          "card": {
+            "$ref": "#/components/schemas/TestCard"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CartLine"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Items",
+            "type": "array"
+          },
+          "shipping": {
+            "$ref": "#/components/schemas/ShippingAddress"
+          }
+        },
+        "required": [
+          "items",
+          "shipping",
+          "card"
+        ],
+        "title": "CheckoutRequest",
+        "type": "object"
+      },
       "Decision": {
         "enum": [
           "approve",
@@ -91,6 +174,21 @@
             "title": "Is Final Sale",
             "type": "boolean"
           },
+          "photo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Photo Url"
+          },
+          "product_id": {
+            "title": "Product Id",
+            "type": "string"
+          },
           "product_name": {
             "title": "Product Name",
             "type": "string"
@@ -99,6 +197,27 @@
             "title": "Quantity",
             "type": "integer"
           },
+          "return_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Return Id"
+          },
+          "return_status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReturnStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "unit_price_cents": {
             "title": "Unit Price Cents",
             "type": "integer"
@@ -106,11 +225,15 @@
         },
         "required": [
           "id",
+          "product_id",
           "product_name",
           "category",
+          "photo_url",
           "quantity",
           "unit_price_cents",
-          "is_final_sale"
+          "is_final_sale",
+          "return_id",
+          "return_status"
         ],
         "title": "OrderItemOut",
         "type": "object"
@@ -170,6 +293,48 @@
         "title": "OrderOut",
         "type": "object"
       },
+      "PhotoOut": {
+        "properties": {
+          "height": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Height"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          },
+          "width": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Width"
+          }
+        },
+        "required": [
+          "id",
+          "url",
+          "width",
+          "height"
+        ],
+        "title": "PhotoOut",
+        "type": "object"
+      },
       "ProductCategory": {
         "enum": [
           "footwear",
@@ -179,6 +344,60 @@
         ],
         "title": "ProductCategory",
         "type": "string"
+      },
+      "ProductOut": {
+        "properties": {
+          "category": {
+            "$ref": "#/components/schemas/ProductCategory"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "is_final_sale": {
+            "title": "Is Final Sale",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "photo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Photo Url"
+          },
+          "price_cents": {
+            "title": "Price Cents",
+            "type": "integer"
+          },
+          "sku": {
+            "title": "Sku",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "sku",
+          "name",
+          "description",
+          "category",
+          "price_cents",
+          "is_final_sale",
+          "photo_url"
+        ],
+        "title": "ProductOut",
+        "type": "object"
       },
       "QueueItem": {
         "properties": {
@@ -231,6 +450,142 @@
         "title": "QueueItem",
         "type": "object"
       },
+      "ReturnOut": {
+        "properties": {
+          "case_number": {
+            "title": "Case Number",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "customer_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Customer Message"
+          },
+          "decided_by_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided By Type"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "order_item_id": {
+            "title": "Order Item Id",
+            "type": "string"
+          },
+          "order_number": {
+            "title": "Order Number",
+            "type": "integer"
+          },
+          "photo_required": {
+            "title": "Photo Required",
+            "type": "boolean"
+          },
+          "photos": {
+            "items": {
+              "$ref": "#/components/schemas/PhotoOut"
+            },
+            "title": "Photos",
+            "type": "array"
+          },
+          "product_name": {
+            "title": "Product Name",
+            "type": "string"
+          },
+          "product_photo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Product Photo Url"
+          },
+          "reason": {
+            "$ref": "#/components/schemas/ReturnReason"
+          },
+          "reason_text": {
+            "title": "Reason Text",
+            "type": "string"
+          },
+          "refund_amount_cents": {
+            "title": "Refund Amount Cents",
+            "type": "integer"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ReturnStatus"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "case_number",
+          "order_number",
+          "order_item_id",
+          "product_name",
+          "product_photo_url",
+          "reason",
+          "reason_text",
+          "refund_amount_cents",
+          "status",
+          "photo_required",
+          "photos",
+          "decided_by_type",
+          "customer_message",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ReturnOut",
+        "type": "object"
+      },
+      "ReturnReason": {
+        "enum": [
+          "damaged",
+          "defective",
+          "wrong_item",
+          "not_as_described",
+          "changed_mind"
+        ],
+        "title": "ReturnReason",
+        "type": "string"
+      },
+      "ReturnStatus": {
+        "enum": [
+          "needs_info",
+          "submitted",
+          "checking",
+          "under_review",
+          "approved",
+          "denied",
+          "failed"
+        ],
+        "title": "ReturnStatus",
+        "type": "string"
+      },
       "Role": {
         "enum": [
           "customer",
@@ -272,6 +627,107 @@
           "updated_at"
         ],
         "title": "SettingsOut",
+        "type": "object"
+      },
+      "ShippingAddress": {
+        "properties": {
+          "city": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "City",
+            "type": "string"
+          },
+          "line1": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Line1",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "postal_code": {
+            "maxLength": 20,
+            "minLength": 3,
+            "title": "Postal Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "line1",
+          "city",
+          "postal_code"
+        ],
+        "title": "ShippingAddress",
+        "type": "object"
+      },
+      "SignupRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "display_name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Display Name",
+            "type": "string"
+          },
+          "email": {
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          },
+          "password": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "password",
+          "display_name"
+        ],
+        "title": "SignupRequest",
+        "type": "object"
+      },
+      "TestCard": {
+        "properties": {
+          "cvc": {
+            "format": "password",
+            "title": "Cvc",
+            "type": "string",
+            "writeOnly": true
+          },
+          "exp_month": {
+            "maximum": 12.0,
+            "minimum": 1.0,
+            "title": "Exp Month",
+            "type": "integer"
+          },
+          "exp_year": {
+            "maximum": 2100.0,
+            "minimum": 2000.0,
+            "title": "Exp Year",
+            "type": "integer"
+          },
+          "number": {
+            "format": "password",
+            "title": "Number",
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "number",
+          "exp_month",
+          "exp_year",
+          "cvc"
+        ],
+        "title": "TestCard",
         "type": "object"
       },
       "UserOut": {
@@ -446,6 +902,48 @@
         ]
       }
     },
+    "/api/auth/signup": {
+      "post": {
+        "description": "Create a **customer** account and sign it in. Staff accounts can't be self-created.",
+        "operationId": "signup_api_auth_signup_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Signup",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/healthz": {
       "get": {
         "description": "Liveness: the process is up.",
@@ -495,6 +993,141 @@
         "tags": [
           "orders"
         ]
+      },
+      "post": {
+        "operationId": "checkout_api_orders_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckoutRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Checkout",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/api/products": {
+      "get": {
+        "operationId": "list_products_api_products_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "category",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ProductCategory"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProductOut"
+                  },
+                  "title": "Response List Products Api Products Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Products",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/api/products/{product_id}": {
+      "get": {
+        "operationId": "get_product_api_products__product_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "product_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Product Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Product",
+        "tags": [
+          "catalog"
+        ]
       }
     },
     "/api/readyz": {
@@ -520,6 +1153,162 @@
         "summary": "Readyz",
         "tags": [
           "health"
+        ]
+      }
+    },
+    "/api/returns": {
+      "get": {
+        "operationId": "list_my_returns_api_returns_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ReturnOut"
+                  },
+                  "title": "Response List My Returns Api Returns Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List My Returns",
+        "tags": [
+          "returns"
+        ]
+      },
+      "post": {
+        "operationId": "start_return_api_returns_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_start_return_api_returns_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReturnOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Return",
+        "tags": [
+          "returns"
+        ]
+      }
+    },
+    "/api/returns/{return_id}": {
+      "get": {
+        "operationId": "get_return_api_returns__return_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "return_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Return Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReturnOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Return",
+        "tags": [
+          "returns"
+        ]
+      }
+    },
+    "/api/returns/{return_id}/photos/{photo_id}": {
+      "get": {
+        "operationId": "get_return_photo_api_returns__return_id__photos__photo_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "return_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Return Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "photo_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Photo Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/jpeg": {}
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Return Photo",
+        "tags": [
+          "returns"
         ]
       }
     },

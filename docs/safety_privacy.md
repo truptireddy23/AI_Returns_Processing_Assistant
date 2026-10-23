@@ -11,6 +11,7 @@ grows with each milestone; sections marked *(planned)* describe work not built y
 | Sessions | A random 256-bit token in an `httpOnly`, `SameSite=Lax` cookie. The database stores only its SHA-256 hash, so a database leak doesn't hand out live sessions. Sessions expire after `SESSION_TTL_HOURS` (default 12); signing out deletes the row. |
 | HTTPS cookies | `COOKIE_SECURE=true` sends the cookie over HTTPS only. The API refuses to start in production without it. |
 | CSRF | Every state-changing request from a signed-in user must send the session's CSRF token in `X-CSRF-Token`. The token is held in browser memory, not storage. |
+| Sign-up | Self-service sign-up creates **customer** accounts only: the request schema forbids extra fields, so a `role` can't be smuggled in, and the role is set in code. Passwords: at least 10 characters, not the email (or its name part), not a common password, not one repeated character. Rate limited (`SIGNUP_RATE_LIMIT`, 5/hour per client IP) and audited (`auth.signup`). An email already in use gets a `409`, which does reveal that the account exists; the rate limit bounds that, and a production shop would switch to email verification. |
 | Roles | `customer`, `reviewer`, `admin`, checked on the server for every endpoint. Customers see only their own orders. Admins hold every reviewer right. |
 | Failed sign-ins | One generic message ("Invalid email or password") whether the email exists, the password is wrong, or the account is disabled; unknown emails still run a password check so timing doesn't reveal which accounts exist. |
 | Sign-out | The UI only shows "signed out" once the server confirms it; if the API is unreachable it says so and keeps the user signed in rather than pretending. |
@@ -21,6 +22,7 @@ grows with each milestone; sections marked *(planned)* describe work not built y
 | Limit | Default | Key |
 |---|---|---|
 | Sign-in attempts | `LOGIN_RATE_LIMIT=10/minute` | Client IP |
+| New accounts | `SIGNUP_RATE_LIMIT=5/hour` | Client IP |
 | Failed sign-ins | `LOGIN_ACCOUNT_FAILURE_LIMIT=20/hour` | Account email |
 
 Over the limit, the API answers `429 Too Many Requests` with a `Retry-After` header.
@@ -72,11 +74,41 @@ production deployment we'd add a CAPTCHA or email unlock instead of a hard block
 - Log entries whose keys look like secrets (`password`, `token`, `api_key`,
   `authorization`, `cookie`, …) are redacted before they're written.
 
+## Photo uploads (built in M3)
+
+`app/backend/src/returnguard/images.py` treats every upload as hostile:
+
+| Step | How |
+|---|---|
+| Size | Read at most `UPLOAD_MAX_BYTES` (10 MB) + 1 byte; anything bigger gets `413`. |
+| Real type | Decided from the bytes, not the filename or `Content-Type`; only JPEG, PNG, WebP. A PDF, executable, script or GIF renamed to `.jpg` is refused (`422`). |
+| Decompression bombs | Pixel count capped (`upload_max_pixels`, 40 M) before decoding; Pillow's bomb warning is treated as an error. |
+| Integrity | `verify()` on the parsed file, then a full decode; truncated or corrupt files are refused. |
+| Metadata | Read *first*, as evidence for the photo-authenticity check: whether EXIF exists, camera make/model, capture time, editing software, and generator hints in PNG text chunks. **GPS coordinates are never stored**, only whether they were present. |
+| Re-encoding | The pixels are rotated per EXIF, converted to RGB, scaled to at most 3000 px, and saved as a fresh JPEG. All metadata and anything hidden in the original file are dropped. |
+| Fingerprints | SHA-256 of the original (same file reused) and a 64-bit difference hash of the image (near-duplicates, e.g. a catalog photo resubmitted as "damage"). |
+
+Stored photos live in a **private** Neon Object Storage bucket (`return-photos`, keys
+`returns/<return id>/<random uuid>.jpg`). The browser never gets a bucket URL: the API serves
+each photo only to the customer who owns the return and to reviewers/admins, with
+`Cache-Control: private, no-store` and `X-Content-Type-Options: nosniff`; anyone else gets
+`404`, the same as a missing photo. If storage is down, starting a return fails cleanly
+(`503`, nothing saved); if the database write fails after the upload, the orphaned object
+is deleted.
+
+## Checkout (built in M3)
+
+- Only published **test** card numbers are accepted (e.g. `4242 4242 4242 4242`), so
+  nobody can type a real card into the demo. Card number and CVC are `SecretStr` (never
+  logged or echoed); only the last 4 digits are stored.
+- Prices and totals are computed on the server from the database; the browser only sends
+  product IDs and quantities (1–5 each, at most 20 lines).
+- Rate limited: `CHECKOUT_RATE_LIMIT` and `RETURN_RATE_LIMIT` (10/minute per client IP).
+- A return can only be started by the customer who owns the order item, once per item,
+  after delivery; the refund amount is computed by the server.
+
 ## Planned
 
-- *(M3)* Upload handling: file type checked from bytes, size and dimension caps,
-  metadata read for the authenticity check, then the image is re-encoded to strip it.
-- *(M3)* Rate limits on checkout and return submission.
 - *(M5)* Masking customer names, emails, addresses, and gendered words before every
   model call (M8); Langfuse receives masked inputs only.
 - *(M5)* Prompt-injection handling: customer text is passed as quoted data; the gate is

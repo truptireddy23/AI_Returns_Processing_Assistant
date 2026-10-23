@@ -4,6 +4,12 @@ import type { components, paths } from "./api-schema";
 
 export type User = components["schemas"]["UserOut"];
 export type Role = User["role"];
+export type Product = components["schemas"]["ProductOut"];
+export type Order = components["schemas"]["OrderOut"];
+export type OrderItem = components["schemas"]["OrderItemOut"];
+export type ReturnCase = components["schemas"]["ReturnOut"];
+export type ReturnReason = ReturnCase["reason"];
+export type ReturnStatus = ReturnCase["status"];
 
 // The CSRF token for the current session. Kept in memory only (never in
 // storage) and attached to every state-changing request.
@@ -11,6 +17,11 @@ let csrfToken: string | null = null;
 
 export function setCsrfToken(token: string | null) {
   csrfToken = token;
+}
+
+/** For requests made outside the typed client (e.g. multipart uploads). */
+export function csrfHeaders(): Record<string, string> {
+  return csrfToken ? { "X-CSRF-Token": csrfToken } : {};
 }
 
 const csrf: Middleware = {
@@ -22,7 +33,7 @@ const csrf: Middleware = {
   },
 };
 
-// Same-origin: /api/* is proxied to FastAPI by next.config.ts.
+// Same-origin: /api/* is proxied to FastAPI by src/app/api/[...path]/route.ts.
 export const api = createClient<paths>({ baseUrl: "", credentials: "same-origin" });
 api.use(csrf);
 
@@ -47,3 +58,24 @@ export function formatMoney(cents: number): string {
 export function formatDate(iso: string): string {
   return new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(new Date(iso));
 }
+
+export const REASON_LABELS: Record<ReturnReason, string> = {
+  damaged: "Arrived damaged",
+  defective: "Defective / stopped working",
+  wrong_item: "Wrong item sent",
+  not_as_described: "Not as described",
+  changed_mind: "Changed my mind",
+};
+
+/** Reasons that need a photo (policy P4). */
+export const PHOTO_REASONS: ReturnReason[] = ["damaged", "defective", "wrong_item", "not_as_described"];
+
+export const STATUS_LABELS: Record<ReturnStatus, string> = {
+  needs_info: "We need more information",
+  submitted: "Submitted",
+  checking: "Being checked",
+  under_review: "Under review",
+  approved: "Approved",
+  denied: "Not approved",
+  failed: "Under review",
+};

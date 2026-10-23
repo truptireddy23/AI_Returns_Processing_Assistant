@@ -16,3 +16,6 @@ __pycache__/
 node_modules/
 .next/
 .neon
+
+# Local return-photo storage (when not using Neon Object Storage)
+app/storage/

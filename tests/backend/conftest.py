@@ -11,6 +11,7 @@ Locally, database tests are skipped when Postgres is down; in CI
 
 import asyncio
 import os
+import tempfile
 from collections.abc import AsyncIterator
 from pathlib import Path
 
@@ -34,11 +35,15 @@ TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL") or (
 )
 os.environ["DATABASE_URL"] = TEST_DATABASE_URL
 os.environ["DATABASE_URL_UNPOOLED"] = TEST_DATABASE_URL
+# Likewise photos go to a temporary folder, never the Neon bucket in app/.env.
+os.environ["AWS_ENDPOINT_URL_S3"] = ""
+os.environ["LOCAL_STORAGE_DIR"] = tempfile.mkdtemp(prefix="returnguard-test-storage-")
 os.environ.setdefault("ENVIRONMENT", "test")
 get_settings.cache_clear()
 
 from returnguard import db, ratelimit  # noqa: E402  (must follow the env setup above)
 from returnguard.main import create_app  # noqa: E402
+from returnguard.storage import get_storage  # noqa: E402
 
 REPO_ROOT = Path(__file__).parents[2]
 ALEMBIC_INI = REPO_ROOT / "app" / "backend" / "alembic.ini"
@@ -96,9 +101,14 @@ async def db_session(migrated_db: None) -> AsyncIterator[AsyncSession]:
 
 
 @pytest.fixture(autouse=True)
-async def _reset_rate_limits() -> AsyncIterator[None]:
-    await ratelimit.reset()
-    yield
+def _reset_rate_limits() -> None:
+    ratelimit.reset()
+
+
+@pytest.fixture(autouse=True)
+def _local_storage() -> None:
+    get_storage.cache_clear()
+    assert get_storage().name == "local", "tests must never write to the hosted bucket"
 
 
 @pytest.fixture
