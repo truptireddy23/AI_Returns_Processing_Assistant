@@ -1,6 +1,19 @@
 {
   "components": {
     "schemas": {
+      "ActorType": {
+        "enum": [
+          "system",
+          "check",
+          "ai",
+          "gate",
+          "customer",
+          "reviewer",
+          "admin"
+        ],
+        "title": "ActorType",
+        "type": "string"
+      },
       "Address": {
         "properties": {
           "city": {
@@ -35,6 +48,194 @@
           "postal_code"
         ],
         "title": "Address",
+        "type": "object"
+      },
+      "AiOut": {
+        "description": "What the pipeline concluded. `source` is \"rules\" until the model steps exist.",
+        "properties": {
+          "ambiguous": {
+            "title": "Ambiguous",
+            "type": "boolean"
+          },
+          "critic_concern": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Critic Concern"
+          },
+          "gate_reasons": {
+            "items": {
+              "$ref": "#/components/schemas/EscalationReason"
+            },
+            "title": "Gate Reasons",
+            "type": "array"
+          },
+          "proposal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Decision"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ran_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ran At"
+          },
+          "rationale": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rationale"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "uncertain_about": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Uncertain About",
+            "type": "array"
+          }
+        },
+        "required": [
+          "proposal",
+          "rationale",
+          "uncertain_about",
+          "ambiguous",
+          "critic_concern",
+          "gate_reasons",
+          "source",
+          "ran_at"
+        ],
+        "title": "AiOut",
+        "type": "object"
+      },
+      "AuditEntryOut": {
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "actor_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Name"
+          },
+          "actor_type": {
+            "$ref": "#/components/schemas/ActorType"
+          },
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "case_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Number"
+          },
+          "details": {
+            "additionalProperties": true,
+            "title": "Details",
+            "type": "object"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "return_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Return Id"
+          }
+        },
+        "required": [
+          "id",
+          "at",
+          "actor_type",
+          "actor_name",
+          "action",
+          "return_id",
+          "case_number",
+          "details"
+        ],
+        "title": "AuditEntryOut",
+        "type": "object"
+      },
+      "AuditPage": {
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/AuditEntryOut"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "next_before_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Before Id"
+          }
+        },
+        "required": [
+          "entries",
+          "next_before_id"
+        ],
+        "title": "AuditPage",
         "type": "object"
       },
       "AuthState": {
@@ -166,6 +367,329 @@
         "title": "CartLine",
         "type": "object"
       },
+      "CaseOut": {
+        "properties": {
+          "ai": {
+            "$ref": "#/components/schemas/AiOut"
+          },
+          "can_decide": {
+            "title": "Can Decide",
+            "type": "boolean"
+          },
+          "cannot_decide_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cannot Decide Reason"
+          },
+          "case_number": {
+            "title": "Case Number",
+            "type": "integer"
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/CheckOut"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "claimed_by_me": {
+            "title": "Claimed By Me",
+            "type": "boolean"
+          },
+          "claimed_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Claimed By Name"
+          },
+          "clauses": {
+            "items": {
+              "$ref": "#/components/schemas/ClauseOut"
+            },
+            "title": "Clauses",
+            "type": "array"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "customer_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Customer Message"
+          },
+          "days_since_delivery": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days Since Delivery"
+          },
+          "decided_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          },
+          "decided_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided By Name"
+          },
+          "decided_by_type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DeciderType"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "delivered_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivered At"
+          },
+          "escalation_reason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EscalationReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "evidence_strength": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EvidenceStrength"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "final_decision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Decision"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "history": {
+            "$ref": "#/components/schemas/HistoryOut"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "is_final_sale": {
+            "title": "Is Final Sale",
+            "type": "boolean"
+          },
+          "order_number": {
+            "title": "Order Number",
+            "type": "integer"
+          },
+          "photos": {
+            "items": {
+              "$ref": "#/components/schemas/PhotoEvidence"
+            },
+            "title": "Photos",
+            "type": "array"
+          },
+          "policy_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policy Version"
+          },
+          "product_category": {
+            "$ref": "#/components/schemas/ProductCategory"
+          },
+          "product_description": {
+            "title": "Product Description",
+            "type": "string"
+          },
+          "product_name": {
+            "title": "Product Name",
+            "type": "string"
+          },
+          "product_photo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Product Photo Url"
+          },
+          "reason": {
+            "$ref": "#/components/schemas/ReturnReason"
+          },
+          "reason_text": {
+            "title": "Reason Text",
+            "type": "string"
+          },
+          "refund_amount_cents": {
+            "title": "Refund Amount Cents",
+            "type": "integer"
+          },
+          "review_request": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReviewRequestOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/ReturnStatus"
+          },
+          "timeline": {
+            "items": {
+              "$ref": "#/components/schemas/TimelineEntry"
+            },
+            "title": "Timeline",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "case_number",
+          "status",
+          "order_number",
+          "product_name",
+          "product_description",
+          "product_category",
+          "product_photo_url",
+          "is_final_sale",
+          "reason",
+          "reason_text",
+          "refund_amount_cents",
+          "delivered_at",
+          "days_since_delivery",
+          "created_at",
+          "escalation_reason",
+          "evidence_strength",
+          "checks",
+          "ai",
+          "policy_version",
+          "clauses",
+          "photos",
+          "history",
+          "review_request",
+          "claimed_by_name",
+          "claimed_by_me",
+          "can_decide",
+          "cannot_decide_reason",
+          "final_decision",
+          "decided_by_type",
+          "decided_by_name",
+          "decided_at",
+          "customer_message",
+          "timeline"
+        ],
+        "title": "CaseOut",
+        "type": "object"
+      },
+      "CheckOut": {
+        "properties": {
+          "clauses": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Clauses",
+            "type": "array"
+          },
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "pass",
+              "warn",
+              "fail",
+              "info"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "state",
+          "detail"
+        ],
+        "title": "CheckOut",
+        "type": "object"
+      },
       "CheckoutRequest": {
         "properties": {
           "billing": {
@@ -202,6 +726,60 @@
         "title": "CheckoutRequest",
         "type": "object"
       },
+      "ClauseOut": {
+        "properties": {
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "cited": {
+            "title": "Cited",
+            "type": "boolean"
+          },
+          "clause_id": {
+            "title": "Clause Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "clause_id",
+          "title",
+          "body",
+          "cited"
+        ],
+        "title": "ClauseOut",
+        "type": "object"
+      },
+      "CountByKey": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "count"
+        ],
+        "title": "CountByKey",
+        "type": "object"
+      },
+      "DeciderType": {
+        "enum": [
+          "auto",
+          "person"
+        ],
+        "title": "DeciderType",
+        "type": "string"
+      },
       "Decision": {
         "enum": [
           "approve",
@@ -210,6 +788,59 @@
         ],
         "title": "Decision",
         "type": "string"
+      },
+      "DecisionIn": {
+        "additionalProperties": false,
+        "properties": {
+          "confirm_denial": {
+            "default": false,
+            "title": "Confirm Denial",
+            "type": "boolean"
+          },
+          "decision": {
+            "enum": [
+              "approve",
+              "deny"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "note_to_customer": {
+            "default": "",
+            "maxLength": 500,
+            "title": "Note To Customer",
+            "type": "string"
+          },
+          "override_note": {
+            "default": "",
+            "maxLength": 200,
+            "title": "Override Note",
+            "type": "string"
+          },
+          "override_reason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OverrideReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "policy_clauses": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 9,
+            "title": "Policy Clauses",
+            "type": "array"
+          }
+        },
+        "required": [
+          "decision"
+        ],
+        "title": "DecisionIn",
+        "type": "object"
       },
       "EscalationReason": {
         "description": "Named reasons a case is in the reviewer queue (BUILD_PLAN.md section 5).",
@@ -228,6 +859,15 @@
         "title": "EscalationReason",
         "type": "string"
       },
+      "EvidenceStrength": {
+        "enum": [
+          "strong",
+          "mixed",
+          "weak"
+        ],
+        "title": "EvidenceStrength",
+        "type": "string"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -239,6 +879,67 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HistoryOut": {
+        "properties": {
+          "account_age_days": {
+            "title": "Account Age Days",
+            "type": "integer"
+          },
+          "other_accounts_at_address": {
+            "title": "Other Accounts At Address",
+            "type": "integer"
+          },
+          "past_orders": {
+            "title": "Past Orders",
+            "type": "integer"
+          },
+          "past_returns": {
+            "title": "Past Returns",
+            "type": "integer"
+          },
+          "recent_returns_30d": {
+            "title": "Recent Returns 30D",
+            "type": "integer"
+          },
+          "risk_factors": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Risk Factors",
+            "type": "object"
+          },
+          "risk_notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Risk Notes",
+            "type": "array"
+          },
+          "risk_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Risk Score"
+          }
+        },
+        "required": [
+          "account_age_days",
+          "past_orders",
+          "past_returns",
+          "recent_returns_30d",
+          "other_accounts_at_address",
+          "risk_score",
+          "risk_factors",
+          "risk_notes"
+        ],
+        "title": "HistoryOut",
         "type": "object"
       },
       "LoginRequest": {
@@ -260,6 +961,160 @@
           "password"
         ],
         "title": "LoginRequest",
+        "type": "object"
+      },
+      "MetricsOut": {
+        "properties": {
+          "agreement_agreed": {
+            "title": "Agreement Agreed",
+            "type": "integer"
+          },
+          "agreement_by_category": {
+            "items": {
+              "$ref": "#/components/schemas/Rate"
+            },
+            "title": "Agreement By Category",
+            "type": "array"
+          },
+          "agreement_by_reason": {
+            "items": {
+              "$ref": "#/components/schemas/Rate"
+            },
+            "title": "Agreement By Reason",
+            "type": "array"
+          },
+          "agreement_sample_size": {
+            "title": "Agreement Sample Size",
+            "type": "integer"
+          },
+          "agreement_total": {
+            "title": "Agreement Total",
+            "type": "integer"
+          },
+          "approved_by_people": {
+            "title": "Approved By People",
+            "type": "integer"
+          },
+          "auto_approved": {
+            "title": "Auto Approved",
+            "type": "integer"
+          },
+          "avg_hours_to_decision": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Hours To Decision"
+          },
+          "days": {
+            "title": "Days",
+            "type": "integer"
+          },
+          "denied_by_people": {
+            "title": "Denied By People",
+            "type": "integer"
+          },
+          "escalation_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Escalation Rate"
+          },
+          "escalations_by_reason": {
+            "items": {
+              "$ref": "#/components/schemas/CountByKey"
+            },
+            "title": "Escalations By Reason",
+            "type": "array"
+          },
+          "oldest_open_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Oldest Open At"
+          },
+          "open_by_reason": {
+            "items": {
+              "$ref": "#/components/schemas/CountByKey"
+            },
+            "title": "Open By Reason",
+            "type": "array"
+          },
+          "open_now": {
+            "title": "Open Now",
+            "type": "integer"
+          },
+          "returns_started": {
+            "title": "Returns Started",
+            "type": "integer"
+          },
+          "reviewers": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewerLoad"
+            },
+            "title": "Reviewers",
+            "type": "array"
+          },
+          "sent_to_person": {
+            "title": "Sent To Person",
+            "type": "integer"
+          },
+          "since": {
+            "format": "date-time",
+            "title": "Since",
+            "type": "string"
+          },
+          "top_overrides": {
+            "items": {
+              "$ref": "#/components/schemas/CountByKey"
+            },
+            "title": "Top Overrides",
+            "type": "array"
+          },
+          "waiting_on_customer": {
+            "title": "Waiting On Customer",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "days",
+          "since",
+          "returns_started",
+          "auto_approved",
+          "sent_to_person",
+          "waiting_on_customer",
+          "escalation_rate",
+          "open_now",
+          "oldest_open_at",
+          "open_by_reason",
+          "escalations_by_reason",
+          "approved_by_people",
+          "denied_by_people",
+          "avg_hours_to_decision",
+          "reviewers",
+          "agreement_sample_size",
+          "agreement_total",
+          "agreement_agreed",
+          "agreement_by_category",
+          "agreement_by_reason",
+          "top_overrides"
+        ],
+        "title": "MetricsOut",
         "type": "object"
       },
       "OrderDetailOut": {
@@ -472,6 +1327,127 @@
         "title": "OrderOut",
         "type": "object"
       },
+      "OverrideReason": {
+        "description": "One-click reasons for disagreeing with the AI (S1, S5).",
+        "enum": [
+          "looks_like_defect",
+          "looks_like_wear",
+          "photo_unclear",
+          "photo_not_genuine",
+          "policy_misapplied",
+          "history_explains",
+          "other"
+        ],
+        "title": "OverrideReason",
+        "type": "string"
+      },
+      "PhotoEvidence": {
+        "properties": {
+          "camera": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Camera"
+          },
+          "captured_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Captured At"
+          },
+          "has_exif": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Has Exif"
+          },
+          "has_generator_hints": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Has Generator Hints"
+          },
+          "height": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Height"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "software": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Software"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          },
+          "width": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Width"
+          }
+        },
+        "required": [
+          "id",
+          "url",
+          "width",
+          "height",
+          "has_exif",
+          "camera",
+          "captured_at",
+          "software",
+          "has_generator_hints",
+          "size_bytes"
+        ],
+        "title": "PhotoEvidence",
+        "type": "object"
+      },
       "PhotoOut": {
         "properties": {
           "height": {
@@ -630,10 +1606,48 @@
             "title": "Case Number",
             "type": "integer"
           },
+          "claimed_by_me": {
+            "title": "Claimed By Me",
+            "type": "boolean"
+          },
+          "claimed_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Claimed By Name"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
             "type": "string"
+          },
+          "decided_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          },
+          "decided_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided By Name"
           },
           "escalation_reason": {
             "anyOf": [
@@ -645,28 +1659,99 @@
               }
             ]
           },
+          "evidence_strength": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EvidenceStrength"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "final_decision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Decision"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "id": {
             "title": "Id",
+            "type": "string"
+          },
+          "product_category": {
+            "$ref": "#/components/schemas/ProductCategory"
+          },
+          "product_name": {
+            "title": "Product Name",
             "type": "string"
           },
           "refund_amount_cents": {
             "title": "Refund Amount Cents",
             "type": "integer"
+          },
+          "review_requested": {
+            "title": "Review Requested",
+            "type": "boolean"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ReturnStatus"
           }
         },
         "required": [
           "id",
           "case_number",
+          "product_name",
+          "product_category",
           "refund_amount_cents",
+          "status",
           "ai_proposal",
           "escalation_reason",
+          "evidence_strength",
+          "review_requested",
+          "claimed_by_name",
+          "claimed_by_me",
+          "final_decision",
+          "decided_by_name",
+          "decided_at",
           "created_at"
         ],
         "title": "QueueItem",
         "type": "object"
       },
+      "Rate": {
+        "properties": {
+          "agreed": {
+            "title": "Agreed",
+            "type": "integer"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "key",
+          "total",
+          "agreed"
+        ],
+        "title": "Rate",
+        "type": "object"
+      },
       "ReturnOut": {
         "properties": {
+          "can_request_review": {
+            "title": "Can Request Review",
+            "type": "boolean"
+          },
           "case_number": {
             "title": "Case Number",
             "type": "integer"
@@ -747,6 +1832,16 @@
             "title": "Refund Amount Cents",
             "type": "integer"
           },
+          "review_request_status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReviewRequestStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "status": {
             "$ref": "#/components/schemas/ReturnStatus"
           },
@@ -771,6 +1866,8 @@
           "photos",
           "decided_by_type",
           "customer_message",
+          "can_request_review",
+          "review_request_status",
           "created_at",
           "updated_at"
         ],
@@ -801,6 +1898,86 @@
         "title": "ReturnStatus",
         "type": "string"
       },
+      "ReviewRequestIn": {
+        "additionalProperties": false,
+        "properties": {
+          "explanation": {
+            "maxLength": 1000,
+            "minLength": 10,
+            "title": "Explanation",
+            "type": "string"
+          }
+        },
+        "required": [
+          "explanation"
+        ],
+        "title": "ReviewRequestIn",
+        "type": "object"
+      },
+      "ReviewRequestOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "customer_explanation": {
+            "title": "Customer Explanation",
+            "type": "string"
+          },
+          "original_decider_is_me": {
+            "title": "Original Decider Is Me",
+            "type": "boolean"
+          },
+          "original_decider_name": {
+            "title": "Original Decider Name",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ReviewRequestStatus"
+          }
+        },
+        "required": [
+          "customer_explanation",
+          "original_decider_name",
+          "original_decider_is_me",
+          "status",
+          "created_at"
+        ],
+        "title": "ReviewRequestOut",
+        "type": "object"
+      },
+      "ReviewRequestStatus": {
+        "enum": [
+          "open",
+          "resolved"
+        ],
+        "title": "ReviewRequestStatus",
+        "type": "string"
+      },
+      "ReviewerLoad": {
+        "properties": {
+          "approved": {
+            "title": "Approved",
+            "type": "integer"
+          },
+          "denied": {
+            "title": "Denied",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "approved",
+          "denied"
+        ],
+        "title": "ReviewerLoad",
+        "type": "object"
+      },
       "Role": {
         "enum": [
           "customer",
@@ -809,6 +1986,55 @@
         ],
         "title": "Role",
         "type": "string"
+      },
+      "SettingsIn": {
+        "additionalProperties": false,
+        "properties": {
+          "automation_enabled": {
+            "title": "Automation Enabled",
+            "type": "boolean"
+          },
+          "high_value_limit_cents": {
+            "maximum": 1000000.0,
+            "minimum": 100.0,
+            "title": "High Value Limit Cents",
+            "type": "integer"
+          },
+          "qa_sample_rate": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Qa Sample Rate"
+          },
+          "risk_limit": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Risk Limit"
+          }
+        },
+        "required": [
+          "automation_enabled",
+          "risk_limit",
+          "high_value_limit_cents",
+          "qa_sample_rate"
+        ],
+        "title": "SettingsIn",
+        "type": "object"
       },
       "SettingsOut": {
         "properties": {
@@ -819,6 +2045,17 @@
           "high_value_limit_cents": {
             "title": "High Value Limit Cents",
             "type": "integer"
+          },
+          "policy_high_value_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policy High Value Cents"
           },
           "qa_sample_rate": {
             "title": "Qa Sample Rate",
@@ -832,6 +2069,17 @@
             "format": "date-time",
             "title": "Updated At",
             "type": "string"
+          },
+          "updated_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated By Name"
           }
         },
         "required": [
@@ -839,7 +2087,9 @@
           "risk_limit",
           "high_value_limit_cents",
           "qa_sample_rate",
-          "updated_at"
+          "updated_at",
+          "updated_by_name",
+          "policy_high_value_cents"
         ],
         "title": "SettingsOut",
         "type": "object"
@@ -907,6 +2157,48 @@
           "cvc"
         ],
         "title": "TestCard",
+        "type": "object"
+      },
+      "TimelineEntry": {
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "actor_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Name"
+          },
+          "actor_type": {
+            "title": "Actor Type",
+            "type": "string"
+          },
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "details": {
+            "additionalProperties": true,
+            "title": "Details",
+            "type": "object"
+          }
+        },
+        "required": [
+          "at",
+          "actor_type",
+          "actor_name",
+          "action",
+          "details"
+        ],
+        "title": "TimelineEntry",
         "type": "object"
       },
       "UserOut": {
@@ -984,6 +2276,165 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/admin/audit": {
+      "get": {
+        "description": "Every check, gate decision, and human action, newest first (C1).\n\n`action` matches a prefix, e.g. `review.` for all reviewer actions.",
+        "operationId": "audit_log_api_admin_audit_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "actor_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ActorType"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Actor Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "action",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Action"
+            }
+          },
+          {
+            "in": "query",
+            "name": "case_number",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Case Number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "before_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Before Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Audit Log",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/metrics": {
+      "get": {
+        "description": "Where is the AI working, where isn't it, and is the gate flooding reviewers?",
+        "operationId": "metrics_api_admin_metrics_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 7,
+              "maximum": 365,
+              "minimum": 1,
+              "title": "Days",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetricsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Metrics",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/admin/settings": {
       "get": {
         "operationId": "get_settings_api_admin_settings_get",
@@ -1000,6 +2451,45 @@
           }
         },
         "summary": "Get Settings",
+        "tags": [
+          "admin"
+        ]
+      },
+      "put": {
+        "operationId": "update_settings_api_admin_settings_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Settings",
         "tags": [
           "admin"
         ]
@@ -1638,9 +3128,263 @@
         ]
       }
     },
+    "/api/returns/{return_id}/review-request": {
+      "post": {
+        "description": "Ask for a second look at a denial (S2). Allowed once per return; a different\nreviewer from the one who denied it decides (database CHECK + review router).",
+        "operationId": "request_review_api_returns__return_id__review_request_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "return_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Return Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewRequestIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReturnOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Request Review",
+        "tags": [
+          "returns"
+        ]
+      }
+    },
+    "/api/review/cases/{return_id}": {
+      "get": {
+        "operationId": "get_case_api_review_cases__return_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "return_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Return Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Case",
+        "tags": [
+          "review"
+        ]
+      }
+    },
+    "/api/review/cases/{return_id}/claim": {
+      "delete": {
+        "description": "Hand the case back to the queue.",
+        "operationId": "release_case_api_review_cases__return_id__claim_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "return_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Return Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Release Case",
+        "tags": [
+          "review"
+        ]
+      },
+      "post": {
+        "description": "Take the case, so other reviewers see someone is on it.",
+        "operationId": "claim_case_api_review_cases__return_id__claim_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "return_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Return Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Claim Case",
+        "tags": [
+          "review"
+        ]
+      }
+    },
+    "/api/review/cases/{return_id}/decision": {
+      "post": {
+        "operationId": "decide_case_api_review_cases__return_id__decision_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "return_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Return Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecisionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decide Case",
+        "tags": [
+          "review"
+        ]
+      }
+    },
     "/api/review/queue": {
       "get": {
+        "description": "`open`: every case waiting on a person. `decided_by_me`: every case I approved\nor denied, newest first. `decided`: the 50 most recent decisions made by people.\n\nA denial the customer asked to have reviewed is back in the queue, so it isn't\na final decision and leaves `decided_by_me` until it's decided again.",
         "operationId": "queue_api_review_queue_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "view",
+            "required": false,
+            "schema": {
+              "default": "open",
+              "enum": [
+                "open",
+                "decided_by_me",
+                "decided"
+              ],
+              "title": "View",
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -1655,6 +3399,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "Queue",

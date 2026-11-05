@@ -115,7 +115,11 @@ function Status() {
           ) : null}
         </div>
       ) : ret.customer_message ? (
-        <p className="rounded border border-zinc-200 p-3 text-sm dark:border-zinc-800">{ret.customer_message}</p>
+        <p className="rounded border border-zinc-200 p-3 text-sm dark:border-zinc-800" data-testid="customer-message">{ret.customer_message}</p>
+      ) : null}
+
+      {isOwner && ret.can_request_review ? (
+        <RequestReview returnId={ret.id} onSent={(updated) => setRet(updated)} />
       ) : null}
 
       <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
@@ -149,6 +153,70 @@ function Status() {
 
       <Link href="/orders" className="text-sm underline">Back to my orders</Link>
     </section>
+  );
+}
+
+/** A denied return can be looked at again once, by a different reviewer (S2). */
+function RequestReview({ returnId, onSent }: { returnId: string; onSent: (r: ReturnCase) => void }) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+
+  async function send() {
+    setPending(true);
+    setError(null);
+    try {
+      const { data, error } = await api.POST("/api/returns/{return_id}/review-request", {
+        params: { path: { return_id: returnId } },
+        body: { explanation: text.trim() },
+      });
+      if (data) onSent(data);
+      else setError(errorMessage(error, "We couldn't send your request."));
+    } catch {
+      setError("Can't reach the server. Please try again.");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <div className="flex flex-wrap items-center gap-3 text-sm">
+        <span>Think we got it wrong?</span>
+        <button type="button" onClick={() => setOpen(true)} className="rounded-md border border-zinc-300 px-3 py-1.5 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800">
+          Request a review
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-2 rounded border border-zinc-200 p-3 text-sm dark:border-zinc-800">
+      <label className="flex flex-col gap-1">
+        Tell us what we missed
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          rows={3}
+          maxLength={1000}
+          className="rounded-md border border-zinc-300 bg-transparent px-2 py-1.5 dark:border-zinc-700"
+          placeholder="For example: the sole came apart after two weeks of normal use."
+        />
+      </label>
+      <p className="text-xs text-zinc-500">A different member of our team will look at it. You can ask once per return.</p>
+      {error ? <p role="alert" className="text-red-700">{error}</p> : null}
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={send}
+          disabled={pending || text.trim().length < 10}
+          className="w-fit rounded-md bg-zinc-900 px-3 py-1.5 text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+        >
+          {pending ? "Sending…" : "Send request"}
+        </button>
+        <button type="button" onClick={() => setOpen(false)} className="rounded-md px-3 py-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800">Cancel</button>
+      </div>
+    </div>
   );
 }
 

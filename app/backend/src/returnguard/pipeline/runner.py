@@ -99,7 +99,7 @@ class Trace:
         self.event(step, "finished", {"latency_ms": latency_ms})
 
 
-async def _behavior_inputs(
+async def behavior_inputs(
     db: AsyncSession, ret: Return, order: Order, customer: User, high_value_limit: int
 ) -> BehaviorInputs:
     now = datetime.now(UTC)
@@ -234,7 +234,7 @@ async def review_return(
     # 4. Behaviour risk (code).
     t = datetime.now(UTC)
     behavior: BehaviorScore = score_behavior(
-        await _behavior_inputs(db, ret, order, customer, settings.high_value_limit_cents)
+        await behavior_inputs(db, ret, order, customer, settings.high_value_limit_cents)
     )
     trace.step("behavior", {"customer": "masked"}, behavior, latency_ms=_ms(t))
 
