@@ -89,6 +89,16 @@ class OverrideReason(StrEnum):
     OTHER = "other"
 
 
+def shown_reason(
+    reason: EscalationReason | None, rr_status: ReviewRequestStatus | None
+) -> EscalationReason | None:
+    """Why the case is in front of a person now. An open review request comes first;
+    the return row keeps the gate's original reason, so the metrics stay right."""
+    if rr_status is ReviewRequestStatus.OPEN:
+        return EscalationReason.CUSTOMER_REQUESTED_REVIEW
+    return reason
+
+
 def _claim_is_live(ret: Return, now: datetime) -> bool:
     return (
         ret.claimed_by_user_id is not None
@@ -153,13 +163,14 @@ async def queue(
         stmt = stmt.where(Return.status.in_(OPEN_STATUSES)).order_by(Return.created_at)
 
     rows = (await db.execute(stmt)).all()
-    requested = set(
-        await db.scalars(
-            select(ReviewRequest.return_id).where(
+    requested = {
+        return_id: rr_status
+        for return_id, rr_status in await db.execute(
+            select(ReviewRequest.return_id, ReviewRequest.status).where(
                 ReviewRequest.return_id.in_([r.id for r, *_ in rows])
             )
         )
-    )
+    }
     out = []
     for r, product, claim_user, decide_user in rows:
         live = _claim_is_live(r, now)
@@ -172,7 +183,7 @@ async def queue(
                 refund_amount_cents=r.refund_amount_cents,
                 status=r.status,
                 ai_proposal=r.ai_proposal,
-                escalation_reason=r.escalation_reason,
+                escalation_reason=shown_reason(r.escalation_reason, requested.get(r.id)),
                 evidence_strength=r.evidence_strength,
                 review_requested=r.id in requested,
                 claimed_by_name=claim_user.display_name if live and claim_user else None,
@@ -569,7 +580,7 @@ async def _case_out(db: DbSession, ret: Return, user: User) -> CaseOut:
         delivered_at=order.delivered_at,
         days_since_delivery=days,
         created_at=ret.created_at,
-        escalation_reason=ret.escalation_reason,
+        escalation_reason=shown_reason(ret.escalation_reason, rr.status if rr else None),
         evidence_strength=ret.evidence_strength,
         checks=checks,
         ai=AiOut(
@@ -840,7 +851,9 @@ async def decide_case(
         rr.outcome = decision
         rr.resolved_at = now
 
-    if ret.ai_proposal in (Decision.APPROVE, Decision.DENY):
+    # One sample per return: the first person's call against the AI's. A re-review is
+    # recorded on the review request (outcome), not as a second sample.
+    if ret.ai_proposal in (Decision.APPROVE, Decision.DENY) and not re_review:
         db.add(
             AgreementSample(
                 return_id=ret.id,

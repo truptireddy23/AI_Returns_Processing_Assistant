@@ -32,12 +32,13 @@ from returnguard.models import (
     Decision,
     PolicyDoc,
     Return,
-    ReturnStatus,
+    ReviewRequest,
     Role,
     Route,
     Settings,
     User,
 )
+from returnguard.routers.review import OPEN_STATUSES, shown_reason
 
 log = structlog.get_logger(__name__)
 
@@ -45,7 +46,6 @@ router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 Admin = Annotated[User, Depends(require_role(Role.ADMIN))]
 
-OPEN_STATUSES = (ReturnStatus.UNDER_REVIEW, ReturnStatus.FAILED)
 AGREEMENT_SAMPLE_SIZE = 50  # "Reviewer agreed with AI: x% of the last 50 decisions"
 
 
@@ -204,12 +204,15 @@ async def metrics(
 
     open_rows = list(
         await db.execute(
-            select(Return.escalation_reason, Return.created_at).where(
-                Return.status.in_(OPEN_STATUSES)
-            )
+            select(Return.escalation_reason, Return.created_at, ReviewRequest.status)
+            .outerjoin(ReviewRequest, ReviewRequest.return_id == Return.id)
+            .where(Return.status.in_(OPEN_STATUSES))
         )
     )
-    open_reason = Counter(r.value if r else "none" for r, _ in open_rows)
+    open_reason = Counter(
+        (reason.value if (reason := shown_reason(r, rr_status)) else "none")
+        for r, _, rr_status in open_rows
+    )
 
     # Decisions by people in the window.
     decided = list(
@@ -256,7 +259,7 @@ async def metrics(
         waiting_on_customer=to_customer,
         escalation_rate=to_person / (auto + to_person) if auto + to_person else None,
         open_now=len(open_rows),
-        oldest_open_at=min((c for _, c in open_rows), default=None),
+        oldest_open_at=min((c for _, c, _ in open_rows), default=None),
         open_by_reason=[CountByKey(key=k, count=v) for k, v in open_reason.most_common()],
         escalations_by_reason=[CountByKey(key=k, count=v) for k, v in by_reason.most_common()],
         approved_by_people=sum(1 for d, *_ in decided if d is Decision.APPROVE),
