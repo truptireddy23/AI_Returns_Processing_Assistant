@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { homeFor } from "@/lib/api";
@@ -14,18 +14,8 @@ export function SiteHeader() {
   const auth = useAuth();
   const cart = useCart();
   const router = useRouter();
-  const pathname = usePathname();
   const [signOutFailed, setSignOutFailed] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-
-  // A route change (including the signed-out redirect below) always means the
-  // menu should close, so a stale open panel never covers the new page. Adjusted
-  // during render (not an effect) per https://react.dev/learn/you-might-not-need-an-effect.
-  const [lastPathname, setLastPathname] = useState(pathname);
-  if (pathname !== lastPathname) {
-    setLastPathname(pathname);
-    setMenuOpen(false);
-  }
 
   async function signOut() {
     setSignOutFailed(false);
@@ -134,6 +124,9 @@ export function SiteHeader() {
         <nav
           id="mobile-nav"
           aria-label="Account"
+          // Closes on any click inside — every link navigates away and Sign out
+          // leaves the signed-in view, so there's never a page left to cover.
+          onClick={() => setMenuOpen(false)}
           className="flex flex-col gap-1 border-t border-zinc-200 px-4 py-3 text-sm sm:hidden dark:border-zinc-800"
         >
           {links}
