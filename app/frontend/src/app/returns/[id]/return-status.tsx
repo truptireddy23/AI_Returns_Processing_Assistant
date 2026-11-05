@@ -152,7 +152,7 @@ function Status() {
         </div>
       ) : null}
 
-      {isOwner ? <ChatThread returnId={ret.id} as="customer" /> : null}
+      {isOwner ? <ChatThread returnId={ret.id} as="customer" floating /> : null}
 
       <Link href="/orders" className="text-sm underline">Back to my orders</Link>
     </section>
