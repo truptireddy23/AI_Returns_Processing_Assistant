@@ -6,6 +6,7 @@ export type User = components["schemas"]["UserOut"];
 export type Role = User["role"];
 export type Product = components["schemas"]["ProductOut"];
 export type Order = components["schemas"]["OrderOut"];
+export type OrderDetail = components["schemas"]["OrderDetailOut"];
 export type OrderItem = components["schemas"]["OrderItemOut"];
 export type ReturnCase = components["schemas"]["ReturnOut"];
 export type ReturnReason = ReturnCase["reason"];
@@ -53,6 +54,19 @@ export function homeFor(role: Role): string {
 
 export function formatMoney(cents: number): string {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
+}
+
+/** Date and time in the viewer's own time zone, e.g. "Oct 23, 2026, 3:42 PM CDT". */
+export function formatDateTime(iso: string): string {
+  // dateStyle/timeStyle can't be combined with timeZoneName, so name the parts.
+  return new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  }).format(new Date(iso));
 }
 
 export function formatDate(iso: string): string {

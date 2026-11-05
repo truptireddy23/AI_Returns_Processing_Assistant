@@ -233,6 +233,12 @@ class Order(Base):
     shipping_line1: Mapped[str] = mapped_column(String(200), nullable=False)
     shipping_city: Mapped[str] = mapped_column(String(100), nullable=False)
     shipping_postal_code: Mapped[str] = mapped_column(String(20), nullable=False)
+    # Billing address. NULL on orders placed before it was collected: those were
+    # billed to the shipping address.
+    billing_name: Mapped[str | None] = mapped_column(String(100))
+    billing_line1: Mapped[str | None] = mapped_column(String(200))
+    billing_city: Mapped[str | None] = mapped_column(String(100))
+    billing_postal_code: Mapped[str | None] = mapped_column(String(20))
     # SHA-256 of the normalised address, used to find accounts sharing an address
     # without comparing raw addresses.
     address_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False, index=True)

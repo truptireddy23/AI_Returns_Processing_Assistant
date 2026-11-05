@@ -101,6 +101,9 @@ is deleted.
 - Only published **test** card numbers are accepted (e.g. `4242 4242 4242 4242`), so
   nobody can type a real card into the demo. Card number and CVC are `SecretStr` (never
   logged or echoed); only the last 4 digits are stored.
+- Checkout stores a shipping and a billing address (billing defaults to "same as
+  shipping"); an order's details page is visible only to the customer who placed it
+  (anyone else gets `404`, staff `403`).
 - Prices and totals are computed on the server from the database; the browser only sends
   product IDs and quantities (1–5 each, at most 20 lines).
 - Rate limited: `CHECKOUT_RATE_LIMIT` and `RETURN_RATE_LIMIT` (10/minute per client IP).

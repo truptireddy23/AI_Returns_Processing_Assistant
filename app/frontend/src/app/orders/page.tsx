@@ -37,7 +37,9 @@ function MyOrders() {
         {orders?.map((o) => (
           <li key={o.id} className="rounded-md border border-zinc-200 p-4 dark:border-zinc-800">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <span className="font-medium">Order #{o.order_number}</span>
+              <Link href={`/orders/${o.id}`} className="font-medium hover:underline" data-testid={`order-link-${o.order_number}`}>
+                Order #{o.order_number} <span className="text-sm font-normal text-zinc-500">· View details</span>
+              </Link>
               <span className="text-sm text-zinc-600 dark:text-zinc-400">
                 {o.delivered_at ? `Delivered ${formatDate(o.delivered_at)}` : "Not delivered yet"} · Card •••• {o.card_last4}
               </span>
