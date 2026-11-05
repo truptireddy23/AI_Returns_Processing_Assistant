@@ -13,6 +13,7 @@ from typing import Annotated
 import structlog
 from fastapi import (
     APIRouter,
+    BackgroundTasks,
     Depends,
     File,
     Form,
@@ -28,7 +29,8 @@ from sqlalchemy.orm import selectinload
 from returnguard import audit
 from returnguard.auth import CurrentSession, DbSession, require_role
 from returnguard.config import get_settings
-from returnguard.images import UploadRejected, process_upload
+from returnguard.images import ProcessedPhoto, UploadRejected, process_upload
+from returnguard.jobs import REVIEW_JOB
 from returnguard.models import (
     ActorType,
     Job,
@@ -41,8 +43,10 @@ from returnguard.models import (
     Role,
     User,
 )
+from returnguard.pipeline.checks import PHOTO_REASONS
 from returnguard.ratelimit import rate_limit
 from returnguard.storage import StorageError, get_storage
+from returnguard.wake import nudge_worker
 
 log = structlog.get_logger(__name__)
 
@@ -50,16 +54,7 @@ router = APIRouter(prefix="/api/returns", tags=["returns"])
 
 Customer = Annotated[User, Depends(require_role(Role.CUSTOMER))]
 
-REVIEW_JOB = "review_return"
 MAX_NOTE_LENGTH = 1000
-# Reasons that need a photo under policy P4. The UI asks for one up front; the
-# pipeline's data check (M4) is what enforces it.
-PHOTO_REASONS = {
-    ReturnReason.DAMAGED,
-    ReturnReason.DEFECTIVE,
-    ReturnReason.WRONG_ITEM,
-    ReturnReason.NOT_AS_DESCRIBED,
-}
 
 
 def customer_status(s: ReturnStatus) -> ReturnStatus:
@@ -157,6 +152,69 @@ def _can_see(user: User, ret: Return) -> bool:
     return user.role in (Role.REVIEWER, Role.ADMIN) or ret.customer_id == user.id
 
 
+async def _read_photo(photo: UploadFile | None) -> ProcessedPhoto | None:
+    """Validate and clean an uploaded photo; None if no file was sent."""
+    if photo is None or not photo.filename:
+        return None
+    settings = get_settings()
+    raw = await photo.read(settings.upload_max_bytes + 1)
+    if len(raw) > settings.upload_max_bytes:
+        raise HTTPException(
+            status.HTTP_413_CONTENT_TOO_LARGE,
+            f"Photos must be under {settings.upload_max_bytes // (1024 * 1024)} MB",
+        )
+    try:
+        return process_upload(
+            raw, max_pixels=settings.upload_max_pixels, max_side=settings.upload_max_side
+        )
+    except UploadRejected as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+
+
+async def _store_photo(db: DbSession, return_id: uuid.UUID, processed: ProcessedPhoto) -> str:
+    """Upload to object storage and add the photo row. Rolls back on failure."""
+    key = f"returns/{return_id}/{uuid.uuid4()}.jpg"
+    try:
+        await get_storage().put(key, processed.data, processed.content_type)
+    except StorageError as exc:
+        await db.rollback()  # discard anything half-created
+        log.error("returns.photo_store_failed", error=str(exc))
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "We couldn't save your photo right now. Please try again.",
+        ) from exc
+    db.add(
+        ReturnPhoto(
+            return_id=return_id,
+            storage_key=key,
+            content_type=processed.content_type,
+            size_bytes=len(processed.data),
+            sha256=processed.sha256,
+            perceptual_hash=processed.perceptual_hash,
+            metadata_summary={
+                **processed.metadata,
+                "width": processed.width,
+                "height": processed.height,
+            },
+        )
+    )
+    return key
+
+
+async def _commit_or_cleanup(db: DbSession, key: str | None) -> None:
+    """Commit; if that fails, delete the photo we already uploaded."""
+    try:
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        if key is not None:
+            try:
+                await get_storage().delete(key)
+            except StorageError:
+                log.warning("returns.orphan_photo", key=key)
+        raise
+
+
 # --- Routes -----------------------------------------------------------------
 
 
@@ -171,10 +229,10 @@ async def start_return(
     db: DbSession,
     order_item_id: Annotated[uuid.UUID, Form()],
     reason: Annotated[ReturnReason, Form()],
+    background: BackgroundTasks,
     reason_text: Annotated[str, Form(max_length=MAX_NOTE_LENGTH)] = "",
     photo: Annotated[UploadFile | None, File()] = None,
 ) -> ReturnOut:
-    settings = get_settings()
     item = await db.scalar(
         select(OrderItem)
         .join(Order)
@@ -191,20 +249,7 @@ async def start_return(
             f"A return for this item already exists ({existing})",
         )
 
-    processed = None
-    if photo is not None and photo.filename:
-        raw = await photo.read(settings.upload_max_bytes + 1)
-        if len(raw) > settings.upload_max_bytes:
-            raise HTTPException(
-                status.HTTP_413_CONTENT_TOO_LARGE,
-                f"Photos must be under {settings.upload_max_bytes // (1024 * 1024)} MB",
-            )
-        try:
-            processed = process_upload(
-                raw, max_pixels=settings.upload_max_pixels, max_side=settings.upload_max_side
-            )
-        except UploadRejected as exc:
-            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    processed = await _read_photo(photo)
 
     ret = Return(
         id=uuid.uuid4(),
@@ -219,34 +264,7 @@ async def start_return(
     # Insert the return first: the photo, job, and audit rows reference it.
     await db.flush()
 
-    storage = get_storage()
-    key = None
-    if processed is not None:
-        key = f"returns/{ret.id}/{uuid.uuid4()}.jpg"
-        try:
-            await storage.put(key, processed.data, processed.content_type)
-        except StorageError as exc:
-            await db.rollback()  # discard the half-created return
-            log.error("returns.photo_store_failed", error=str(exc))
-            raise HTTPException(
-                status.HTTP_503_SERVICE_UNAVAILABLE,
-                "We couldn't save your photo right now. Please try again.",
-            ) from exc
-        db.add(
-            ReturnPhoto(
-                return_id=ret.id,
-                storage_key=key,
-                content_type=processed.content_type,
-                size_bytes=len(processed.data),
-                sha256=processed.sha256,
-                perceptual_hash=processed.perceptual_hash,
-                metadata_summary={
-                    **processed.metadata,
-                    "width": processed.width,
-                    "height": processed.height,
-                },
-            )
-        )
+    key = await _store_photo(db, ret.id, processed) if processed is not None else None
 
     # Outbox: the job is committed together with the return, or not at all.
     db.add(Job(kind=REVIEW_JOB, return_id=ret.id))
@@ -262,18 +280,56 @@ async def start_return(
             "photo": processed is not None,
         },
     )
-    try:
-        await db.commit()
-    except Exception:
-        await db.rollback()
-        if key is not None:
-            try:
-                await storage.delete(key)
-            except StorageError:
-                log.warning("returns.orphan_photo", key=key)
-        raise
+    await _commit_or_cleanup(db, key)
+    background.add_task(nudge_worker)
 
     log.info("return.submitted", case_number=ret.case_number, photo=processed is not None)
+    ret, item, order, photos = await _load(db, ret.id)
+    return _return_out(ret, item, order, photos, staff=False)
+
+
+@router.post(
+    "/{return_id}/photos",
+    response_model=ReturnOut,
+    dependencies=[Depends(rate_limit(get_settings().return_rate_limit, "returns"))],
+)
+async def add_photo(
+    return_id: uuid.UUID,
+    user: Customer,
+    db: DbSession,
+    background: BackgroundTasks,
+    photo: Annotated[UploadFile, File()],
+) -> ReturnOut:
+    """Send the photo the data check asked for; the return is then reviewed again (M6)."""
+    ret = await db.scalar(
+        select(Return)
+        .where(Return.id == return_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if ret is None or ret.customer_id != user.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Return not found")
+    if ret.status is not ReturnStatus.NEEDS_INFO:
+        raise HTTPException(status.HTTP_409_CONFLICT, "This return isn't waiting for a photo")
+    processed = await _read_photo(photo)
+    if processed is None:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Please choose a photo.")
+
+    key = await _store_photo(db, ret.id, processed)
+    ret.status = ReturnStatus.SUBMITTED
+    ret.route = None
+    ret.customer_message = None
+    db.add(Job(kind=REVIEW_JOB, return_id=ret.id))
+    audit.record(
+        db,
+        actor_type=ActorType.CUSTOMER,
+        actor_user_id=user.id,
+        action="return.photo_added",
+        return_id=ret.id,
+    )
+    await _commit_or_cleanup(db, key)
+    background.add_task(nudge_worker)
+    log.info("return.photo_added", case_number=ret.case_number)
     ret, item, order, photos = await _load(db, ret.id)
     return _return_out(ret, item, order, photos, staff=False)
 
