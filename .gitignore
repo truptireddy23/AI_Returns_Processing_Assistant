@@ -23,3 +23,6 @@ app/storage/
 # Product photos are uploaded to Neon Object Storage (`make product-photos`),
 # not committed: they may be third-party images.
 Photos/
+
+# Vercel CLI project links
+.vercel
