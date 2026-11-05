@@ -88,6 +88,26 @@ async def drain(steps: Steps | None, rng: random.Random | None = None) -> int:
     return done
 
 
+async def run_inline(budget_seconds: float, *, steps: Steps | None = None) -> int:
+    """Drain due jobs from inside the API, for hosts with no worker process.
+
+    Keeps going while a retry comes due within the budget, so a job that fails
+    once still gets its later attempts. Anything left over (out of budget, or the
+    function stopped mid-job) is picked up by the next request or the cron sweep.
+    """
+    steps = steps or RuleSteps()
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + budget_seconds
+    done = 0
+    while True:
+        done += await drain(steps)
+        async for session in db.get_session():
+            due = await jobs.next_due_in(session)
+        if due is None or loop.time() + due + 0.5 > deadline:
+            return done
+        await asyncio.sleep(due + 0.5)
+
+
 async def run(stop: asyncio.Event, *, steps: Steps | None = None) -> None:
     settings = get_settings()
     # `steps=None` is passed straight through to `review_return()`, which picks

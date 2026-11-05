@@ -3,18 +3,30 @@
 A database channel (polling, or LISTEN/NOTIFY) would keep a scale-to-zero
 database awake. This nudge is best-effort: if it's lost, the job is still in
 the table and the worker's backstop sweep picks it up.
+
+On a serverless host (RUN_JOBS_INLINE) there is no worker to nudge, so the API
+runs the jobs itself, as a background task after the response.
 """
 
 import httpx
 import structlog
 
+from returnguard import worker
 from returnguard.config import get_settings
 
 log = structlog.get_logger(__name__)
 
 
 async def nudge_worker() -> None:
-    url = get_settings().worker_wake_url
+    settings = get_settings()
+    if settings.run_jobs_inline:
+        try:
+            await worker.run_inline(settings.inline_job_budget_seconds)
+        except Exception as exc:
+            # The jobs are still in the table; the next request or the sweep retries.
+            log.warning("wake.inline_failed", error=type(exc).__name__)
+        return
+    url = settings.worker_wake_url
     if not url:
         return
     try:

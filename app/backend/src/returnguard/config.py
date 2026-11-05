@@ -39,6 +39,19 @@ class Settings(BaseSettings):
     job_max_attempts: int = 3
     job_retry_seconds: tuple[int, ...] = (30, 120)  # wait before attempt 2, 3, ...
     job_stale_seconds: int = 600  # a "running" job older than this was abandoned
+    # Serverless hosts (Vercel) have no worker process: the API runs the jobs itself
+    # after the response, retries included, for up to this long. Keep it under the
+    # function's maximum duration (300 s on Vercel Hobby).
+    run_jobs_inline: bool = False
+    inline_job_budget_seconds: float = 240.0
+    # Bearer token for the scheduled backstop sweep (Vercel Cron sends CRON_SECRET).
+    # Empty disables the sweep route.
+    cron_secret: SecretStr = SecretStr("")
+
+    # When the API is publicly reachable (its own Vercel project), it only serves
+    # requests that carry this secret, which the Next.js proxy adds. The proxy also
+    # passes the browser's address, so rate limits stay per client. Empty = off.
+    api_proxy_secret: SecretStr = SecretStr("")
 
     # Auth
     session_ttl_hours: int = 12
