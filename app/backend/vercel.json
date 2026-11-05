@@ -1,0 +1,13 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "fastapi",
+  "regions": [
+    "cle1"
+  ],
+  "crons": [
+    {
+      "path": "/api/internal/jobs/sweep",
+      "schedule": "0 6 * * *"
+    }
+  ]
+}

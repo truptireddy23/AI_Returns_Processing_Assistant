@@ -13,13 +13,25 @@ from limits import RateLimitItem, parse
 from limits.aio.storage import MemoryStorage
 from limits.aio.strategies import MovingWindowRateLimiter
 
+from returnguard.config import get_settings
+
 _storage = MemoryStorage()
 _limiter = MovingWindowRateLimiter(_storage)
 
 
+PROXY_SECRET_HEADER = "x-proxy-secret"  # noqa: S105  (a header name)
+CLIENT_IP_HEADER = "x-client-ip"
+
+
 def client_ip(request: Request) -> str:
-    # Uvicorn runs with --proxy-headers, so this is the browser's address as
-    # forwarded by the Next.js server, not the proxy's.
+    # With API_PROXY_SECRET set (hosted, e.g. Vercel), every request was checked to
+    # come from the Next.js proxy, which passes the browser's address in its own
+    # header. Otherwise Uvicorn runs with --proxy-headers, so this is the browser's
+    # address as forwarded by the Next.js server, not the proxy's.
+    if get_settings().api_proxy_secret.get_secret_value():
+        forwarded = request.headers.get(CLIENT_IP_HEADER)
+        if forwarded:
+            return forwarded
     return request.client.host if request.client else "unknown"
 
 

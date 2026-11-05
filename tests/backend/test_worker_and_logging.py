@@ -68,6 +68,31 @@ async def test_worker_survives_database_outage(monkeypatch: pytest.MonkeyPatch) 
     await run_for(0.05)  # logs, waits, and still stops cleanly
 
 
+async def test_inline_run_drains_and_waits_for_a_retry_within_budget(
+    drains: list[int], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Serverless hosts: the API runs the jobs, including a retry that comes due soon."""
+    due = iter([0.01, None])
+
+    async def retry_then_nothing(*_: object) -> float | None:
+        return next(due)
+
+    monkeypatch.setattr(jobs, "next_due_in", retry_then_nothing)
+    await worker.run_inline(5.0)
+    assert len(drains) == 2
+
+
+async def test_inline_run_leaves_a_retry_past_its_budget(
+    drains: list[int], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def much_later(*_: object) -> float:
+        return 600.0
+
+    monkeypatch.setattr(jobs, "next_due_in", much_later)
+    await asyncio.wait_for(worker.run_inline(1.0), timeout=1)  # returns, doesn't sleep
+    assert len(drains) == 1
+
+
 async def _request(port: int, line: bytes) -> bytes:
     reader, writer = await asyncio.open_connection("127.0.0.1", port)
     writer.write(line + b"Host: worker\r\n\r\n")
