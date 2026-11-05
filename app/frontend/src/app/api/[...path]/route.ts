@@ -9,11 +9,19 @@
  */
 
 const API_INTERNAL_URL = process.env.API_INTERNAL_URL ?? "http://localhost:8000";
+// Set when the API is publicly reachable (its own Vercel project): it only serves
+// requests carrying this secret, and then reads the browser's address from
+// x-client-ip instead of the connection.
+const API_PROXY_SECRET = process.env.API_PROXY_SECRET;
 const TIMEOUT_MS = 30_000;
 
 // Hop-by-hop headers must not be forwarded (RFC 9110 §7.6.1); length and
 // encoding are recomputed for the re-streamed body.
-const DROP_REQUEST_HEADERS = ["host", "connection", "keep-alive", "transfer-encoding", "upgrade", "content-length"];
+// The browser must never be able to set the proxy's own headers.
+const DROP_REQUEST_HEADERS = [
+  "host", "connection", "keep-alive", "transfer-encoding", "upgrade", "content-length",
+  "x-proxy-secret", "x-client-ip",
+];
 const DROP_RESPONSE_HEADERS = ["connection", "keep-alive", "transfer-encoding", "content-encoding", "content-length"];
 
 async function proxy(request: Request, ctx: RouteContext<"/api/[...path]">): Promise<Response> {
@@ -26,6 +34,10 @@ async function proxy(request: Request, ctx: RouteContext<"/api/[...path]">): Pro
   // Next.js sets x-forwarded-for from the socket address on incoming requests.
   const clientIp = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
   if (clientIp) headers.set("x-forwarded-for", clientIp);
+  if (API_PROXY_SECRET) {
+    headers.set("x-proxy-secret", API_PROXY_SECRET);
+    if (clientIp) headers.set("x-client-ip", clientIp);
+  }
   headers.set("x-forwarded-host", incoming.host);
   headers.set("x-forwarded-proto", incoming.protocol.replace(":", ""));
 
