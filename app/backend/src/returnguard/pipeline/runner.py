@@ -221,6 +221,7 @@ async def review_return(
         refund_cents=ret.refund_amount_cents,
         photo_keys=[p.storage_key for p in photos],
         policy_version=policy_version or 0,
+        product_photo_url=product.photo_key,
     )
 
     # 2-3. Policy and photo.

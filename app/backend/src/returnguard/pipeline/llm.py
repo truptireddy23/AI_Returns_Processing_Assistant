@@ -9,10 +9,25 @@ configured, rather than letting `ModelSteps` silently fall back to guessing.
 
 from __future__ import annotations
 
+import base64
 import json
 import time
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol, cast
+
+if TYPE_CHECKING:
+    from openai.types.chat import ChatCompletionMessageParam
+
+
+def _image_media_type(data: bytes) -> str:
+    """Sniffs the format from magic bytes. Customer photos are always re-encoded
+    to JPEG before storage (images.py); product reference photos are PNG
+    (seed.py). Defaults to JPEG for anything else rather than guessing wrong."""
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if data.startswith(b"RIFF") and data[8:12] == b"WEBP":
+        return "image/webp"
+    return "image/jpeg"
 
 
 class EmbeddingClient(Protocol):
@@ -29,7 +44,7 @@ class ChatUsage:
 
 class ChatClient(Protocol):
     async def complete_json(
-        self, *, system: str, user: str
+        self, *, system: str, user: str, images: list[bytes] | None = None
     ) -> tuple[dict[str, Any], ChatUsage]: ...
 
 
@@ -70,16 +85,35 @@ class OpenAIClient:
         )
         return list(resp.data[0].embedding)
 
-    async def complete_json(self, *, system: str, user: str) -> tuple[dict[str, Any], ChatUsage]:
+    async def complete_json(
+        self, *, system: str, user: str, images: list[bytes] | None = None
+    ) -> tuple[dict[str, Any], ChatUsage]:
         start = time.monotonic()
+        user_content: str | list[dict[str, Any]] = user
+        if images:
+            user_content = [{"type": "text", "text": user}] + [
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": (
+                            f"data:{_image_media_type(img)};base64,{base64.b64encode(img).decode()}"
+                        )
+                    },
+                }
+                for img in images
+            ]
+        messages = cast(
+            "list[ChatCompletionMessageParam]",
+            [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user_content},
+            ],
+        )
         resp = await self._chat_client.chat.completions.create(
             model=self._chat_model,
             temperature=0,
             response_format={"type": "json_object"},
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
+            messages=messages,
         )
         latency_ms = int((time.monotonic() - start) * 1000)
         content = resp.choices[0].message.content or "{}"

@@ -12,16 +12,21 @@ from typing import Any
 
 import pytest
 
-from returnguard.models import ReturnReason
+from returnguard.models import Decision, ReturnReason
 from returnguard.pipeline import model_steps as model_steps_module
 from returnguard.pipeline.checks import PolicyFacts
 from returnguard.pipeline.gate import Eligibility
 from returnguard.pipeline.llm import ChatUsage
-from returnguard.pipeline.model_steps import ModelSteps
+from returnguard.pipeline.model_steps import ModelSteps, PhotoStorage
 from returnguard.pipeline.steps import Case
 
 
-def make_case(*, reason: ReturnReason = ReturnReason.DEFECTIVE, reason_text: str = "") -> Case:
+def make_case(
+    *,
+    reason: ReturnReason = ReturnReason.DEFECTIVE,
+    reason_text: str = "",
+    photo_keys: list[str] | None = None,
+) -> Case:
     return Case(
         reason=reason,
         reason_text=reason_text,
@@ -29,18 +34,20 @@ def make_case(*, reason: ReturnReason = ReturnReason.DEFECTIVE, reason_text: str
         product_category="footwear",
         is_final_sale=False,
         refund_cents=8900,
-        photo_keys=[],
+        photo_keys=photo_keys or [],
         policy_version=1,
     )
 
 
-def make_facts(*, within_window: bool = True, final_sale_blocks: bool = False) -> PolicyFacts:
+def make_facts(
+    *, within_window: bool = True, final_sale_blocks: bool = False, photo_required: bool = True
+) -> PolicyFacts:
     return PolicyFacts(
         days_since_delivery=10,
         within_window=within_window,
         final_sale_blocks=final_sale_blocks,
         high_value=False,
-        photo_required=True,
+        photo_required=photo_required,
     )
 
 
@@ -67,9 +74,13 @@ class FakeChat:
         self._response = response
         self._model = model
         self.calls: list[tuple[str, str]] = []
+        self.image_calls: list[list[bytes]] = []
 
-    async def complete_json(self, *, system: str, user: str) -> tuple[dict[str, Any], ChatUsage]:
+    async def complete_json(
+        self, *, system: str, user: str, images: list[bytes] | None = None
+    ) -> tuple[dict[str, Any], ChatUsage]:
         self.calls.append((system, user))
+        self.image_calls.append(images or [])
         return self._response, ChatUsage(
             model=self._model, tokens_in=42, tokens_out=7, latency_ms=100
         )
@@ -81,6 +92,7 @@ def make_steps(
     chat: FakeChat,
     chunks: list[_Chunk],
     monkeypatch: pytest.MonkeyPatch,
+    storage: PhotoStorage | None = None,
 ) -> ModelSteps:
     async def fake_retrieve(
         db: Any, *, query_embedding: list[float], policy_doc_id: Any, k: int
@@ -89,6 +101,7 @@ def make_steps(
 
     monkeypatch.setattr(model_steps_module, "retrieve_policy_clauses", fake_retrieve)
     return ModelSteps(
+        storage=storage,
         db=None,  # type: ignore[arg-type]  # never touched directly; retrieval is monkeypatched
         embedder=embedder,
         chat=chat,
@@ -229,37 +242,328 @@ async def test_customer_note_is_sent_as_quoted_data(monkeypatch: pytest.MonkeyPa
 
 
 def test_system_prompt_tells_the_model_to_ignore_embedded_instructions() -> None:
-    prompt = model_steps_module._load_system_prompt()
+    prompt = model_steps_module._load_system_prompt("policy.md")
     lowered = prompt.lower()
     assert "data" in lowered
     assert "ignore" in lowered and "instruction" in lowered
 
 
-# --- Everything else is still the honest rule-based stand-in -------------
+# --- Photo: delegates to rules when there's nothing to look at -------------
 
 
-async def test_photo_recommend_and_critic_delegate_to_rules(
+async def test_photo_delegates_to_rules_when_no_photo_required(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from returnguard.pipeline.steps import RuleSteps
+
+    chat = FakeChat({"product_match": "yes", "authenticity": "genuine"})
+    steps = make_steps(embedder=FakeEmbedder(), chat=chat, chunks=[], monkeypatch=monkeypatch)
+    case, facts = make_case(), make_facts(photo_required=False)
+
+    result = await steps.photo(case, facts)
+
+    assert result == await RuleSteps().photo(case, facts)
+    assert chat.calls == []  # never worth a model call with nothing to check
+
+
+async def test_photo_delegates_to_rules_when_no_photo_was_uploaded(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    chat = FakeChat({"product_match": "yes", "authenticity": "genuine"})
+    steps = make_steps(embedder=FakeEmbedder(), chat=chat, chunks=[], monkeypatch=monkeypatch)
+    case, facts = make_case(photo_keys=[]), make_facts(photo_required=True)
+
+    await steps.photo(case, facts)
+
+    assert chat.calls == []
+
+
+async def test_photo_delegates_to_rules_without_storage_configured(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """ModelSteps built with storage=None (e.g. policy-only usage, today's test
+    suite elsewhere): never claims to have checked a photo it can't fetch."""
+    from returnguard.pipeline.gate import PhotoCheck
+
+    chat = FakeChat({"product_match": "yes", "authenticity": "genuine"})
+    steps = make_steps(embedder=FakeEmbedder(), chat=chat, chunks=[], monkeypatch=monkeypatch)
+    case, facts = make_case(photo_keys=["returns/r1/photo.jpg"]), make_facts(photo_required=True)
+
+    result = await steps.photo(case, facts)
+
+    assert result.check is PhotoCheck.NOT_VERIFIED
+    assert chat.calls == []
+
+
+# --- Photo: the real vision-model path --------------------------------------
+
+
+class FakeStorage:
+    def __init__(self, data: bytes) -> None:
+        self._data = data
+        self.requested_keys: list[str] = []
+
+    async def get(self, key: str) -> bytes:
+        self.requested_keys.append(key)
+        return self._data
+
+
+async def test_photo_is_verified_only_when_match_and_authenticity_both_pass(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from returnguard.pipeline.gate import PhotoCheck
+
+    monkeypatch.setattr(model_steps_module, "_read_product_reference_photo", lambda url: None)
+    chat = FakeChat(
+        {
+            "product_match": "yes",
+            "authenticity": "genuine",
+            "authenticity_notes": "looks real",
+            "condition_description": "sole separated",
+        }
+    )
+    storage = FakeStorage(b"\xff\xd8fake-jpeg-bytes")
+    steps = make_steps(
+        embedder=FakeEmbedder(),
+        chat=chat,
+        chunks=[],
+        monkeypatch=monkeypatch,
+        storage=storage,
+    )
+    case = make_case(photo_keys=["returns/r1/photo.jpg"])
+    facts = make_facts(photo_required=True)
+
+    result = await steps.photo(case, facts)
+
+    assert result.check is PhotoCheck.VERIFIED
+    assert result.source == "model"
+    assert storage.requested_keys == ["returns/r1/photo.jpg"]
+    assert len(chat.image_calls[0]) == 1  # no product reference photo available
+
+
+async def test_photo_the_checkpoint2_fake_photo_case_is_not_verified(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Case F1: Gemini approved its own AI-generated fake at 100% confidence.
+    This prompt+parsing must not repeat that."""
+    from returnguard.pipeline.gate import PhotoCheck
+
+    monkeypatch.setattr(model_steps_module, "_read_product_reference_photo", lambda url: None)
+    chat = FakeChat(
+        {
+            "product_match": "yes",
+            "authenticity": "suspicious",
+            "authenticity_notes": "uniform lighting, no real shadow, smooth torn edge",
+            "condition_description": "upper appears torn",
+        }
+    )
+    steps = make_steps(
+        embedder=FakeEmbedder(),
+        chat=chat,
+        chunks=[],
+        monkeypatch=monkeypatch,
+        storage=FakeStorage(b"\xff\xd8fake-jpeg-bytes"),
+    )
+    case = make_case(photo_keys=["returns/r1/photo.jpg"])
+
+    result = await steps.photo(case, make_facts(photo_required=True))
+
+    assert result.check is PhotoCheck.NOT_VERIFIED
+
+
+async def test_photo_is_not_verified_on_a_malformed_response(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from returnguard.pipeline.gate import PhotoCheck
+
+    monkeypatch.setattr(model_steps_module, "_read_product_reference_photo", lambda url: None)
+    chat = FakeChat({"product_match": "definitely"})  # not a valid enum value
+    steps = make_steps(
+        embedder=FakeEmbedder(),
+        chat=chat,
+        chunks=[],
+        monkeypatch=monkeypatch,
+        storage=FakeStorage(b"\xff\xd8fake-jpeg-bytes"),
+    )
+    case = make_case(photo_keys=["returns/r1/photo.jpg"])
+
+    result = await steps.photo(case, make_facts(photo_required=True))
+
+    assert result.check is PhotoCheck.NOT_VERIFIED
+
+
+async def test_photo_falls_back_to_rules_when_storage_read_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from returnguard.pipeline.gate import PhotoCheck
+
+    class BrokenStorage:
+        async def get(self, key: str) -> bytes:
+            raise RuntimeError("object not found")
+
+    chat = FakeChat({"product_match": "yes", "authenticity": "genuine"})
+    steps = make_steps(
+        embedder=FakeEmbedder(),
+        chat=chat,
+        chunks=[],
+        monkeypatch=monkeypatch,
+        storage=BrokenStorage(),
+    )
+    case = make_case(photo_keys=["returns/r1/photo.jpg"])
+
+    result = await steps.photo(case, make_facts(photo_required=True))
+
+    assert result.check is PhotoCheck.NOT_VERIFIED  # RuleSteps' answer, not a crash
+    assert chat.calls == []
+
+
+async def test_photo_includes_the_product_reference_photo_when_available(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        model_steps_module, "_read_product_reference_photo", lambda url: b"\x89PNG\r\n\x1a\nref"
+    )
+    chat = FakeChat({"product_match": "yes", "authenticity": "genuine"})
+    steps = make_steps(
+        embedder=FakeEmbedder(),
+        chat=chat,
+        chunks=[],
+        monkeypatch=monkeypatch,
+        storage=FakeStorage(b"\xff\xd8fake-jpeg-bytes"),
+    )
+    case = make_case(photo_keys=["returns/r1/photo.jpg"])
+
+    await steps.photo(case, make_facts(photo_required=True))
+
+    assert len(chat.image_calls[0]) == 2  # customer photo + reference photo
+
+
+# --- Recommend: the real decision step --------------------------------------
+
+
+async def test_recommend_parses_a_clean_approval(monkeypatch: pytest.MonkeyPatch) -> None:
+    from returnguard.pipeline.behavior import BehaviorScore
+    from returnguard.pipeline.gate import Eligibility as Elig
+    from returnguard.pipeline.gate import PhotoCheck
+    from returnguard.pipeline.steps import PhotoResult, PolicyResult
+
+    chat = FakeChat(
+        {"proposal": "approve", "ambiguous": False, "rationale": "Clear.", "uncertain_about": []}
+    )
+    steps = make_steps(embedder=FakeEmbedder(), chat=chat, chunks=[], monkeypatch=monkeypatch)
+    policy = PolicyResult(Elig.ELIGIBLE, ["P1", "P2"], "ok", source="rules")
+    photo = PhotoResult(PhotoCheck.VERIFIED, ["looks fine"], source="rules")
+
+    rec = await steps.recommend(make_case(), make_facts(), policy, photo, BehaviorScore(0.05))
+
+    assert rec.proposal is Decision.APPROVE
+    assert rec.ambiguous is False
+    assert rec.source == "model"
+
+
+async def test_recommend_can_flag_the_wear_vs_defect_case_as_ambiguous(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Checkpoint 2 case E1: RuleSteps can never set ambiguous=True. This is the
+    step that actually fixes that."""
+    from returnguard.pipeline.behavior import BehaviorScore
+    from returnguard.pipeline.gate import Eligibility as Elig
+    from returnguard.pipeline.gate import PhotoCheck
+    from returnguard.pipeline.steps import PhotoResult, PolicyResult
+
+    chat = FakeChat(
+        {
+            "proposal": "escalate",
+            "ambiguous": True,
+            "rationale": "Could be wear or defect.",
+            "uncertain_about": ["wear vs defect"],
+        }
+    )
+    steps = make_steps(embedder=FakeEmbedder(), chat=chat, chunks=[], monkeypatch=monkeypatch)
+    policy = PolicyResult(Elig.UNCLEAR, ["P2", "P3"], "unclear", source="model")
+    photo = PhotoResult(PhotoCheck.VERIFIED, ["shows wear"], source="model")
+
+    rec = await steps.recommend(make_case(), make_facts(), policy, photo, BehaviorScore(0.1))
+
+    assert rec.proposal is Decision.ESCALATE
+    assert rec.ambiguous is True
+
+
+async def test_recommend_fails_closed_to_escalate_on_a_malformed_response(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from returnguard.pipeline.behavior import BehaviorScore
+    from returnguard.pipeline.gate import Eligibility as Elig
     from returnguard.pipeline.gate import PhotoCheck
-    from returnguard.pipeline.steps import RuleSteps
+    from returnguard.pipeline.steps import PhotoResult, PolicyResult
 
-    steps = make_steps(
-        embedder=FakeEmbedder(), chat=FakeChat({}), chunks=[], monkeypatch=monkeypatch
-    )
-    rules = RuleSteps()
-    case, facts = make_case(), make_facts()
+    chat = FakeChat({"proposal": "yes please"})  # not a valid Decision value
+    steps = make_steps(embedder=FakeEmbedder(), chat=chat, chunks=[], monkeypatch=monkeypatch)
+    policy = PolicyResult(Elig.ELIGIBLE, [], "ok", source="rules")
+    photo = PhotoResult(PhotoCheck.VERIFIED, [], source="rules")
 
-    photo_result = await steps.photo(case, facts)
-    assert photo_result == await rules.photo(case, facts)
+    rec = await steps.recommend(make_case(), make_facts(), policy, photo, BehaviorScore(0.0))
 
-    policy_result = await rules.policy(case, facts)
-    behavior = BehaviorScore(score=0.1)
-    photo = await rules.photo(case, facts)
-    rec = await steps.recommend(case, facts, policy_result, photo, behavior)
-    assert rec == await rules.recommend(case, facts, policy_result, photo, behavior)
+    assert rec.proposal is Decision.ESCALATE
+    assert rec.ambiguous is True
 
-    critic = await steps.critic(case, policy_result, photo, rec)
-    assert critic == await rules.critic(case, policy_result, photo, rec)
-    assert photo_result.check in set(PhotoCheck)
+
+# --- Critic: the real second-pass check --------------------------------------
+
+
+async def test_critic_passes_through_a_clean_recommendation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from returnguard.pipeline.gate import Eligibility as Elig
+    from returnguard.pipeline.gate import PhotoCheck
+    from returnguard.pipeline.steps import PhotoResult, PolicyResult, Recommendation
+
+    chat = FakeChat({"veto": False, "concern": None})
+    steps = make_steps(embedder=FakeEmbedder(), chat=chat, chunks=[], monkeypatch=monkeypatch)
+    policy = PolicyResult(Elig.ELIGIBLE, ["P1"], "ok", source="model")
+    photo = PhotoResult(PhotoCheck.VERIFIED, [], source="model")
+    rec = Recommendation(Decision.APPROVE, "ok", [], ambiguous=False, source="model")
+
+    result = await steps.critic(make_case(), policy, photo, rec)
+
+    assert result.veto is False
+    assert result.concern is None
+
+
+async def test_critic_vetoes_a_self_contradicting_recommendation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Checkpoint 2's F3 pattern: ChatGPT labeled APPROVE at 95% while its own
+    reasoning argued for DENY. This step exists to catch exactly that."""
+    from returnguard.pipeline.gate import Eligibility as Elig
+    from returnguard.pipeline.gate import PhotoCheck
+    from returnguard.pipeline.steps import PhotoResult, PolicyResult, Recommendation
+
+    chat = FakeChat({"veto": True, "concern": "Policy is ineligible but proposal is approve."})
+    steps = make_steps(embedder=FakeEmbedder(), chat=chat, chunks=[], monkeypatch=monkeypatch)
+    policy = PolicyResult(Elig.INELIGIBLE, ["P1"], "outside window", source="rules")
+    photo = PhotoResult(PhotoCheck.NOT_NEEDED, [], source="rules")
+    rec = Recommendation(Decision.APPROVE, "looks fine", [], ambiguous=False, source="model")
+
+    result = await steps.critic(make_case(), policy, photo, rec)
+
+    assert result.veto is True
+    assert result.concern
+
+
+async def test_critic_fails_closed_to_veto_on_a_malformed_response(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from returnguard.pipeline.gate import Eligibility as Elig
+    from returnguard.pipeline.gate import PhotoCheck
+    from returnguard.pipeline.steps import PhotoResult, PolicyResult, Recommendation
+
+    chat = FakeChat({"unexpected": "shape"})
+    steps = make_steps(embedder=FakeEmbedder(), chat=chat, chunks=[], monkeypatch=monkeypatch)
+    policy = PolicyResult(Elig.ELIGIBLE, [], "ok", source="rules")
+    photo = PhotoResult(PhotoCheck.VERIFIED, [], source="rules")
+    rec = Recommendation(Decision.APPROVE, "ok", [], ambiguous=False, source="model")
+
+    result = await steps.critic(make_case(), policy, photo, rec)
+
+    assert result.veto is True

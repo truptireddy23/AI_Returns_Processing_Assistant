@@ -36,6 +36,7 @@ class Case:
     refund_cents: int
     photo_keys: list[str]
     policy_version: int
+    product_photo_url: str | None = None  # the catalog's reference photo, for the Image step
 
 
 @dataclass(frozen=True)
