@@ -1,3 +1,5 @@
+import path from "node:path";
+
 import type { NextConfig } from "next";
 
 const securityHeaders = [
@@ -13,6 +15,8 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {
+    // The repo root has its own package.json (for neon.ts); pin the app's root here.
+    root: path.join(__dirname),
     rules: {
       "*.css": {
         loaders: ["@tailwindcss/turbopack"],

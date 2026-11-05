@@ -123,10 +123,15 @@ Stop with `make down` (keeps data). `make reset-db` wipes and re-seeds whichever
 
 ```bash
 make install    # backend (uv sync) and frontend (npm ci) dependencies
-make dev-api    # API with auto-reload on :8000   (needs the db from `make up`)
-make dev-web    # Next.js dev server on :3000      (stop the `web` container first)
+make dev-prep   # stop the api, worker and web containers (keeps the local db for tests)
+make dev-api    # API with auto-reload on :8000
+make dev-worker # worker; restart it after changing pipeline code (it doesn't auto-reload)
+make dev-web    # Next.js dev server with live reload on :3000
 make check      # lint + type check + tests — the same as CI
 ```
+
+Run each `dev-*` command in its own terminal. They use the same `app/.env` as Docker
+(Neon and the photo bucket, if configured). `make up` switches back to the containers.
 
 Backend tests live in `/tests/backend`. They use a separate `returnguard_test` database
 (created and migrated automatically) and roll back every test, so they never touch your

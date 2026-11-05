@@ -5,7 +5,7 @@ BACKEND := cd backend &&
 FRONTEND := cd frontend &&
 
 .DEFAULT_GOAL := help
-.PHONY: help env up down logs ps migrate seed reset-db psql dev-api dev-worker dev-web \
+.PHONY: help env up down logs ps migrate seed reset-db psql dev-prep dev-api dev-worker dev-web \
         install test lint typecheck fmt check api-types requirements clean
 
 help: ## Show this help
@@ -45,11 +45,17 @@ install: ## Install backend and frontend dependencies
 	$(BACKEND) uv sync
 	$(FRONTEND) npm ci
 
-dev-api: ## Run the API with auto-reload
-	$(BACKEND) LOG_JSON=false uv run uvicorn returnguard.main:app --reload --port 8000
+dev-prep: ## Stop the api, worker and web containers so the dev servers can take their ports
+	$(COMPOSE) stop api worker web
+	$(COMPOSE) up -d --wait db
 
-dev-worker: ## Run the worker
-	$(BACKEND) LOG_JSON=false uv run python -m returnguard.worker
+dev-api: ## Run the API with auto-reload (wakes the dev worker on localhost:8001)
+	$(BACKEND) LOG_JSON=false WORKER_WAKE_URL=http://localhost:8001/wake \
+		uv run uvicorn returnguard.main:app --reload --port 8000 \
+		--proxy-headers --forwarded-allow-ips 127.0.0.1
+
+dev-worker: ## Run the worker (wake-ups on localhost:8001 only)
+	$(BACKEND) LOG_JSON=false WORKER_WAKE_HOST=127.0.0.1 uv run python -m returnguard.worker
 
 dev-web: ## Run the Next.js dev server
 	$(FRONTEND) npm run dev

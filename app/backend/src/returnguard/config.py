@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     # only a backstop for a missed wake-up. It is long on purpose: every query
     # wakes a scale-to-zero database (Neon suspends after 5 idle minutes).
     worker_sweep_seconds: float = 1800.0
+    # 0.0.0.0 inside Docker (reachable only on the compose network); use 127.0.0.1
+    # when running the worker directly on a laptop.
+    worker_wake_host: str = "0.0.0.0"  # noqa: S104
     worker_wake_port: int = 8001
     worker_wake_url: str = ""  # e.g. http://worker:8001/wake; empty = no wake-ups
     job_max_attempts: int = 3
