@@ -20,7 +20,7 @@ from returnguard import __version__, db, jobs
 from returnguard.config import get_settings
 from returnguard.log_config import configure_logging
 from returnguard.pipeline.runner import mark_pipeline_failed, review_return
-from returnguard.pipeline.steps import RuleSteps, Steps
+from returnguard.pipeline.steps import Steps
 
 log = structlog.get_logger(__name__)
 
@@ -56,7 +56,7 @@ def wake_handler(
     return handle
 
 
-async def process_one(steps: Steps, rng: random.Random | None = None) -> bool:
+async def process_one(steps: Steps | None, rng: random.Random | None = None) -> bool:
     """Claim and run one due job. Returns False when there was nothing to do."""
     async for session in db.get_session():
         job = await jobs.claim_next(session)
@@ -81,7 +81,7 @@ async def process_one(steps: Steps, rng: random.Random | None = None) -> bool:
     return True
 
 
-async def drain(steps: Steps, rng: random.Random | None = None) -> int:
+async def drain(steps: Steps | None, rng: random.Random | None = None) -> int:
     done = 0
     while await process_one(steps, rng):
         done += 1
@@ -94,8 +94,8 @@ async def run_inline(budget_seconds: float, *, steps: Steps | None = None) -> in
     Keeps going while a retry comes due within the budget, so a job that fails
     once still gets its later attempts. Anything left over (out of budget, or the
     function stopped mid-job) is picked up by the next request or the cron sweep.
+    `steps=None` lets `review_return()` choose per job, as in `run()`.
     """
-    steps = steps or RuleSteps()
     loop = asyncio.get_running_loop()
     deadline = loop.time() + budget_seconds
     done = 0
@@ -110,7 +110,10 @@ async def run_inline(budget_seconds: float, *, steps: Steps | None = None) -> in
 
 async def run(stop: asyncio.Event, *, steps: Steps | None = None) -> None:
     settings = get_settings()
-    steps = steps or RuleSteps()
+    # `steps=None` is passed straight through to `review_return()`, which picks
+    # ModelSteps or RuleSteps itself, built fresh per job on that job's own DB
+    # session (ModelSteps isn't safe to share across sessions). This log line is
+    # informational only — it can't know the real per-job choice ahead of time.
     wake = asyncio.Event()
     server = await asyncio.start_server(
         wake_handler(wake), settings.worker_wake_host, settings.worker_wake_port
@@ -120,7 +123,11 @@ async def run(stop: asyncio.Event, *, steps: Steps | None = None) -> None:
         version=__version__,
         wake_address=f"{settings.worker_wake_host}:{settings.worker_wake_port}",
         sweep_seconds=settings.worker_sweep_seconds,
-        steps=getattr(steps, "source", type(steps).__name__),
+        steps=(
+            getattr(steps, "source", type(steps).__name__)
+            if steps is not None
+            else ("model" if settings.openai_api_key.get_secret_value() else "rules")
+        ),
         **db.describe(db.database_url()),
     )
     wake.set()  # look for a backlog once at startup
