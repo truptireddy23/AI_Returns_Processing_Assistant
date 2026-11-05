@@ -22,7 +22,7 @@ from fastapi import (
     UploadFile,
     status,
 )
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
@@ -33,6 +33,8 @@ from returnguard.images import ProcessedPhoto, UploadRejected, process_upload
 from returnguard.jobs import REVIEW_JOB
 from returnguard.models import (
     ActorType,
+    DeciderType,
+    EscalationReason,
     Job,
     Order,
     OrderItem,
@@ -40,7 +42,10 @@ from returnguard.models import (
     ReturnPhoto,
     ReturnReason,
     ReturnStatus,
+    ReviewRequest,
+    ReviewRequestStatus,
     Role,
+    Route,
     User,
 )
 from returnguard.pipeline.checks import PHOTO_REASONS
@@ -88,12 +93,22 @@ class ReturnOut(BaseModel):
     photos: list[PhotoOut]
     decided_by_type: str | None
     customer_message: str | None
+    # A person denied it and no review has been requested yet (S2).
+    can_request_review: bool
+    # "open" while a second reviewer looks at it, "resolved" afterwards.
+    review_request_status: ReviewRequestStatus | None
     created_at: datetime
     updated_at: datetime
 
 
 def _return_out(
-    r: Return, item: OrderItem, order: Order, photos: list[ReturnPhoto], *, staff: bool
+    r: Return,
+    item: OrderItem,
+    order: Order,
+    photos: list[ReturnPhoto],
+    rr: ReviewRequest | None,
+    *,
+    staff: bool,
 ) -> ReturnOut:
     return ReturnOut(
         id=str(r.id),
@@ -118,6 +133,12 @@ def _return_out(
         ],
         decided_by_type=r.decided_by_type.value if r.decided_by_type else None,
         customer_message=r.customer_message,
+        can_request_review=(
+            r.status is ReturnStatus.DENIED
+            and r.decided_by_type is DeciderType.PERSON
+            and rr is None
+        ),
+        review_request_status=rr.status if rr else None,
         created_at=r.created_at,
         updated_at=r.updated_at,
     )
@@ -125,7 +146,7 @@ def _return_out(
 
 async def _load(
     db: DbSession, return_id: uuid.UUID
-) -> tuple[Return, OrderItem, Order, list[ReturnPhoto]]:
+) -> tuple[Return, OrderItem, Order, list[ReturnPhoto], ReviewRequest | None]:
     # populate_existing: reload columns the database sets (e.g. updated_at) rather
     # than touching an expired attribute, which async SQLAlchemy can't lazy-load.
     ret = await db.scalar(
@@ -148,7 +169,8 @@ async def _load(
             .order_by(ReturnPhoto.created_at)
         )
     )
-    return ret, item, item.order, photos
+    rr = await db.scalar(select(ReviewRequest).where(ReviewRequest.return_id == ret.id))
+    return ret, item, item.order, photos, rr
 
 
 def _can_see(user: User, ret: Return) -> bool:
@@ -289,8 +311,8 @@ async def start_return(
     background.add_task(nudge_worker)
 
     log.info("return.submitted", case_number=ret.case_number, photo=processed is not None)
-    ret, item, order, photos = await _load(db, ret.id)
-    return _return_out(ret, item, order, photos, staff=False)
+    ret, item, order, photos, rr = await _load(db, ret.id)
+    return _return_out(ret, item, order, photos, rr, staff=False)
 
 
 @router.post(
@@ -335,8 +357,77 @@ async def add_photo(
     await _commit_or_cleanup(db, key)
     background.add_task(nudge_worker)
     log.info("return.photo_added", case_number=ret.case_number)
-    ret, item, order, photos = await _load(db, ret.id)
-    return _return_out(ret, item, order, photos, staff=False)
+    ret, item, order, photos, rr = await _load(db, ret.id)
+    return _return_out(ret, item, order, photos, rr, staff=False)
+
+
+class ReviewRequestIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    explanation: str = Field(min_length=10, max_length=MAX_NOTE_LENGTH)
+
+
+@router.post(
+    "/{return_id}/review-request",
+    response_model=ReturnOut,
+    dependencies=[Depends(rate_limit(get_settings().return_rate_limit, "returns"))],
+)
+async def request_review(
+    return_id: uuid.UUID, body: ReviewRequestIn, user: Customer, db: DbSession
+) -> ReturnOut:
+    """Ask for a second look at a denial (S2). Allowed once per return; a different
+    reviewer from the one who denied it decides (database CHECK + review router)."""
+    ret = await db.scalar(
+        select(Return)
+        .where(Return.id == return_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if ret is None or ret.customer_id != user.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Return not found")
+    if ret.status is not ReturnStatus.DENIED or ret.decided_by_user_id is None:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Only a denied return can be reviewed again")
+    if await db.scalar(select(ReviewRequest.id).where(ReviewRequest.return_id == ret.id)):
+        raise HTTPException(status.HTTP_409_CONFLICT, "A review has already been requested")
+
+    explanation = body.explanation.strip()
+    if len(explanation) < 10:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, "Please tell us a little more (10+ characters)."
+        )
+    db.add(
+        ReviewRequest(
+            return_id=ret.id,
+            customer_explanation=explanation,
+            original_decider_id=ret.decided_by_user_id,
+        )
+    )
+    # Back to the queue. The denial itself stays in the audit log.
+    ret.status = ReturnStatus.UNDER_REVIEW
+    ret.route = Route.REVIEWER
+    ret.escalation_reason = EscalationReason.CUSTOMER_REQUESTED_REVIEW
+    ret.final_decision = None
+    ret.decided_by_type = None
+    ret.decided_by_user_id = None
+    ret.decided_at = None
+    ret.claimed_by_user_id = None
+    ret.claimed_at = None
+    ret.customer_message = (
+        "Thanks — a different member of our team from the one who made the first decision "
+        "will look at your return again. We'll update this page when they've decided."
+    )
+    audit.record(
+        db,
+        actor_type=ActorType.CUSTOMER,
+        actor_user_id=user.id,
+        action="return.review_requested",
+        return_id=ret.id,
+        details={"explanation_length": len(explanation)},
+    )
+    await db.commit()
+    log.info("return.review_requested", case_number=ret.case_number)
+    ret, item, order, photos, rr = await _load(db, ret.id)
+    return _return_out(ret, item, order, photos, rr, staff=False)
 
 
 @router.get("", response_model=list[ReturnOut])
@@ -346,18 +437,18 @@ async def list_my_returns(user: Customer, db: DbSession) -> list[ReturnOut]:
     )
     out = []
     for r in list(returns):
-        fresh, item, order, photos = await _load(db, r.id)
-        out.append(_return_out(fresh, item, order, photos, staff=False))
+        fresh, item, order, photos, rr = await _load(db, r.id)
+        out.append(_return_out(fresh, item, order, photos, rr, staff=False))
     return out
 
 
 @router.get("/{return_id}", response_model=ReturnOut)
 async def get_return(return_id: uuid.UUID, session: CurrentSession, db: DbSession) -> ReturnOut:
-    ret, item, order, photos = await _load(db, return_id)
+    ret, item, order, photos, rr = await _load(db, return_id)
     if not _can_see(session.user, ret):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Return not found")
     staff = session.user.role in (Role.REVIEWER, Role.ADMIN)
-    return _return_out(ret, item, order, photos, staff=staff)
+    return _return_out(ret, item, order, photos, rr, staff=staff)
 
 
 @router.get(

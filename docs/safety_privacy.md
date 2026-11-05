@@ -137,6 +137,36 @@ new key, so a cached copy is never stale).
 - **The worker's wake-up port** (8001) is not published outside the Docker network; a
   wake-up carries no data, so the worst a stray request can do is make it look for jobs.
 
+## Reviewer decisions (built in M7)
+
+`app/backend/src/returnguard/routers/review.py` enforces these on the server; the UI only
+reflects them. Each is covered by `tests/backend/test_review.py`.
+
+| Safeguard | How |
+|---|---|
+| Staff only | The queue, case page, claims, and decisions need the `reviewer` or `admin` role (`403` otherwise). |
+| A denial is never one click | `decision: "deny"` is refused (`422`) unless `confirm_denial` is true **and** at least one policy clause is chosen. Clauses must exist in the policy version the case was checked against. The UI shows a confirmation dialog with the policy basis the customer will see. |
+| A person owns every decision | Decisions set `decided_by_type = person` and the reviewer's id; the database `CHECK` still rejects any denial without a person. A decided case can't be decided again (`409`). |
+| Disagreement is captured | If the AI proposed approve or deny and the reviewer decides otherwise, a predefined reason is required (`422` without one; "Other" needs a note). Every decision on such a case writes an `agreement_samples` row (agreement, override, or QA sample) with product type and escalation reason (S1). |
+| No double handling | Opening a case claims it; another reviewer can't claim or decide it (`409`) until it's released or the claim is 30 minutes old (abandoned tabs can't lock a case). |
+| Review requests go to someone else | A customer can ask once per denied return (`409` after that; `404` for someone else's return). The case returns to the queue as "Customer requested review", and the reviewer who made the denial can't decide it (`409`, plus the database `CHECK` on `review_requests`). |
+| Bias safeguard | The case page never receives the customer's name or email: reviewers see the return, the evidence, and the account's behaviour (age, orders, returns, shared-address count). The test checks neither appears in the response. |
+| Audit | Claims, releases, approvals, denials, and review requests are written to the append-only audit log with the AI's proposal, the override reason, and the clauses; the case page shows this history. |
+| Honest customer messages | The message is written only when a person decides. A denial names the policy rule and the evidence considered, and says a person made it. |
+
+## Admin settings and oversight (built in M8)
+
+`app/backend/src/returnguard/routers/admin.py`, tested in `tests/backend/test_admin.py`.
+
+| Safeguard | How |
+|---|---|
+| Admins only | Settings, the dashboard, and the audit log need the `admin` role (`403` for reviewers and customers). |
+| Changes take effect at once | The pipeline reads the settings row for every return it checks, so a new high-value limit, risk limit, QA rate, or automation switch applies to the next return (tested: a $120 return is auto-approved under a $250 limit and goes to a person as "High value" after the limit is lowered to $100). Cases already in the queue keep their reason. |
+| Bounded values | Risk limit 0.00–1.00, QA rate 0.00–1.00 (two decimals), high-value limit $1–$10,000; unknown fields are refused (`422`), so the fixed rules can't be switched off through the API. The database `CHECK`s enforce the same ranges. |
+| Policy mismatch warning | The UI warns when the high-value limit is above the amount in the written policy's P7 clause, because refunds in between could then be auto-approved. |
+| Every change is audited | `admin.settings_changed` records who changed what, with old and new values. |
+| Oversight | The dashboard shows the escalation rate, why cases go to people, reviewer agreement with the AI by product type and escalation reason (last 50 decisions), and the most common overrides (S1). The audit log is searchable by actor, action, and case; customers appear by role only. |
+
 ## Planned
 
 - *(M5)* Masking customer names, emails, addresses, and gendered words before every

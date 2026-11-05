@@ -4,6 +4,48 @@
  */
 
 export interface paths {
+    "/api/admin/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Audit Log
+         * @description Every check, gate decision, and human action, newest first (C1).
+         *
+         *     `action` matches a prefix, e.g. `review.` for all reviewer actions.
+         */
+        get: operations["audit_log_api_admin_audit_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Metrics
+         * @description Where is the AI working, where isn't it, and is the gate flooding reviewers?
+         */
+        get: operations["metrics_api_admin_metrics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/settings": {
         parameters: {
             query?: never;
@@ -13,7 +55,8 @@ export interface paths {
         };
         /** Get Settings */
         get: operations["get_settings_api_admin_settings_get"];
-        put?: never;
+        /** Update Settings */
+        put: operations["update_settings_api_admin_settings_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -293,6 +336,85 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/returns/{return_id}/review-request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request Review
+         * @description Ask for a second look at a denial (S2). Allowed once per return; a different
+         *     reviewer from the one who denied it decides (database CHECK + review router).
+         */
+        post: operations["request_review_api_returns__return_id__review_request_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/review/cases/{return_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Case */
+        get: operations["get_case_api_review_cases__return_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/review/cases/{return_id}/claim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Claim Case
+         * @description Take the case, so other reviewers see someone is on it.
+         */
+        post: operations["claim_case_api_review_cases__return_id__claim_post"];
+        /**
+         * Release Case
+         * @description Hand the case back to the queue.
+         */
+        delete: operations["release_case_api_review_cases__return_id__claim_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/review/cases/{return_id}/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Decide Case */
+        post: operations["decide_case_api_review_cases__return_id__decision_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/review/queue": {
         parameters: {
             query?: never;
@@ -300,7 +422,14 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Queue */
+        /**
+         * Queue
+         * @description `open`: every case waiting on a person. `decided_by_me`: every case I approved
+         *     or denied, newest first. `decided`: the 50 most recent decisions made by people.
+         *
+         *     A denial the customer asked to have reviewed is back in the queue, so it isn't
+         *     a final decision and leaves `decided_by_me` until it's decided again.
+         */
         get: operations["queue_api_review_queue_get"];
         put?: never;
         post?: never;
@@ -314,6 +443,11 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * ActorType
+         * @enum {string}
+         */
+        ActorType: "system" | "check" | "ai" | "gate" | "customer" | "reviewer" | "admin";
         /** Address */
         Address: {
             /** City */
@@ -324,6 +458,57 @@ export interface components {
             name: string;
             /** Postal Code */
             postal_code: string;
+        };
+        /**
+         * AiOut
+         * @description What the pipeline concluded. `source` is "rules" until the model steps exist.
+         */
+        AiOut: {
+            /** Ambiguous */
+            ambiguous: boolean;
+            /** Critic Concern */
+            critic_concern: string | null;
+            /** Gate Reasons */
+            gate_reasons: components["schemas"]["EscalationReason"][];
+            proposal: components["schemas"]["Decision"] | null;
+            /** Ran At */
+            ran_at: string | null;
+            /** Rationale */
+            rationale: string | null;
+            /** Source */
+            source: string | null;
+            /** Uncertain About */
+            uncertain_about: string[];
+        };
+        /** AuditEntryOut */
+        AuditEntryOut: {
+            /** Action */
+            action: string;
+            /** Actor Name */
+            actor_name: string | null;
+            actor_type: components["schemas"]["ActorType"];
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Case Number */
+            case_number: number | null;
+            /** Details */
+            details: {
+                [key: string]: unknown;
+            };
+            /** Id */
+            id: number;
+            /** Return Id */
+            return_id: string | null;
+        };
+        /** AuditPage */
+        AuditPage: {
+            /** Entries */
+            entries: components["schemas"]["AuditEntryOut"][];
+            /** Next Before Id */
+            next_before_id: number | null;
         };
         /** AuthState */
         AuthState: {
@@ -375,6 +560,89 @@ export interface components {
             /** Quantity */
             quantity: number;
         };
+        /** CaseOut */
+        CaseOut: {
+            ai: components["schemas"]["AiOut"];
+            /** Can Decide */
+            can_decide: boolean;
+            /** Cannot Decide Reason */
+            cannot_decide_reason: string | null;
+            /** Case Number */
+            case_number: number;
+            /** Checks */
+            checks: components["schemas"]["CheckOut"][];
+            /** Claimed By Me */
+            claimed_by_me: boolean;
+            /** Claimed By Name */
+            claimed_by_name: string | null;
+            /** Clauses */
+            clauses: components["schemas"]["ClauseOut"][];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Customer Message */
+            customer_message: string | null;
+            /** Days Since Delivery */
+            days_since_delivery: number | null;
+            /** Decided At */
+            decided_at: string | null;
+            /** Decided By Name */
+            decided_by_name: string | null;
+            decided_by_type: components["schemas"]["DeciderType"] | null;
+            /** Delivered At */
+            delivered_at: string | null;
+            escalation_reason: components["schemas"]["EscalationReason"] | null;
+            evidence_strength: components["schemas"]["EvidenceStrength"] | null;
+            final_decision: components["schemas"]["Decision"] | null;
+            history: components["schemas"]["HistoryOut"];
+            /** Id */
+            id: string;
+            /** Is Final Sale */
+            is_final_sale: boolean;
+            /** Order Number */
+            order_number: number;
+            /** Photos */
+            photos: components["schemas"]["PhotoEvidence"][];
+            /** Policy Version */
+            policy_version: number | null;
+            product_category: components["schemas"]["ProductCategory"];
+            /** Product Description */
+            product_description: string;
+            /** Product Name */
+            product_name: string;
+            /** Product Photo Url */
+            product_photo_url: string | null;
+            reason: components["schemas"]["ReturnReason"];
+            /** Reason Text */
+            reason_text: string;
+            /** Refund Amount Cents */
+            refund_amount_cents: number;
+            review_request: components["schemas"]["ReviewRequestOut"] | null;
+            status: components["schemas"]["ReturnStatus"];
+            /** Timeline */
+            timeline: components["schemas"]["TimelineEntry"][];
+        };
+        /** CheckOut */
+        CheckOut: {
+            /**
+             * Clauses
+             * @default []
+             */
+            clauses: string[];
+            /** Detail */
+            detail: string;
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "pass" | "warn" | "fail" | "info";
+        };
         /** CheckoutRequest */
         CheckoutRequest: {
             billing?: components["schemas"]["Address"] | null;
@@ -383,21 +651,96 @@ export interface components {
             items: components["schemas"]["CartLine"][];
             shipping: components["schemas"]["Address"];
         };
+        /** ClauseOut */
+        ClauseOut: {
+            /** Body */
+            body: string;
+            /** Cited */
+            cited: boolean;
+            /** Clause Id */
+            clause_id: string;
+            /** Title */
+            title: string;
+        };
+        /** CountByKey */
+        CountByKey: {
+            /** Count */
+            count: number;
+            /** Key */
+            key: string;
+        };
+        /**
+         * DeciderType
+         * @enum {string}
+         */
+        DeciderType: "auto" | "person";
         /**
          * Decision
          * @enum {string}
          */
         Decision: "approve" | "deny" | "escalate";
+        /** DecisionIn */
+        DecisionIn: {
+            /**
+             * Confirm Denial
+             * @default false
+             */
+            confirm_denial: boolean;
+            /**
+             * Decision
+             * @enum {string}
+             */
+            decision: "approve" | "deny";
+            /**
+             * Note To Customer
+             * @default
+             */
+            note_to_customer: string;
+            /**
+             * Override Note
+             * @default
+             */
+            override_note: string;
+            override_reason?: components["schemas"]["OverrideReason"] | null;
+            /** Policy Clauses */
+            policy_clauses?: string[];
+        };
         /**
          * EscalationReason
          * @description Named reasons a case is in the reviewer queue (BUILD_PLAN.md section 5).
          * @enum {string}
          */
         EscalationReason: "pipeline_error" | "proposed_denial" | "ambiguous_call" | "unverified_photo" | "critic_concern" | "high_value" | "elevated_risk" | "automation_off" | "qa_sample" | "customer_requested_review";
+        /**
+         * EvidenceStrength
+         * @enum {string}
+         */
+        EvidenceStrength: "strong" | "mixed" | "weak";
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** HistoryOut */
+        HistoryOut: {
+            /** Account Age Days */
+            account_age_days: number;
+            /** Other Accounts At Address */
+            other_accounts_at_address: number;
+            /** Past Orders */
+            past_orders: number;
+            /** Past Returns */
+            past_returns: number;
+            /** Recent Returns 30D */
+            recent_returns_30d: number;
+            /** Risk Factors */
+            risk_factors: {
+                [key: string]: number;
+            };
+            /** Risk Notes */
+            risk_notes: string[];
+            /** Risk Score */
+            risk_score: number | null;
         };
         /** LoginRequest */
         LoginRequest: {
@@ -408,6 +751,54 @@ export interface components {
             email: string;
             /** Password */
             password: string;
+        };
+        /** MetricsOut */
+        MetricsOut: {
+            /** Agreement Agreed */
+            agreement_agreed: number;
+            /** Agreement By Category */
+            agreement_by_category: components["schemas"]["Rate"][];
+            /** Agreement By Reason */
+            agreement_by_reason: components["schemas"]["Rate"][];
+            /** Agreement Sample Size */
+            agreement_sample_size: number;
+            /** Agreement Total */
+            agreement_total: number;
+            /** Approved By People */
+            approved_by_people: number;
+            /** Auto Approved */
+            auto_approved: number;
+            /** Avg Hours To Decision */
+            avg_hours_to_decision: number | null;
+            /** Days */
+            days: number;
+            /** Denied By People */
+            denied_by_people: number;
+            /** Escalation Rate */
+            escalation_rate: number | null;
+            /** Escalations By Reason */
+            escalations_by_reason: components["schemas"]["CountByKey"][];
+            /** Oldest Open At */
+            oldest_open_at: string | null;
+            /** Open By Reason */
+            open_by_reason: components["schemas"]["CountByKey"][];
+            /** Open Now */
+            open_now: number;
+            /** Returns Started */
+            returns_started: number;
+            /** Reviewers */
+            reviewers: components["schemas"]["ReviewerLoad"][];
+            /** Sent To Person */
+            sent_to_person: number;
+            /**
+             * Since
+             * Format: date-time
+             */
+            since: string;
+            /** Top Overrides */
+            top_overrides: components["schemas"]["CountByKey"][];
+            /** Waiting On Customer */
+            waiting_on_customer: number;
         };
         /** OrderDetailOut */
         OrderDetailOut: {
@@ -478,6 +869,35 @@ export interface components {
             /** Total Cents */
             total_cents: number;
         };
+        /**
+         * OverrideReason
+         * @description One-click reasons for disagreeing with the AI (S1, S5).
+         * @enum {string}
+         */
+        OverrideReason: "looks_like_defect" | "looks_like_wear" | "photo_unclear" | "photo_not_genuine" | "policy_misapplied" | "history_explains" | "other";
+        /** PhotoEvidence */
+        PhotoEvidence: {
+            /** Camera */
+            camera: string | null;
+            /** Captured At */
+            captured_at: string | null;
+            /** Has Exif */
+            has_exif: boolean | null;
+            /** Has Generator Hints */
+            has_generator_hints: boolean | null;
+            /** Height */
+            height: number | null;
+            /** Id */
+            id: string;
+            /** Size Bytes */
+            size_bytes: number;
+            /** Software */
+            software: string | null;
+            /** Url */
+            url: string;
+            /** Width */
+            width: number | null;
+        };
         /** PhotoOut */
         PhotoOut: {
             /** Height */
@@ -530,19 +950,46 @@ export interface components {
             ai_proposal: components["schemas"]["Decision"] | null;
             /** Case Number */
             case_number: number;
+            /** Claimed By Me */
+            claimed_by_me: boolean;
+            /** Claimed By Name */
+            claimed_by_name: string | null;
             /**
              * Created At
              * Format: date-time
              */
             created_at: string;
+            /** Decided At */
+            decided_at: string | null;
+            /** Decided By Name */
+            decided_by_name: string | null;
             escalation_reason: components["schemas"]["EscalationReason"] | null;
+            evidence_strength: components["schemas"]["EvidenceStrength"] | null;
+            final_decision: components["schemas"]["Decision"] | null;
             /** Id */
             id: string;
+            product_category: components["schemas"]["ProductCategory"];
+            /** Product Name */
+            product_name: string;
             /** Refund Amount Cents */
             refund_amount_cents: number;
+            /** Review Requested */
+            review_requested: boolean;
+            status: components["schemas"]["ReturnStatus"];
+        };
+        /** Rate */
+        Rate: {
+            /** Agreed */
+            agreed: number;
+            /** Key */
+            key: string;
+            /** Total */
+            total: number;
         };
         /** ReturnOut */
         ReturnOut: {
+            /** Can Request Review */
+            can_request_review: boolean;
             /** Case Number */
             case_number: number;
             /**
@@ -573,6 +1020,7 @@ export interface components {
             reason_text: string;
             /** Refund Amount Cents */
             refund_amount_cents: number;
+            review_request_status: components["schemas"]["ReviewRequestStatus"] | null;
             status: components["schemas"]["ReturnStatus"];
             /**
              * Updated At
@@ -590,17 +1038,64 @@ export interface components {
          * @enum {string}
          */
         ReturnStatus: "needs_info" | "submitted" | "checking" | "under_review" | "approved" | "denied" | "failed";
+        /** ReviewRequestIn */
+        ReviewRequestIn: {
+            /** Explanation */
+            explanation: string;
+        };
+        /** ReviewRequestOut */
+        ReviewRequestOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Customer Explanation */
+            customer_explanation: string;
+            /** Original Decider Is Me */
+            original_decider_is_me: boolean;
+            /** Original Decider Name */
+            original_decider_name: string;
+            status: components["schemas"]["ReviewRequestStatus"];
+        };
+        /**
+         * ReviewRequestStatus
+         * @enum {string}
+         */
+        ReviewRequestStatus: "open" | "resolved";
+        /** ReviewerLoad */
+        ReviewerLoad: {
+            /** Approved */
+            approved: number;
+            /** Denied */
+            denied: number;
+            /** Name */
+            name: string;
+        };
         /**
          * Role
          * @enum {string}
          */
         Role: "customer" | "reviewer" | "admin";
+        /** SettingsIn */
+        SettingsIn: {
+            /** Automation Enabled */
+            automation_enabled: boolean;
+            /** High Value Limit Cents */
+            high_value_limit_cents: number;
+            /** Qa Sample Rate */
+            qa_sample_rate: number | string;
+            /** Risk Limit */
+            risk_limit: number | string;
+        };
         /** SettingsOut */
         SettingsOut: {
             /** Automation Enabled */
             automation_enabled: boolean;
             /** High Value Limit Cents */
             high_value_limit_cents: number;
+            /** Policy High Value Cents */
+            policy_high_value_cents: number | null;
             /** Qa Sample Rate */
             qa_sample_rate: string;
             /** Risk Limit */
@@ -610,6 +1105,8 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /** Updated By Name */
+            updated_by_name: string | null;
         };
         /** SignupRequest */
         SignupRequest: {
@@ -639,6 +1136,24 @@ export interface components {
              * Format: password
              */
             number: string;
+        };
+        /** TimelineEntry */
+        TimelineEntry: {
+            /** Action */
+            action: string;
+            /** Actor Name */
+            actor_name: string | null;
+            /** Actor Type */
+            actor_type: string;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Details */
+            details: {
+                [key: string]: unknown;
+            };
         };
         /** UserOut */
         UserOut: {
@@ -672,6 +1187,72 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    audit_log_api_admin_audit_get: {
+        parameters: {
+            query?: {
+                actor_type?: components["schemas"]["ActorType"] | null;
+                action?: string | null;
+                case_number?: number | null;
+                before_id?: number | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    metrics_api_admin_metrics_get: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetricsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_settings_api_admin_settings_get: {
         parameters: {
             query?: never;
@@ -688,6 +1269,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SettingsOut"];
+                };
+            };
+        };
+    };
+    update_settings_api_admin_settings_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SettingsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -1169,9 +1783,174 @@ export interface operations {
             };
         };
     };
-    queue_api_review_queue_get: {
+    request_review_api_returns__return_id__review_request_post: {
         parameters: {
             query?: never;
+            header?: never;
+            path: {
+                return_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewRequestIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReturnOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_case_api_review_cases__return_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                return_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    claim_case_api_review_cases__return_id__claim_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                return_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    release_case_api_review_cases__return_id__claim_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                return_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    decide_case_api_review_cases__return_id__decision_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                return_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecisionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    queue_api_review_queue_get: {
+        parameters: {
+            query?: {
+                view?: "open" | "decided_by_me" | "decided";
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -1185,6 +1964,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["QueueItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -39,9 +39,13 @@ export function SiteHeader() {
                 <Link href="/orders" className="hover:underline">My orders</Link>
               </>
             ) : (
-              <Link href={homeFor(auth.user.role)} className="hover:underline">
-                {auth.user.role === "reviewer" ? "Review queue" : "Admin"}
-              </Link>
+              <>
+                {/* Admins hold every reviewer right, so they get the queue too. */}
+                <Link href="/review" className="hover:underline">Review queue</Link>
+                {auth.user.role === "admin" ? (
+                  <Link href={homeFor(auth.user.role)} className="hover:underline">Admin</Link>
+                ) : null}
+              </>
             )}
             <span className="text-zinc-600 dark:text-zinc-400" data-testid="signed-in-as">
               {auth.user.display_name}
