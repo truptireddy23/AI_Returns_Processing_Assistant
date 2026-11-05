@@ -213,7 +213,32 @@ class Product(Base):
     is_final_sale: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default=text("false")
     )
-    photo_key: Mapped[str | None] = mapped_column(String(255))
+    photo_key: Mapped[str | None] = mapped_column(String(255))  # generated illustration
+    created_at: Mapped[datetime] = _created_at()
+
+    photos: Mapped[list["ProductPhoto"]] = relationship(order_by="ProductPhoto.position")
+
+
+class ProductPhoto(Base):
+    """A catalog photo, stored in the product-photos bucket (first = main photo)."""
+
+    __tablename__ = "product_photos"
+    __table_args__ = (UniqueConstraint("product_id", "position"),)
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    product_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("products.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+    storage_key: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    content_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    width: Mapped[int] = mapped_column(Integer, nullable=False)
+    height: Mapped[int] = mapped_column(Integer, nullable=False)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    # Of the source file: re-uploading an unchanged photo is skipped.
+    source_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    # Of the stored image, for the photo check's near-duplicate comparison (M6).
+    perceptual_hash: Mapped[str] = mapped_column(String(32), nullable=False)
     created_at: Mapped[datetime] = _created_at()
 
 

@@ -181,6 +181,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/products/{product_id}/photos/{photo_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Product Photo
+         * @description Public: catalog photos. Keys change whenever a photo changes, so cache for a year.
+         */
+        get: operations["get_product_photo_api_products__product_id__photos__photo_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/readyz": {
         parameters: {
             query?: never;
@@ -487,10 +507,23 @@ export interface components {
             name: string;
             /** Photo Url */
             photo_url: string | null;
+            /** Photos */
+            photos: components["schemas"]["ProductPhotoOut"][];
             /** Price Cents */
             price_cents: number;
             /** Sku */
             sku: string;
+        };
+        /** ProductPhotoOut */
+        ProductPhotoOut: {
+            /** Height */
+            height: number;
+            /** Id */
+            id: string;
+            /** Url */
+            url: string;
+            /** Width */
+            width: number;
         };
         /** QueueItem */
         QueueItem: {
@@ -918,6 +951,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProductOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_product_photo_api_products__product_id__photos__photo_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                product_id: string;
+                photo_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": unknown;
                 };
             };
             /** @description Validation Error */

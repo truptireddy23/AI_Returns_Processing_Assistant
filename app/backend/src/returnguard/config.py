@@ -55,6 +55,7 @@ class Settings(BaseSettings):
     # pulled by `neon env pull`), photos go to the S3 bucket; otherwise to a
     # local folder (offline work and tests).
     storage_bucket: str = "return-photos"
+    product_photo_bucket: str = "product-photos"
     aws_endpoint_url_s3: str = ""
     aws_access_key_id: SecretStr = SecretStr("")
     aws_secret_access_key: SecretStr = SecretStr("")

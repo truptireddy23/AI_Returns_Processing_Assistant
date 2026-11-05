@@ -97,23 +97,37 @@ class S3Storage:
 
 
 @lru_cache
-def get_storage() -> Storage:
+def _s3_client() -> "S3Client":
     settings = get_settings()
+    return boto3.client(
+        "s3",
+        endpoint_url=settings.aws_endpoint_url_s3,
+        aws_access_key_id=settings.aws_access_key_id.get_secret_value() or None,
+        aws_secret_access_key=settings.aws_secret_access_key.get_secret_value() or None,
+        region_name=settings.aws_region,
+        # Neon Object Storage requires path-style addressing and SigV4.
+        config=Config(
+            s3={"addressing_style": "path"},
+            signature_version="s3v4",
+            retries={"max_attempts": 3, "mode": "standard"},
+            connect_timeout=5,
+            read_timeout=30,
+        ),
+    )
+
+
+@lru_cache
+def get_storage(bucket: str | None = None) -> Storage:
+    """Storage for `bucket` (default: return photos). Both buckets share one client."""
+    settings = get_settings()
+    bucket = bucket or settings.storage_bucket
     if settings.aws_endpoint_url_s3:
-        client = boto3.client(
-            "s3",
-            endpoint_url=settings.aws_endpoint_url_s3,
-            aws_access_key_id=settings.aws_access_key_id.get_secret_value() or None,
-            aws_secret_access_key=settings.aws_secret_access_key.get_secret_value() or None,
-            region_name=settings.aws_region,
-            # Neon Object Storage requires path-style addressing and SigV4.
-            config=Config(
-                s3={"addressing_style": "path"},
-                signature_version="s3v4",
-                retries={"max_attempts": 3, "mode": "standard"},
-                connect_timeout=5,
-                read_timeout=30,
-            ),
-        )
-        return S3Storage(client, settings.storage_bucket)
-    return LocalStorage(Path(settings.local_storage_dir))
+        return S3Storage(_s3_client(), bucket)
+    root = Path(settings.local_storage_dir)
+    # Return photos keep their original location; other buckets get a subfolder.
+    return LocalStorage(root if bucket == settings.storage_bucket else root / bucket)
+
+
+def clear_caches() -> None:
+    get_storage.cache_clear()
+    _s3_client.cache_clear()

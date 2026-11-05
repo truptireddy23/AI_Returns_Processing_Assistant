@@ -96,6 +96,11 @@ each photo only to the customer who owns the return and to reviewers/admins, wit
 (`503`, nothing saved); if the database write fails after the upload, the orphaned object
 is deleted.
 
+Catalog photos (`make product-photos`) go through the same decoding limits and are
+re-encoded to metadata-free JPEGs before upload. They are public: served by the API from
+the private `product-photos` bucket with long-lived caching (each changed photo gets a
+new key, so a cached copy is never stale).
+
 ## Checkout (built in M3)
 
 - Only published **test** card numbers are accepted (e.g. `4242 4242 4242 4242`), so

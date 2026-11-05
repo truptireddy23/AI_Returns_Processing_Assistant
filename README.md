@@ -190,7 +190,8 @@ that evidence to refine the design.
 │   ├── docker-compose.yml     # db (Postgres + pgvector), api, worker, web
 │   └── Makefile               # One command per operation (`make help`)
 ├── /docs/                     # Checkpoint 3 docs: safety_privacy.md, observability.md
-├── neon.ts                    # Neon services: Postgres + private `return-photos` bucket
+├── neon.ts                    # Neon services: Postgres + `return-photos` and `product-photos` buckets
+├── /Photos/                   # (git-ignored) catalog photos to upload with `make product-photos`
 ├── /tests/                    # Backend unit + integration tests
 ├── .github/workflows/ci.yml   # Lint, type check, tests, builds on every push and PR
 └── (GitHub Projects & Issues) # Task assignment & milestone tracking

@@ -19,3 +19,7 @@ node_modules/
 
 # Local return-photo storage (when not using Neon Object Storage)
 app/storage/
+
+# Product photos are uploaded to Neon Object Storage (`make product-photos`),
+# not committed: they may be third-party images.
+Photos/

@@ -26,6 +26,7 @@ from returnguard.models import (
 )
 from returnguard.payments import PaymentDeclined, charge_test_card
 from returnguard.ratelimit import rate_limit
+from returnguard.routers.catalog import WITH_PHOTOS, main_photo_url
 from returnguard.routers.returns import customer_status
 
 log = structlog.get_logger(__name__)
@@ -121,7 +122,7 @@ async def _order_out(db: DbSession, orders: list[Order]) -> list[OrderOut]:
                     product_id=str(i.product_id),
                     product_name=i.product.name,
                     category=i.product.category,
-                    photo_url=i.product.photo_key,
+                    photo_url=main_photo_url(i.product),
                     quantity=i.quantity,
                     unit_price_cents=i.unit_price_cents,
                     is_final_sale=i.product.is_final_sale,
@@ -151,7 +152,7 @@ async def list_my_orders(user: Customer, db: DbSession) -> list[OrderOut]:
     orders = await db.scalars(
         select(Order)
         .where(Order.customer_id == user.id)
-        .options(selectinload(Order.items).selectinload(OrderItem.product))
+        .options(selectinload(Order.items).selectinload(OrderItem.product).options(WITH_PHOTOS))
         .order_by(Order.placed_at.desc())
     )
     return await _order_out(db, list(orders))
@@ -231,7 +232,7 @@ async def checkout(body: CheckoutRequest, user: Customer, db: DbSession) -> Orde
     fresh = await db.scalar(
         select(Order)
         .where(Order.id == order.id)
-        .options(selectinload(Order.items).selectinload(OrderItem.product))
+        .options(selectinload(Order.items).selectinload(OrderItem.product).options(WITH_PHOTOS))
         .execution_options(populate_existing=True)
     )
     assert fresh is not None
@@ -265,7 +266,7 @@ async def get_my_order(order_id: uuid.UUID, user: Customer, db: DbSession) -> Or
     order = await db.scalar(
         select(Order)
         .where(Order.id == order_id, Order.customer_id == user.id)
-        .options(selectinload(Order.items).selectinload(OrderItem.product))
+        .options(selectinload(Order.items).selectinload(OrderItem.product).options(WITH_PHOTOS))
     )
     if order is None:  # someone else's order looks the same as a missing one
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
