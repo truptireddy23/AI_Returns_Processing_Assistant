@@ -5,7 +5,7 @@ BACKEND := cd backend &&
 FRONTEND := cd frontend &&
 
 .DEFAULT_GOAL := help
-.PHONY: help env up down logs ps migrate seed product-photos reset-db psql dev-prep dev-api dev-worker dev-web \
+.PHONY: help env up down logs ps migrate seed embed-policy product-photos reset-db psql dev-prep dev-api dev-worker dev-web \
         install test lint typecheck fmt check api-types requirements clean
 
 help: ## Show this help
@@ -29,6 +29,9 @@ ps: ## Show service status
 
 seed: ## Load demo data (does nothing if users already exist)
 	$(COMPOSE) run --rm -v ./seed:/srv/seed:ro -e SEED_DIR=/srv/seed api python -m returnguard.seed
+
+embed-policy: ## Embed the active policy's clauses for Policy RAG (needs OPENAI_API_KEY; no-op without it)
+	$(COMPOSE) run --rm api python -m returnguard.embed_policy
 
 product-photos: ## Upload catalog photos from ../Photos to the product-photos bucket (only changes)
 	$(BACKEND) LOG_JSON=false uv run python -m returnguard.product_photos ../../Photos

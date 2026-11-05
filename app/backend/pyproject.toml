@@ -13,6 +13,7 @@ dependencies = [
     "fastapi>=0.115",
     "httpx>=0.28.1",
     "limits>=5.8.0",
+    "openai>=1.60",
     "pgvector>=0.5.1",
     "pillow>=13.0.0",
     "pydantic-settings>=2.6",

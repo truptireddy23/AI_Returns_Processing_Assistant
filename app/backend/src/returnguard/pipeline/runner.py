@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from returnguard import audit
+from returnguard.config import get_settings
 from returnguard.models import (
     ActorType,
     AgentRun,
@@ -39,9 +40,38 @@ from returnguard.models import (
 from returnguard.pipeline.behavior import BehaviorInputs, BehaviorScore, score_behavior
 from returnguard.pipeline.checks import data_check, policy_facts
 from returnguard.pipeline.gate import GateInputs, GateSettings, governance_gate
+from returnguard.pipeline.llm import OpenAIClient
+from returnguard.pipeline.model_steps import ModelSteps
 from returnguard.pipeline.steps import Case, RuleSteps, Steps
+from returnguard.storage import get_storage
 
 log = structlog.get_logger(__name__)
+
+
+def default_steps(db: AsyncSession, policy_doc_id: uuid.UUID | None) -> Steps:
+    """`ModelSteps`, backed by real retrieval and OpenAI calls, when
+    `OPENAI_API_KEY` is set and a policy is active; `RuleSteps` otherwise. This
+    is the one place that chooses, so the worker and any direct caller agree."""
+    settings = get_settings()
+    api_key = settings.openai_api_key.get_secret_value()
+    if not api_key or policy_doc_id is None:
+        return RuleSteps()
+    client = OpenAIClient(
+        api_key=api_key,
+        chat_base_url=settings.openai_chat_base_url,
+        embedding_model=settings.embedding_model,
+        chat_model=settings.policy_model,
+    )
+    return ModelSteps(
+        db,
+        embedder=client,
+        chat=client,
+        policy_doc_id=policy_doc_id,
+        retrieval_k=settings.policy_retrieval_k,
+        storage=get_storage(),
+        product_photo_storage=get_storage(settings.product_photo_bucket),
+    )
+
 
 # Statuses the pipeline may (re)start from. Anything else is already decided or
 # with a person, so a duplicate or late job is a no-op.
@@ -151,7 +181,6 @@ async def review_return(
     rng: random.Random | None = None,
 ) -> ReturnStatus | None:
     """Review one return. Commits its own progress. Returns the new status, or None if skipped."""
-    steps = steps or RuleSteps()
     ret = await db.scalar(
         select(Return)
         .where(Return.id == return_id)
@@ -174,6 +203,8 @@ async def review_return(
     settings = await db.get_one(Settings, 1)
     policy = await db.scalar(select(PolicyDoc).where(PolicyDoc.is_active))
     policy_version = policy.version if policy else None
+    if steps is None:
+        steps = default_steps(db, policy.id if policy else None)
 
     trace = Trace(db, ret.id, policy_version)
     ret.status = ReturnStatus.CHECKING
@@ -221,6 +252,7 @@ async def review_return(
         refund_cents=ret.refund_amount_cents,
         photo_keys=[p.storage_key for p in photos],
         policy_version=policy_version or 0,
+        product_id=product.id,
     )
 
     # 2-3. Policy and photo.

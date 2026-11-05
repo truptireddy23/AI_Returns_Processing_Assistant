@@ -6,6 +6,7 @@ that needs one goes to a person as "unverified photo". Its outputs are marked
 `"source": "rules"` in the trace.
 """
 
+import uuid
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -36,6 +37,7 @@ class Case:
     refund_cents: int
     photo_keys: list[str]
     policy_version: int
+    product_id: uuid.UUID | None = None  # for the Image step's catalog reference photo
 
 
 @dataclass(frozen=True)
