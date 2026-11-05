@@ -7,6 +7,8 @@ export default defineConfig({
   // checks who is asking (see app/backend/src/returnguard/storage.py).
   buckets: {
     "return-photos": {},
+    // Catalog photos, uploaded with `make product-photos` and served by the API.
+    "product-photos": {},
   },
   // Branch policy: per-branch tuning
   branch: (branch) => {

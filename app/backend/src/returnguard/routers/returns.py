@@ -45,6 +45,7 @@ from returnguard.models import (
 )
 from returnguard.pipeline.checks import PHOTO_REASONS
 from returnguard.ratelimit import rate_limit
+from returnguard.routers.catalog import WITH_PHOTOS, main_photo_url
 from returnguard.storage import StorageError, get_storage
 from returnguard.wake import nudge_worker
 
@@ -100,7 +101,7 @@ def _return_out(
         order_number=order.order_number,
         order_item_id=str(item.id),
         product_name=item.product.name,
-        product_photo_url=item.product.photo_key,
+        product_photo_url=main_photo_url(item.product),
         reason=r.reason,
         reason_text=r.reason_text,
         refund_amount_cents=r.refund_amount_cents,
@@ -135,7 +136,9 @@ async def _load(
     item = await db.scalar(
         select(OrderItem)
         .where(OrderItem.id == ret.order_item_id)
-        .options(selectinload(OrderItem.product), selectinload(OrderItem.order))
+        .options(
+            selectinload(OrderItem.product).options(WITH_PHOTOS), selectinload(OrderItem.order)
+        )
     )
     assert item is not None
     photos = list(
@@ -237,7 +240,9 @@ async def start_return(
         select(OrderItem)
         .join(Order)
         .where(OrderItem.id == order_item_id, Order.customer_id == user.id)
-        .options(selectinload(OrderItem.product), selectinload(OrderItem.order))
+        .options(
+            selectinload(OrderItem.product).options(WITH_PHOTOS), selectinload(OrderItem.order)
+        )
     )
     if item is None:  # someone else's item looks the same as a missing one
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Order item not found")

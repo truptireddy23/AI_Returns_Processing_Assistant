@@ -1,8 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+
+import { ProductGallery } from "@/components/product-gallery";
 
 import { api, errorMessage, formatMoney, type Product } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -64,9 +65,7 @@ export default function ShopPage() {
       <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" data-testid="catalog">
         {shown?.map((p) => (
           <li key={p.id} className="flex flex-col overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800">
-            {p.photo_url ? (
-              <Image src={p.photo_url} alt={p.name} width={400} height={400} unoptimized className="aspect-square w-full object-cover" />
-            ) : null}
+            <ProductGallery product={p} />
             <div className="flex flex-1 flex-col gap-2 p-4">
               <div className="flex items-start justify-between gap-2">
                 <h2 className="font-medium">{p.name}</h2>

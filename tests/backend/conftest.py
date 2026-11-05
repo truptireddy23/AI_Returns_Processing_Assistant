@@ -43,7 +43,7 @@ get_settings.cache_clear()
 
 from returnguard import db, ratelimit  # noqa: E402  (must follow the env setup above)
 from returnguard.main import create_app  # noqa: E402
-from returnguard.storage import get_storage  # noqa: E402
+from returnguard.storage import clear_caches, get_storage  # noqa: E402
 
 REPO_ROOT = Path(__file__).parents[2]
 ALEMBIC_INI = REPO_ROOT / "app" / "backend" / "alembic.ini"
@@ -107,7 +107,7 @@ def _reset_rate_limits() -> None:
 
 @pytest.fixture(autouse=True)
 def _local_storage() -> None:
-    get_storage.cache_clear()
+    clear_caches()
     assert get_storage().name == "local", "tests must never write to the hosted bucket"
 
 

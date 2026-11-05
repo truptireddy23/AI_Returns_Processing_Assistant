@@ -556,6 +556,13 @@
             ],
             "title": "Photo Url"
           },
+          "photos": {
+            "items": {
+              "$ref": "#/components/schemas/ProductPhotoOut"
+            },
+            "title": "Photos",
+            "type": "array"
+          },
           "price_cents": {
             "title": "Price Cents",
             "type": "integer"
@@ -573,9 +580,38 @@
           "category",
           "price_cents",
           "is_final_sale",
-          "photo_url"
+          "photo_url",
+          "photos"
         ],
         "title": "ProductOut",
+        "type": "object"
+      },
+      "ProductPhotoOut": {
+        "properties": {
+          "height": {
+            "title": "Height",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          },
+          "width": {
+            "title": "Width",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "url",
+          "width",
+          "height"
+        ],
+        "title": "ProductPhotoOut",
         "type": "object"
       },
       "QueueItem": {
@@ -1311,6 +1347,56 @@
           }
         },
         "summary": "Get Product",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/api/products/{product_id}/photos/{photo_id}": {
+      "get": {
+        "description": "Public: catalog photos. Keys change whenever a photo changes, so cache for a year.",
+        "operationId": "get_product_photo_api_products__product_id__photos__photo_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "product_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Product Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "photo_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Photo Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/jpeg": {}
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Product Photo",
         "tags": [
           "catalog"
         ]
