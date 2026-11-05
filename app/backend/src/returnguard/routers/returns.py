@@ -34,7 +34,6 @@ from returnguard.jobs import REVIEW_JOB
 from returnguard.models import (
     ActorType,
     DeciderType,
-    EscalationReason,
     Job,
     Order,
     OrderItem,
@@ -402,10 +401,11 @@ async def request_review(
             original_decider_id=ret.decided_by_user_id,
         )
     )
-    # Back to the queue. The denial itself stays in the audit log.
+    # Back to the queue. The denial itself stays in the audit log. escalation_reason
+    # keeps the gate's original reason for the metrics; the review screens show
+    # "customer requested review" from the open request instead.
     ret.status = ReturnStatus.UNDER_REVIEW
     ret.route = Route.REVIEWER
-    ret.escalation_reason = EscalationReason.CUSTOMER_REQUESTED_REVIEW
     ret.final_decision = None
     ret.decided_by_type = None
     ret.decided_by_user_id = None

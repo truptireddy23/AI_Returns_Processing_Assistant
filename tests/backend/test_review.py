@@ -375,6 +375,15 @@ async def test_a_customer_can_ask_for_a_different_reviewer_to_look_again(
         db_client, headers, ret, decision="deny", confirm_denial=True, policy_clauses=["P3"]
     )
     assert denied.status_code == 200
+    gate_reason = ret.escalation_reason
+    assert gate_reason is not None
+    samples_after_first_decision = len(
+        list(
+            await db_session.scalars(
+                select(AgreementSample).where(AgreementSample.return_id == ret.id)
+            )
+        )
+    )
 
     # The customer sees the denial and may ask once.
     customer_headers = await signed_in(db_client, customer)
@@ -403,13 +412,19 @@ async def test_a_customer_can_ask_for_a_different_reviewer_to_look_again(
     )
     assert again.status_code == 409
 
+    # The row keeps the gate's reason (for the metrics); the review screens show why
+    # the case is back.
     saved = await db_session.get_one(Return, ret.id, populate_existing=True)
-    assert saved.escalation_reason is EscalationReason.CUSTOMER_REQUESTED_REVIEW
+    assert saved.escalation_reason is gate_reason
     assert saved.final_decision is None
+    queue = await db_client.get("/api/review/queue", headers=await signed_in(db_client, second))
+    [item] = [i for i in queue.json() if i["id"] == str(ret.id)]
+    assert item["escalation_reason"] == "customer_requested_review"
 
     # The reviewer who denied it can't decide the review...
     headers = await signed_in(db_client, first)
     case = (await db_client.get(f"/api/review/cases/{ret.id}")).json()
+    assert case["escalation_reason"] == "customer_requested_review"
     assert case["can_decide"] is False
     assert case["review_request"]["original_decider_is_me"] is True
     assert (await decide(db_client, headers, ret, decision="approve")).status_code == 409
@@ -424,6 +439,14 @@ async def test_a_customer_can_ask_for_a_different_reviewer_to_look_again(
     assert rr.status is ReviewRequestStatus.RESOLVED
     assert rr.assigned_reviewer_id == second.id
     assert rr.outcome is Decision.APPROVE
+
+    # The re-review is recorded on the request, not as a second agreement sample.
+    samples = await db_session.scalars(
+        select(AgreementSample).where(AgreementSample.return_id == ret.id)
+    )
+    assert len(list(samples)) == samples_after_first_decision
+    case = (await db_client.get(f"/api/review/cases/{ret.id}")).json()
+    assert case["escalation_reason"] == gate_reason.value
 
 
 async def test_only_the_owner_can_request_a_review_of_a_denial(
