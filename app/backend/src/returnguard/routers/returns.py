@@ -22,7 +22,7 @@ from fastapi import (
     UploadFile,
     status,
 )
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
@@ -33,6 +33,7 @@ from returnguard.images import ProcessedPhoto, UploadRejected, process_upload
 from returnguard.jobs import REVIEW_JOB
 from returnguard.models import (
     ActorType,
+    EscalationReason,
     Job,
     Order,
     OrderItem,
@@ -40,7 +41,9 @@ from returnguard.models import (
     ReturnPhoto,
     ReturnReason,
     ReturnStatus,
+    ReviewRequest,
     Role,
+    Route,
     User,
 )
 from returnguard.pipeline.checks import PHOTO_REASONS
@@ -381,3 +384,60 @@ async def get_return_photo(
             "X-Content-Type-Options": "nosniff",
         },
     )
+
+
+# --- Request a review (S2) ---------------------------------------------------
+
+
+class RequestReviewBody(BaseModel):
+    explanation: Annotated[str, Field(min_length=1, max_length=MAX_NOTE_LENGTH)]
+
+
+@router.post(
+    "/{return_id}/review-requests",
+    response_model=ReturnOut,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(rate_limit(get_settings().return_rate_limit, "returns"))],
+)
+async def request_review(
+    return_id: uuid.UUID, body: RequestReviewBody, user: Customer, db: DbSession
+) -> ReturnOut:
+    """A customer asking for a second look at a denial. Reopens the case in the
+    queue for a *different* reviewer (database CHECK constraint enforces it);
+    the original decision stays on the record until someone re-decides it."""
+    ret = await db.scalar(
+        select(Return)
+        .where(Return.id == return_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if ret is None or ret.customer_id != user.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Return not found")
+    if ret.status is not ReturnStatus.DENIED:
+        raise HTTPException(status.HTTP_409_CONFLICT, "This return wasn't denied.")
+    if await db.scalar(select(ReviewRequest.id).where(ReviewRequest.return_id == ret.id)):
+        raise HTTPException(status.HTTP_409_CONFLICT, "A review was already requested.")
+    if ret.decided_by_user_id is None:
+        raise HTTPException(status.HTTP_409_CONFLICT, "This denial has no reviewer on record.")
+
+    db.add(
+        ReviewRequest(
+            return_id=ret.id,
+            customer_explanation=body.explanation.strip(),
+            original_decider_id=ret.decided_by_user_id,
+        )
+    )
+    ret.status = ReturnStatus.UNDER_REVIEW
+    ret.route = Route.REVIEWER
+    ret.escalation_reason = EscalationReason.CUSTOMER_REQUESTED_REVIEW
+    audit.record(
+        db,
+        actor_type=ActorType.CUSTOMER,
+        actor_user_id=user.id,
+        action="return.review_requested",
+        return_id=ret.id,
+    )
+    await db.commit()
+    log.info("return.review_requested", case_number=ret.case_number)
+    ret, item, order, photos = await _load(db, ret.id)
+    return _return_out(ret, item, order, photos, staff=False)

@@ -4,6 +4,23 @@
  */
 
 export interface paths {
+    "/api/admin/audit-log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Audit Log */
+        get: operations["list_audit_log_api_admin_audit_log_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/settings": {
         parameters: {
             query?: never;
@@ -18,7 +35,8 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /** Update Settings */
+        patch: operations["update_settings_api_admin_settings_patch"];
         trace?: never;
     };
     "/api/auth/login": {
@@ -273,6 +291,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/returns/{return_id}/review-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request Review
+         * @description A customer asking for a second look at a denial. Reopens the case in the
+         *     queue for a *different* reviewer (database CHECK constraint enforces it);
+         *     the original decision stays on the record until someone re-decides it.
+         */
+        post: operations["request_review_api_returns__return_id__review_requests_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/review/queue": {
         parameters: {
             query?: never;
@@ -284,6 +324,40 @@ export interface paths {
         get: operations["queue_api_review_queue_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/review/{return_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Case */
+        get: operations["get_case_api_review__return_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/review/{return_id}/decide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Decide */
+        post: operations["decide_api_review__return_id__decide_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -304,6 +378,28 @@ export interface components {
             name: string;
             /** Postal Code */
             postal_code: string;
+        };
+        /** AuditLogEntryOut */
+        AuditLogEntryOut: {
+            /** Action */
+            action: string;
+            /** Actor Type */
+            actor_type: string;
+            /** Actor User Id */
+            actor_user_id: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Details */
+            details: {
+                [key: string]: unknown;
+            };
+            /** Id */
+            id: number;
+            /** Return Id */
+            return_id: string | null;
         };
         /** AuthState */
         AuthState: {
@@ -355,6 +451,46 @@ export interface components {
             /** Quantity */
             quantity: number;
         };
+        /** CaseDetailOut */
+        CaseDetailOut: {
+            ai_proposal: components["schemas"]["Decision"] | null;
+            /** Case Number */
+            case_number: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            customer_history: components["schemas"]["CustomerHistoryOut"];
+            /** Decided By Type */
+            decided_by_type: string | null;
+            /** Decided By User Id */
+            decided_by_user_id: string | null;
+            escalation_reason: components["schemas"]["EscalationReason"] | null;
+            evidence_strength: components["schemas"]["EvidenceStrength"] | null;
+            final_decision: components["schemas"]["Decision"] | null;
+            /** Findings */
+            findings: components["schemas"]["FindingOut"][];
+            /** Id */
+            id: string;
+            /** Order Number */
+            order_number: number;
+            /** Photos */
+            photos: components["schemas"]["returnguard__routers__review__PhotoOut"][];
+            /** Policy Version */
+            policy_version: number | null;
+            /** Product Name */
+            product_name: string;
+            /** Product Photo Url */
+            product_photo_url: string | null;
+            reason: components["schemas"]["ReturnReason"];
+            /** Reason Text */
+            reason_text: string;
+            /** Refund Amount Cents */
+            refund_amount_cents: number;
+            review_request: components["schemas"]["ReviewRequestOut"] | null;
+            status: components["schemas"]["ReturnStatus"];
+        };
         /** CheckoutRequest */
         CheckoutRequest: {
             billing?: components["schemas"]["Address"] | null;
@@ -362,6 +498,25 @@ export interface components {
             /** Items */
             items: components["schemas"]["CartLine"][];
             shipping: components["schemas"]["Address"];
+        };
+        /** CustomerHistoryOut */
+        CustomerHistoryOut: {
+            /** Account Age Days */
+            account_age_days: number;
+            /** Other Accounts At Address */
+            other_accounts_at_address: number;
+            /** Past Orders */
+            past_orders: number;
+            /** Past Returns */
+            past_returns: number;
+            /** Recent Returns 30D */
+            recent_returns_30d: number;
+        };
+        /** DecideRequest */
+        DecideRequest: {
+            decision: components["schemas"]["Decision"];
+            /** Override Reason */
+            override_reason?: string | null;
         };
         /**
          * Decision
@@ -374,6 +529,32 @@ export interface components {
          * @enum {string}
          */
         EscalationReason: "pipeline_error" | "proposed_denial" | "ambiguous_call" | "unverified_photo" | "critic_concern" | "high_value" | "elevated_risk" | "automation_off" | "qa_sample" | "customer_requested_review";
+        /**
+         * EvidenceStrength
+         * @enum {string}
+         */
+        EvidenceStrength: "strong" | "mixed" | "weak";
+        /**
+         * FindingOut
+         * @description One pipeline step's result, from its most recent run (`agent_runs`).
+         *
+         *     `output` is the step's own result dict (e.g. the Policy step's cited
+         *     clauses, the Image step's authenticity notes) — deliberately untyped here
+         *     so the case page can render whatever a step actually produced, rules-based
+         *     or model-based, without this schema needing to change per step.
+         */
+        FindingOut: {
+            /** Model */
+            model: string | null;
+            /** Output */
+            output: {
+                [key: string]: unknown;
+            };
+            /** Source */
+            source: string | null;
+            /** Step */
+            step: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -458,17 +639,6 @@ export interface components {
             /** Total Cents */
             total_cents: number;
         };
-        /** PhotoOut */
-        PhotoOut: {
-            /** Height */
-            height: number | null;
-            /** Id */
-            id: string;
-            /** Url */
-            url: string;
-            /** Width */
-            width: number | null;
-        };
         /**
          * ProductCategory
          * @enum {string}
@@ -508,6 +678,11 @@ export interface components {
             /** Refund Amount Cents */
             refund_amount_cents: number;
         };
+        /** RequestReviewBody */
+        RequestReviewBody: {
+            /** Explanation */
+            explanation: string;
+        };
         /** ReturnOut */
         ReturnOut: {
             /** Case Number */
@@ -530,7 +705,7 @@ export interface components {
             /** Photo Required */
             photo_required: boolean;
             /** Photos */
-            photos: components["schemas"]["PhotoOut"][];
+            photos: components["schemas"]["returnguard__routers__returns__PhotoOut"][];
             /** Product Name */
             product_name: string;
             /** Product Photo Url */
@@ -557,6 +732,22 @@ export interface components {
          * @enum {string}
          */
         ReturnStatus: "needs_info" | "submitted" | "checking" | "under_review" | "approved" | "denied" | "failed";
+        /** ReviewRequestOut */
+        ReviewRequestOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Customer Explanation */
+            customer_explanation: string;
+            status: components["schemas"]["ReviewRequestStatus"];
+        };
+        /**
+         * ReviewRequestStatus
+         * @enum {string}
+         */
+        ReviewRequestStatus: "open" | "resolved";
         /**
          * Role
          * @enum {string}
@@ -577,6 +768,22 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /**
+         * SettingsUpdate
+         * @description Every field optional: only what's sent changes. Ranges match the
+         *     database's own CHECK constraints (migration 0002) so a bad value is
+         *     rejected with a clear message rather than a raw constraint-violation error.
+         */
+        SettingsUpdate: {
+            /** Automation Enabled */
+            automation_enabled?: boolean | null;
+            /** High Value Limit Cents */
+            high_value_limit_cents?: number | null;
+            /** Qa Sample Rate */
+            qa_sample_rate?: number | string | null;
+            /** Risk Limit */
+            risk_limit?: number | string | null;
         };
         /** SignupRequest */
         SignupRequest: {
@@ -630,6 +837,24 @@ export interface components {
             /** Error Type */
             type: string;
         };
+        /** PhotoOut */
+        returnguard__routers__returns__PhotoOut: {
+            /** Height */
+            height: number | null;
+            /** Id */
+            id: string;
+            /** Url */
+            url: string;
+            /** Width */
+            width: number | null;
+        };
+        /** PhotoOut */
+        returnguard__routers__review__PhotoOut: {
+            /** Id */
+            id: string;
+            /** Url */
+            url: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -639,6 +864,38 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    list_audit_log_api_admin_audit_log_get: {
+        parameters: {
+            query?: {
+                return_id?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditLogEntryOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_settings_api_admin_settings_get: {
         parameters: {
             query?: never;
@@ -655,6 +912,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SettingsOut"];
+                };
+            };
+        };
+    };
+    update_settings_api_admin_settings_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -1104,6 +1394,41 @@ export interface operations {
             };
         };
     };
+    request_review_api_returns__return_id__review_requests_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                return_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequestReviewBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReturnOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     queue_api_review_queue_get: {
         parameters: {
             query?: never;
@@ -1120,6 +1445,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["QueueItem"][];
+                };
+            };
+        };
+    };
+    get_case_api_review__return_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                return_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseDetailOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    decide_api_review__return_id__decide_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                return_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecideRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseDetailOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

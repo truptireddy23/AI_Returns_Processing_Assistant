@@ -37,6 +37,65 @@
         "title": "Address",
         "type": "object"
       },
+      "AuditLogEntryOut": {
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "actor_type": {
+            "title": "Actor Type",
+            "type": "string"
+          },
+          "actor_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor User Id"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "details": {
+            "additionalProperties": true,
+            "title": "Details",
+            "type": "object"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "return_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Return Id"
+          }
+        },
+        "required": [
+          "id",
+          "created_at",
+          "actor_type",
+          "actor_user_id",
+          "action",
+          "return_id",
+          "details"
+        ],
+        "title": "AuditLogEntryOut",
+        "type": "object"
+      },
       "AuthState": {
         "properties": {
           "csrf_token": {
@@ -166,6 +225,181 @@
         "title": "CartLine",
         "type": "object"
       },
+      "CaseDetailOut": {
+        "properties": {
+          "ai_proposal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Decision"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "case_number": {
+            "title": "Case Number",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "customer_history": {
+            "$ref": "#/components/schemas/CustomerHistoryOut"
+          },
+          "decided_by_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided By Type"
+          },
+          "decided_by_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided By User Id"
+          },
+          "escalation_reason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EscalationReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "evidence_strength": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EvidenceStrength"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "final_decision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Decision"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/FindingOut"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "order_number": {
+            "title": "Order Number",
+            "type": "integer"
+          },
+          "photos": {
+            "items": {
+              "$ref": "#/components/schemas/returnguard__routers__review__PhotoOut"
+            },
+            "title": "Photos",
+            "type": "array"
+          },
+          "policy_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policy Version"
+          },
+          "product_name": {
+            "title": "Product Name",
+            "type": "string"
+          },
+          "product_photo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Product Photo Url"
+          },
+          "reason": {
+            "$ref": "#/components/schemas/ReturnReason"
+          },
+          "reason_text": {
+            "title": "Reason Text",
+            "type": "string"
+          },
+          "refund_amount_cents": {
+            "title": "Refund Amount Cents",
+            "type": "integer"
+          },
+          "review_request": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReviewRequestOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/ReturnStatus"
+          }
+        },
+        "required": [
+          "id",
+          "case_number",
+          "order_number",
+          "product_name",
+          "product_photo_url",
+          "reason",
+          "reason_text",
+          "refund_amount_cents",
+          "status",
+          "ai_proposal",
+          "evidence_strength",
+          "escalation_reason",
+          "policy_version",
+          "photos",
+          "findings",
+          "customer_history",
+          "final_decision",
+          "decided_by_type",
+          "decided_by_user_id",
+          "review_request",
+          "created_at"
+        ],
+        "title": "CaseDetailOut",
+        "type": "object"
+      },
       "CheckoutRequest": {
         "properties": {
           "billing": {
@@ -202,6 +436,62 @@
         "title": "CheckoutRequest",
         "type": "object"
       },
+      "CustomerHistoryOut": {
+        "properties": {
+          "account_age_days": {
+            "title": "Account Age Days",
+            "type": "integer"
+          },
+          "other_accounts_at_address": {
+            "title": "Other Accounts At Address",
+            "type": "integer"
+          },
+          "past_orders": {
+            "title": "Past Orders",
+            "type": "integer"
+          },
+          "past_returns": {
+            "title": "Past Returns",
+            "type": "integer"
+          },
+          "recent_returns_30d": {
+            "title": "Recent Returns 30D",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "account_age_days",
+          "past_orders",
+          "past_returns",
+          "recent_returns_30d",
+          "other_accounts_at_address"
+        ],
+        "title": "CustomerHistoryOut",
+        "type": "object"
+      },
+      "DecideRequest": {
+        "properties": {
+          "decision": {
+            "$ref": "#/components/schemas/Decision"
+          },
+          "override_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Override Reason"
+          }
+        },
+        "required": [
+          "decision"
+        ],
+        "title": "DecideRequest",
+        "type": "object"
+      },
       "Decision": {
         "enum": [
           "approve",
@@ -227,6 +517,59 @@
         ],
         "title": "EscalationReason",
         "type": "string"
+      },
+      "EvidenceStrength": {
+        "enum": [
+          "strong",
+          "mixed",
+          "weak"
+        ],
+        "title": "EvidenceStrength",
+        "type": "string"
+      },
+      "FindingOut": {
+        "description": "One pipeline step's result, from its most recent run (`agent_runs`).\n\n`output` is the step's own result dict (e.g. the Policy step's cited\nclauses, the Image step's authenticity notes) \u2014 deliberately untyped here\nso the case page can render whatever a step actually produced, rules-based\nor model-based, without this schema needing to change per step.",
+        "properties": {
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "output": {
+            "additionalProperties": true,
+            "title": "Output",
+            "type": "object"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "step": {
+            "title": "Step",
+            "type": "string"
+          }
+        },
+        "required": [
+          "step",
+          "model",
+          "source",
+          "output"
+        ],
+        "title": "FindingOut",
+        "type": "object"
       },
       "HTTPValidationError": {
         "properties": {
@@ -472,48 +815,6 @@
         "title": "OrderOut",
         "type": "object"
       },
-      "PhotoOut": {
-        "properties": {
-          "height": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Height"
-          },
-          "id": {
-            "title": "Id",
-            "type": "string"
-          },
-          "url": {
-            "title": "Url",
-            "type": "string"
-          },
-          "width": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Width"
-          }
-        },
-        "required": [
-          "id",
-          "url",
-          "width",
-          "height"
-        ],
-        "title": "PhotoOut",
-        "type": "object"
-      },
       "ProductCategory": {
         "enum": [
           "footwear",
@@ -629,6 +930,21 @@
         "title": "QueueItem",
         "type": "object"
       },
+      "RequestReviewBody": {
+        "properties": {
+          "explanation": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Explanation",
+            "type": "string"
+          }
+        },
+        "required": [
+          "explanation"
+        ],
+        "title": "RequestReviewBody",
+        "type": "object"
+      },
       "ReturnOut": {
         "properties": {
           "case_number": {
@@ -680,7 +996,7 @@
           },
           "photos": {
             "items": {
-              "$ref": "#/components/schemas/PhotoOut"
+              "$ref": "#/components/schemas/returnguard__routers__returns__PhotoOut"
             },
             "title": "Photos",
             "type": "array"
@@ -765,6 +1081,37 @@
         "title": "ReturnStatus",
         "type": "string"
       },
+      "ReviewRequestOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "customer_explanation": {
+            "title": "Customer Explanation",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ReviewRequestStatus"
+          }
+        },
+        "required": [
+          "customer_explanation",
+          "status",
+          "created_at"
+        ],
+        "title": "ReviewRequestOut",
+        "type": "object"
+      },
+      "ReviewRequestStatus": {
+        "enum": [
+          "open",
+          "resolved"
+        ],
+        "title": "ReviewRequestStatus",
+        "type": "string"
+      },
       "Role": {
         "enum": [
           "customer",
@@ -806,6 +1153,68 @@
           "updated_at"
         ],
         "title": "SettingsOut",
+        "type": "object"
+      },
+      "SettingsUpdate": {
+        "description": "Every field optional: only what's sent changes. Ranges match the\ndatabase's own CHECK constraints (migration 0002) so a bad value is\nrejected with a clear message rather than a raw constraint-violation error.",
+        "properties": {
+          "automation_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Automation Enabled"
+          },
+          "high_value_limit_cents": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "High Value Limit Cents"
+          },
+          "qa_sample_rate": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qa Sample Rate"
+          },
+          "risk_limit": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Risk Limit"
+          }
+        },
+        "title": "SettingsUpdate",
         "type": "object"
       },
       "SignupRequest": {
@@ -939,6 +1348,66 @@
         ],
         "title": "ValidationError",
         "type": "object"
+      },
+      "returnguard__routers__returns__PhotoOut": {
+        "properties": {
+          "height": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Height"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          },
+          "width": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Width"
+          }
+        },
+        "required": [
+          "id",
+          "url",
+          "width",
+          "height"
+        ],
+        "title": "PhotoOut",
+        "type": "object"
+      },
+      "returnguard__routers__review__PhotoOut": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "url"
+        ],
+        "title": "PhotoOut",
+        "type": "object"
       }
     }
   },
@@ -948,6 +1417,70 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/admin/audit-log": {
+      "get": {
+        "operationId": "list_audit_log_api_admin_audit_log_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "return_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Return Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AuditLogEntryOut"
+                  },
+                  "title": "Response List Audit Log Api Admin Audit Log Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Audit Log",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/admin/settings": {
       "get": {
         "operationId": "get_settings_api_admin_settings_get",
@@ -964,6 +1497,45 @@
           }
         },
         "summary": "Get Settings",
+        "tags": [
+          "admin"
+        ]
+      },
+      "patch": {
+        "operationId": "update_settings_api_admin_settings_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Settings",
         "tags": [
           "admin"
         ]
@@ -1552,6 +2124,60 @@
         ]
       }
     },
+    "/api/returns/{return_id}/review-requests": {
+      "post": {
+        "description": "A customer asking for a second look at a denial. Reopens the case in the\nqueue for a *different* reviewer (database CHECK constraint enforces it);\nthe original decision stays on the record until someone re-decides it.",
+        "operationId": "request_review_api_returns__return_id__review_requests_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "return_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Return Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestReviewBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReturnOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Request Review",
+        "tags": [
+          "returns"
+        ]
+      }
+    },
     "/api/review/queue": {
       "get": {
         "operationId": "queue_api_review_queue_get",
@@ -1572,6 +2198,102 @@
           }
         },
         "summary": "Queue",
+        "tags": [
+          "review"
+        ]
+      }
+    },
+    "/api/review/{return_id}": {
+      "get": {
+        "operationId": "get_case_api_review__return_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "return_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Return Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseDetailOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Case",
+        "tags": [
+          "review"
+        ]
+      }
+    },
+    "/api/review/{return_id}/decide": {
+      "post": {
+        "operationId": "decide_api_review__return_id__decide_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "return_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Return Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecideRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseDetailOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decide",
         "tags": [
           "review"
         ]
