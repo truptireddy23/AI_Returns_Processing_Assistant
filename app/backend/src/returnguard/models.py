@@ -402,6 +402,38 @@ class ReviewRequest(Base):
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class MessageSender(enum.StrEnum):
+    CUSTOMER = "customer"
+    REVIEWER = "reviewer"
+    BOT = "bot"  # the AI assistant answering routine questions (M9)
+
+
+class ReturnMessage(Base):
+    """One message in a return's chat thread (M9).
+
+    The bot answers a customer message automatically when no reviewer has
+    taken over the thread (`chat_assist.py`): grounded in the case's own
+    facts, never promising a decision, and failing closed into "a reviewer
+    will follow up" rather than guessing. A reviewer sending a message takes
+    the thread over for that case — the bot stops auto-replying to it, so a
+    human and the bot are never answering the same customer at once.
+    """
+
+    __tablename__ = "return_messages"
+    __table_args__ = (Index("ix_return_messages_return_created", "return_id", "created_at"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    return_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("returns.id", ondelete="CASCADE"), nullable=False
+    )
+    sender: Mapped[MessageSender] = mapped_column(
+        _enum(MessageSender, "message_sender"), nullable=False
+    )
+    sender_user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = _created_at()
+
+
 # --- Policy -----------------------------------------------------------------
 
 

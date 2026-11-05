@@ -10,7 +10,7 @@ from fastapi import FastAPI, Response, status
 from returnguard import __version__, auth, db
 from returnguard.config import get_settings
 from returnguard.log_config import configure_logging
-from returnguard.routers import admin, catalog, orders, returns, review
+from returnguard.routers import admin, catalog, chat, orders, returns, review
 from returnguard.storage import get_storage
 
 log = structlog.get_logger(__name__)
@@ -47,6 +47,7 @@ def create_app() -> FastAPI:
     app.include_router(returns.router)
     app.include_router(review.router)
     app.include_router(admin.router)
+    app.include_router(chat.router)
 
     @app.get("/api/healthz", tags=["health"])
     async def healthz() -> dict[str, str]:

@@ -50,6 +50,7 @@ class Settings(BaseSettings):
     # Public write endpoints (per client IP)
     checkout_rate_limit: str = "10/minute"
     return_rate_limit: str = "10/minute"
+    chat_rate_limit: str = "20/minute"
 
     # Return photo storage. With AWS_ENDPOINT_URL_S3 set (Neon Object Storage,
     # pulled by `neon env pull`), photos go to the S3 bucket; otherwise to a
