@@ -1,9 +1,11 @@
 # ReturnGuard — Architecture
 
-> Status as of this document: **M1–M3 are merged to `main`** (skeleton, data model/auth,
-> shop/checkout/return submission). **M4 (pipeline + governance gate) is open on
-> `m4-worker-gate`, not yet merged.** The model-backed judgment steps (Policy RAG, image
-> authenticity, behavior risk, Decision/Critic) are **not started on any branch** — see
+> Status as of this document: **M1–M4 are merged to `main`** (skeleton, data model/auth,
+> shop/checkout/return submission, pipeline runner + governance gate + worker job-claiming).
+> A submitted return is now actually processed end to end — see [§3](#3-the-pipeline). The
+> model-backed judgment steps are still rule-based stand-ins on `main`; a real Policy RAG
+> step (`ModelSteps.policy()`) exists on the open branch `feature/policy-rag`, not yet merged.
+> Image authenticity, behavior risk, and Decision/Critic remain rule-based everywhere — see
 > [§5](#5-what-is-and-isnt-real-right-now) for the honest breakdown this doc is built to make
 > clear, and `DESIGN_SPEC.md` for the product and UX design this architecture implements.
 
@@ -22,8 +24,8 @@ flowchart TB
         AUTH[auth.py — sessions, roles, rate limiting]
         IMG[images.py — photo validation + storage]
         PAY[payments.py — test-card checkout, no real money]
-        WORKER[worker.py — pipeline runner<br/>polls the jobs queue]
-        PIPE["pipeline/* — checks, gate, behavior, steps, runner<br/>(open PR: m4-worker-gate)"]
+        WORKER[worker.py — claims jobs, runs the pipeline<br/>wakes on an API HTTP call, not polling]
+        PIPE["pipeline/* — checks, gate, behavior, steps, runner<br/>merged, live on main"]
     end
 
     subgraph Data ["Postgres 16 + pgvector (Neon hosted, or local Docker)"]
@@ -87,7 +89,7 @@ the backend's OpenAPI schema (`make api-types`) so the two can't silently drift.
   the database after a few idle minutes, and a periodic poll would keep it awake (and
   billing) around the clock. A long backstop sweep (`WORKER_SWEEP_SECONDS`, default 30 min)
   catches a missed wake-up.
-- **Pipeline** (`pipeline/`, open PR `m4-worker-gate`): see [§3](#3-the-pipeline).
+- **Pipeline** (`pipeline/`, merged): see [§3](#3-the-pipeline).
 
 ### 2.3 Database — Postgres 16 + pgvector
 
@@ -111,25 +113,32 @@ Return photos go to a private Neon Object Storage bucket (`return-photos`, decla
 `neon.ts`) in hosted mode, or `app/storage/` on disk for local-only development. The
 application code (`storage.py`) is identical either way; only the credentials differ.
 
-### 2.5 Model endpoints — **planned, not yet implemented**
+### 2.5 Model endpoints
 
-No part of the codebase calls an LLM, an embedding model, or an image model today —
+On `main`, no part of the codebase calls an LLM, an embedding model, or an image model —
 confirmed by grepping the backend for every model-provider SDK (`openai`, `anthropic`,
 `groq`, `langchain`, `langgraph`): the only hit is a code comment. `app/.env.example` has
-no model API key variables yet. This is accurately reflected in the diagram above (the
-"Planned" subgraph) and in [§5](#5-what-is-and-isnt-real-right-now).
+had blank `OPENAI_API_KEY`/`GROQ_API_KEY` placeholders since M1, but nothing reads them yet.
+
+This has one real exception, not yet on `main`: the open branch `feature/policy-rag` adds
+`pipeline/llm.py` (a real OpenAI client, embeddings + chat) and `pipeline/model_steps.py`
+(`ModelSteps.policy()`), wired to real `OPENAI_API_KEY`/`EMBEDDING_MODEL`/`POLICY_MODEL`
+settings in `config.py`. It's tested (no network needed — the client is behind a `Protocol`)
+and passes lint/type-check/the full suite, but it depends on `pipeline/steps.py`'s `Steps`
+protocol and hasn't been merged or wired into `worker.py`'s default yet. See
+[§5](#5-what-is-and-isnt-real-right-now).
 
 ## 3. The pipeline
 
-*(Design: `DESIGN_SPEC.md` §4.1. Code: open PR `m4-worker-gate`, not yet on `main`.)*
+*(Design: `DESIGN_SPEC.md` §4.1. Code: merged to `main`.)*
 
 ```mermaid
 flowchart LR
     A[Return submitted] --> B{"data_check()<br/>(checks.py)"}
     B -- missing evidence --> N[Ask the customer]
     B -- complete --> C["policy facts: window, Final Sale,<br/>high-value (checks.py, arithmetic only)"]
-    C --> D["Steps.policy() — RuleSteps today;<br/>ModelSteps (RAG) in M5/M6"]
-    D --> E["Steps.photo() — RuleSteps today;<br/>ModelSteps (vision) in M5/M6"]
+    C --> D["Steps.policy() — RuleSteps on main;<br/>ModelSteps (RAG) on feature/policy-rag, unmerged"]
+    D --> E["Steps.photo() — RuleSteps today;<br/>ModelSteps (vision) not started"]
     E --> F["behavior.py — rule-based risk score today"]
     F --> G["Steps.recommend() + Steps.critic()"]
     G --> H{"gate() — pure function (gate.py)"}
@@ -142,12 +151,15 @@ Two design choices carry directly from the Checkpoint 2 evidence into this code:
 - **The gate is a pure function of check results, not of a model's own decision label**
   (`gate.py`). Checkpoint 2 found a model's stated label (`APPROVE`) could contradict its
   own reasoning (`F2`); the gate never trusts a label on its own.
-- **Every judgment step sits behind one `Steps` protocol** (`pipeline/steps.py`) with two
-  implementations in mind: `RuleSteps` (what exists today — honest about not having
-  checked anything it can't check; an unverified photo is never silently waved through) and
-  a future `ModelSteps` that satisfies the exact same interface. Swapping rules for a real
-  model is intended to be a one-file change at each step, not a rewrite of the runner, the
-  gate, or the observability logging in `agent_runs`.
+- **Every judgment step sits behind one `Steps` protocol** (`pipeline/steps.py`), with
+  `RuleSteps` (live on `main` — honest about not having checked anything it can't check; an
+  unverified photo is never silently waved through) as the default `worker.py` runs with
+  today. A `ModelSteps` now exists too (`feature/policy-rag`, unmerged): its `policy()` is
+  real retrieval + a real LLM call; `photo`/`recommend`/`critic` still delegate to
+  `RuleSteps` by composition. That proves the intended shape works — swapping one step from
+  rules to a model is a one-file change, not a rewrite of the runner, the gate, or the
+  observability logging in `agent_runs` — but `ModelSteps` isn't merged or wired into
+  `worker.py`'s default yet, so `main` still runs on `RuleSteps` alone end to end.
 
 ## 4. Governance
 
@@ -180,13 +192,13 @@ observability mechanism — see `docs/observability.md`.
 | Auth, roles, rate limiting | ✅ Live on `main` |
 | Reviewer queue, admin settings (read views) | ✅ Live on `main` |
 | Data-quality check, policy window/value arithmetic | ✅ Live on `main` (`checks.py`) |
-| Pipeline runner, governance gate, worker job-claiming | 🟡 Open PR `m4-worker-gate`, not merged |
-| `docs/observability.md` | 🟡 Open PR `m4-worker-gate`, not merged |
-| Policy RAG (embed `policy_chunks`, retrieve, LLM-ground a decision) | ❌ Not started on any branch |
+| Pipeline runner, governance gate, worker job-claiming | ✅ Live on `main` |
+| `docs/observability.md` | ✅ Live on `main` |
+| Policy RAG (embed `policy_chunks`, retrieve, LLM-ground a decision) | 🟡 Open branch `feature/policy-rag`, not merged — `ModelSteps.policy()`, tested (9 tests, no network needed), CI-clean |
 | Photo match / AI-generated-image detection | ❌ Not started on any branch |
 | Behavior risk model | ❌ Rule-based stand-in only (`behavior.py`); no model |
 | Decision + Critic agents | ❌ Not started — `RuleSteps` stands in for both |
-| `app/prompts/` content | ❌ Only a `README.md`; no prompt templates yet |
+| `app/prompts/` content | 🟡 `policy.md` exists on `feature/policy-rag`; everything else is still just the `README.md` |
 | OPA / ContextForge / Langfuse / Prometheus | ❌ Named in the original proposal; not built, and superseded in `DESIGN_SPEC.md` by `gate.py` + `agent_runs` |
 
 This table is the honest version of the diagram in §1 — every box there is real as *shape*
