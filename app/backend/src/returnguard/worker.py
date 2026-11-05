@@ -93,14 +93,12 @@ async def run(stop: asyncio.Event, *, steps: Steps | None = None) -> None:
     steps = steps or RuleSteps()
     wake = asyncio.Event()
     server = await asyncio.start_server(
-        wake_handler(wake),
-        "0.0.0.0",  # noqa: S104  (reachable only inside the Docker network)
-        settings.worker_wake_port,
+        wake_handler(wake), settings.worker_wake_host, settings.worker_wake_port
     )
     log.info(
         "worker.startup",
         version=__version__,
-        wake_port=settings.worker_wake_port,
+        wake_address=f"{settings.worker_wake_host}:{settings.worker_wake_port}",
         sweep_seconds=settings.worker_sweep_seconds,
         steps=getattr(steps, "source", type(steps).__name__),
         **db.describe(db.database_url()),
