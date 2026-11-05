@@ -26,9 +26,7 @@ log = structlog.get_logger(__name__)
 
 
 async def embed_policy_chunks(session: AsyncSession, embedder: OpenAIClient) -> int:
-    chunks = list(
-        await session.scalars(select(PolicyChunk).where(PolicyChunk.embedding.is_(None)))
-    )
+    chunks = list(await session.scalars(select(PolicyChunk).where(PolicyChunk.embedding.is_(None))))
     for chunk in chunks:
         chunk.embedding = await embedder.embed(f"{chunk.title}\n{chunk.body}")
         log.info("embed_policy.chunk", clause_id=chunk.clause_id)

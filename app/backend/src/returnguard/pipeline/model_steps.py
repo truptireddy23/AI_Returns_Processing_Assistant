@@ -136,9 +136,7 @@ class ModelSteps:
             f"Relevant policy clauses:\n{clauses_text}"
         )
         raw, usage = await self._chat.complete_json(system=self._system_prompt, user=user_prompt)
-        eligibility, cited_clauses, reason = _parse_policy_response(
-            raw, known_clause_ids=known_ids
-        )
+        eligibility, cited_clauses, reason = _parse_policy_response(raw, known_clause_ids=known_ids)
         return PolicyResult(
             eligibility=eligibility,
             cited_clauses=cited_clauses,
