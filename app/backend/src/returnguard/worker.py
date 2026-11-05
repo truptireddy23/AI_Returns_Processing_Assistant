@@ -94,8 +94,8 @@ async def run_inline(budget_seconds: float, *, steps: Steps | None = None) -> in
     Keeps going while a retry comes due within the budget, so a job that fails
     once still gets its later attempts. Anything left over (out of budget, or the
     function stopped mid-job) is picked up by the next request or the cron sweep.
+    `steps=None` lets `review_return()` choose per job, as in `run()`.
     """
-    steps = steps or RuleSteps()
     loop = asyncio.get_running_loop()
     deadline = loop.time() + budget_seconds
     done = 0
