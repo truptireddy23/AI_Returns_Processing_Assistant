@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { homeFor } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useCart } from "@/lib/cart";
 
@@ -38,10 +37,19 @@ export function SiteHeader() {
                 </Link>
                 <Link href="/orders" className="hover:underline">My orders</Link>
               </>
-            ) : (
-              <Link href={homeFor(auth.user.role)} className="hover:underline">
-                {auth.user.role === "reviewer" ? "Review queue" : "Admin"}
+            ) : auth.user.role === "reviewer" ? (
+              <Link href="/review" className="hover:underline">
+                Review queue
               </Link>
+            ) : (
+              <>
+                <Link href="/admin" className="hover:underline">
+                  Admin
+                </Link>
+                <Link href="/admin/audit-log" className="hover:underline">
+                  Audit log
+                </Link>
+              </>
             )}
             <span className="text-zinc-600 dark:text-zinc-400" data-testid="signed-in-as">
               {auth.user.display_name}

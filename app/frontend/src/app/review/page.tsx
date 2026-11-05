@@ -1,12 +1,17 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { RequireRole } from "@/components/require-role";
-import { api, errorMessage, formatMoney } from "@/lib/api";
-import type { components } from "@/lib/api-schema";
-
-type QueueItem = components["schemas"]["QueueItem"];
+import {
+  api,
+  DECISION_LABELS,
+  ESCALATION_REASON_LABELS,
+  errorMessage,
+  formatMoney,
+  type QueueItem,
+} from "@/lib/api";
 
 export default function ReviewPage() {
   return <RequireRole roles={["reviewer", "admin"]}>{() => <Queue />}</RequireRole>;
@@ -33,10 +38,20 @@ function Queue() {
       ) : null}
       <ul className="flex flex-col gap-2">
         {items?.map((c) => (
-          <li key={c.id} className="flex justify-between rounded-md border border-zinc-200 p-3 dark:border-zinc-800">
-            <span>R-{c.case_number}</span>
-            <span>{formatMoney(c.refund_amount_cents)}</span>
-            <span>{c.escalation_reason ?? "—"}</span>
+          <li key={c.id}>
+            <Link
+              href={`/review/${c.id}`}
+              className="flex items-center justify-between gap-4 rounded-md border border-zinc-200 p-3 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
+            >
+              <span className="font-medium">R-{c.case_number}</span>
+              <span>{formatMoney(c.refund_amount_cents)}</span>
+              <span className="text-zinc-500">
+                {c.ai_proposal ? DECISION_LABELS[c.ai_proposal] : "—"}
+              </span>
+              <span className="text-sm text-zinc-500">
+                {c.escalation_reason ? ESCALATION_REASON_LABELS[c.escalation_reason] : "—"}
+              </span>
+            </Link>
           </li>
         ))}
       </ul>

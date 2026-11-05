@@ -115,7 +115,10 @@ function Status() {
           ) : null}
         </div>
       ) : ret.customer_message ? (
-        <p className="rounded border border-zinc-200 p-3 text-sm dark:border-zinc-800">{ret.customer_message}</p>
+        <div className="flex flex-col gap-2 rounded border border-zinc-200 p-3 text-sm dark:border-zinc-800">
+          <p>{ret.customer_message}</p>
+          {isOwner && ret.status === "denied" ? <RequestReview returnId={ret.id} /> : null}
+        </div>
       ) : null}
 
       <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
@@ -201,6 +204,73 @@ function AddPhoto({ returnId, onSent }: { returnId: string; onSent: (r: ReturnCa
       >
         {pending ? "Sending…" : "Send photo"}
       </button>
+    </div>
+  );
+}
+
+function RequestReview({ returnId }: { returnId: string }) {
+  const [open, setOpen] = useState(false);
+  const [explanation, setExplanation] = useState("");
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+
+  async function send() {
+    setPending(true);
+    setError(null);
+    const { response } = await api.POST("/api/returns/{return_id}/review-requests", {
+      params: { path: { return_id: returnId } },
+      body: { explanation: explanation.trim() },
+    });
+    setPending(false);
+    // 201 (created) or 409 (already requested) both mean a reviewer will
+    // look again — only a genuine failure (4xx other than 409, or 5xx) is
+    // shown as an error.
+    if (response.status === 201 || response.status === 409) {
+      setSent(true);
+      setOpen(false);
+    } else {
+      setError("We couldn't send your request. Please try again.");
+    }
+  }
+
+  if (sent) {
+    return <p className="text-sm text-zinc-600 dark:text-zinc-400">A reviewer will look at your case again.</p>;
+  }
+
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)} className="w-fit rounded-md border border-zinc-300 px-3 py-1.5 text-sm dark:border-zinc-700">
+        Think we got it wrong? Request a review
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <label className="flex flex-col gap-1 text-sm">
+        Tell us why
+        <textarea
+          value={explanation}
+          onChange={(e) => setExplanation(e.target.value)}
+          rows={3}
+          className="rounded border border-zinc-300 px-2 py-1 dark:border-zinc-700 dark:bg-zinc-900"
+        />
+      </label>
+      {error ? <p role="alert" className="text-red-700">{error}</p> : null}
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={send}
+          disabled={!explanation.trim() || pending}
+          className="w-fit rounded-md bg-zinc-900 px-3 py-1.5 text-sm text-white disabled:opacity-50"
+        >
+          {pending ? "Sending…" : "Send request"}
+        </button>
+        <button type="button" onClick={() => setOpen(false)} className="text-sm text-zinc-500 underline">
+          Cancel
+        </button>
+      </div>
     </div>
   );
 }

@@ -11,6 +11,14 @@ export type OrderItem = components["schemas"]["OrderItemOut"];
 export type ReturnCase = components["schemas"]["ReturnOut"];
 export type ReturnReason = ReturnCase["reason"];
 export type ReturnStatus = ReturnCase["status"];
+export type CaseDetail = components["schemas"]["CaseDetailOut"];
+export type Finding = components["schemas"]["FindingOut"];
+export type Decision = components["schemas"]["Decision"];
+export type EscalationReason = components["schemas"]["EscalationReason"];
+export type EvidenceStrength = components["schemas"]["EvidenceStrength"];
+export type QueueItem = components["schemas"]["QueueItem"];
+export type SettingsOut = components["schemas"]["SettingsOut"];
+export type AuditLogEntry = components["schemas"]["AuditLogEntryOut"];
 
 // The CSRF token for the current session. Kept in memory only (never in
 // storage) and attached to every state-changing request.
@@ -93,3 +101,59 @@ export const STATUS_LABELS: Record<ReturnStatus, string> = {
   denied: "Not approved",
   failed: "Under review",
 };
+
+export const ESCALATION_REASON_LABELS: Record<EscalationReason, string> = {
+  pipeline_error: "The pipeline hit an error",
+  proposed_denial: "Proposed denial",
+  ambiguous_call: "Ambiguous call",
+  unverified_photo: "Unverified photo",
+  critic_concern: "Critic flagged a concern",
+  high_value: "High value",
+  elevated_risk: "Elevated risk",
+  automation_off: "Automation is off",
+  qa_sample: "QA sample",
+  customer_requested_review: "Customer requested review",
+};
+
+export const DECISION_LABELS: Record<Decision, string> = {
+  approve: "Approve",
+  deny: "Deny",
+  escalate: "Escalate",
+};
+
+export const EVIDENCE_LABELS: Record<EvidenceStrength, string> = {
+  strong: "Strong",
+  mixed: "Mixed",
+  weak: "Weak",
+};
+
+export const STEP_LABELS: Record<string, string> = {
+  data_check: "Data check",
+  policy: "Policy",
+  image: "Photo",
+  behavior: "Behavior risk",
+  recommendation: "Recommendation",
+  critic: "Critic",
+  gate: "Governance gate",
+};
+
+function renderFindingValue(v: unknown): string {
+  if (v === null || v === undefined) return "—";
+  if (Array.isArray(v)) return v.length ? v.map(renderFindingValue).join(", ") : "—";
+  if (typeof v === "object") {
+    const entries = Object.entries(v as Record<string, unknown>);
+    return entries.length
+      ? entries.map(([k, vv]) => `${k.replace(/_/g, " ")}: ${renderFindingValue(vv)}`).join(", ")
+      : "—";
+  }
+  return String(v);
+}
+
+/** Turns a step's raw `output` dict into readable rows, skipping the full raw
+ * model response (its individual fields are already shown separately). */
+export function findingRows(output: Record<string, unknown>): [string, string][] {
+  const skip = new Set(["raw_response"]);
+  return Object.entries(output)
+    .filter(([k]) => !skip.has(k))
+    .map(([k, v]) => [k.replace(/_/g, " "), renderFindingValue(v)]);
+}
