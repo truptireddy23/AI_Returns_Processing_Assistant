@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
+import { ChatThread } from "@/components/chat-thread";
 import { RequireRole } from "@/components/require-role";
 import { DecisionBadge, ReasonBadge, StrengthBadge } from "@/components/review-badges";
 import { StatusBadge } from "@/components/status-badge";
@@ -136,6 +137,8 @@ function Case() {
           <History c={c} />
         </div>
       </div>
+
+      <ChatThread returnId={c.id} as="reviewer" />
 
       {open ? <DecisionPanel c={c} onDecided={(updated) => setCase(updated)} /> : null}
 

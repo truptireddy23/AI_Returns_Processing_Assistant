@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { ChatThread } from "@/components/chat-thread";
 import { RequireRole } from "@/components/require-role";
 import { StatusBadge } from "@/components/status-badge";
 import { api, csrfHeaders, errorMessage, formatDate, formatMoney, REASON_LABELS, type ReturnCase, type ReturnStatus } from "@/lib/api";
@@ -150,6 +151,8 @@ function Status() {
           ))}
         </div>
       ) : null}
+
+      {isOwner ? <ChatThread returnId={ret.id} as="customer" floating /> : null}
 
       <Link href="/orders" className="text-sm underline">Back to my orders</Link>
     </section>

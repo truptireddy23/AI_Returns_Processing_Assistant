@@ -84,6 +84,18 @@ export const REASON_LABELS: Record<ReturnReason, string> = {
 /** Reasons that need a photo (policy P4). */
 export const PHOTO_REASONS: ReturnReason[] = ["damaged", "defective", "wrong_item", "not_as_described"];
 
+// --- Chat (M9) ----------------------------------------------------------------
+
+export type ChatMessage = components["schemas"]["MessageOut"];
+export type MessageSender = ChatMessage["sender"];
+
+/** Base labels; ChatThread shows "You" for the viewer's own role instead. */
+export const MESSAGE_SENDER_LABELS: Record<MessageSender, string> = {
+  customer: "Customer",
+  reviewer: "Reviewer",
+  bot: "ReturnGuard Assistant",
+};
+
 // --- Reviewer ---------------------------------------------------------------
 
 export type QueueItem = components["schemas"]["QueueItem"];
