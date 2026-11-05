@@ -91,6 +91,14 @@ Customers can browse the **Shop**, add to the **Cart**, and check out with the t
 card numbers are accepted). Delivery is instant in the demo, so **My orders → Return item**
 works straight away.
 
+Once a return is submitted, the **worker** reviews it within a few seconds (the API wakes
+it directly; `docker compose logs -f worker` shows each step). Until the AI steps arrive
+(M5/M6), the policy, photo, recommendation, and critic steps are rule-based stand-ins:
+returns that need a photo always go to a person as "unverified photo", and with
+automatic approvals off (the default) every case goes to a person. A damage claim without
+a photo comes back to the customer as "We need a photo", and adding it from the return's
+page starts the review again.
+
 Each customer is set up for a demo case (clean history, high return rate, two accounts
 sharing an address, a brand-new account); see `seed/users.json` and
 `seed/demo_orders.json`. Order dates are relative to when you seed, so re-seed with
@@ -143,5 +151,8 @@ Run `make help` for every command.
 - **`Migrations need a direct connection`** — set `DATABASE_URL_UNPOOLED` (run
   `neon env pull --file app/.env` again).
 - **First request is slow / times out once** — Neon was asleep; retry.
+- **A return stays "Submitted"** — check `docker compose logs worker`. The API wakes the
+  worker over the internal network; if that wake-up is lost, the worker's backstop sweep
+  (every 30 minutes) still picks the job up, or restart the worker to look immediately.
 - **Database shows "unavailable"** — `docker compose ps` to check the `db` container; the
   API and worker recover on their own once it is back.

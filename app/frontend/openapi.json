@@ -18,6 +18,20 @@
         "title": "AuthState",
         "type": "object"
       },
+      "Body_add_photo_api_returns__return_id__photos_post": {
+        "properties": {
+          "photo": {
+            "contentMediaType": "application/octet-stream",
+            "title": "Photo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "photo"
+        ],
+        "title": "Body_add_photo_api_returns__return_id__photos_post",
+        "type": "object"
+      },
       "Body_start_return_api_returns_post": {
         "properties": {
           "order_item_id": {
@@ -1258,6 +1272,60 @@
           }
         },
         "summary": "Get Return",
+        "tags": [
+          "returns"
+        ]
+      }
+    },
+    "/api/returns/{return_id}/photos": {
+      "post": {
+        "description": "Send the photo the data check asked for; the return is then reviewed again (M6).",
+        "operationId": "add_photo_api_returns__return_id__photos_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "return_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Return Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_add_photo_api_returns__return_id__photos_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReturnOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Photo",
         "tags": [
           "returns"
         ]

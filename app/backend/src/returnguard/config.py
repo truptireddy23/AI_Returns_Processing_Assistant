@@ -27,7 +27,15 @@ class Settings(BaseSettings):
     # DATABASE_URL is used.
     database_url_unpooled: SecretStr = SecretStr("")
 
-    worker_poll_seconds: float = 2.0
+    # Worker. The API wakes the worker over HTTP when it queues a job; the sweep is
+    # only a backstop for a missed wake-up. It is long on purpose: every query
+    # wakes a scale-to-zero database (Neon suspends after 5 idle minutes).
+    worker_sweep_seconds: float = 1800.0
+    worker_wake_port: int = 8001
+    worker_wake_url: str = ""  # e.g. http://worker:8001/wake; empty = no wake-ups
+    job_max_attempts: int = 3
+    job_retry_seconds: tuple[int, ...] = (30, 120)  # wait before attempt 2, 3, ...
+    job_stale_seconds: int = 600  # a "running" job older than this was abandoned
 
     # Auth
     session_ttl_hours: int = 12
