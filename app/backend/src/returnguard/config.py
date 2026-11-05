@@ -66,6 +66,17 @@ class Settings(BaseSettings):
     # Seeding (local and test only)
     seed_dir: str = "../seed"
 
+    # Policy RAG (M5). Empty key = ModelSteps/embed_policy refuse clearly rather
+    # than silently falling back; review_return()'s default (RuleSteps) needs none
+    # of this. chat_base_url lets the chat call point at another OpenAI-compatible
+    # endpoint; embeddings always go to OpenAI directly (policy_chunks.embedding
+    # is sized for text-embedding-3-small — see models.EMBEDDING_DIMENSIONS).
+    openai_api_key: SecretStr = SecretStr("")
+    openai_chat_base_url: str = ""
+    embedding_model: str = "text-embedding-3-small"
+    policy_model: str = "gpt-4o-mini"
+    policy_retrieval_k: int = 4
+
     @model_validator(mode="after")
     def _production_guards(self) -> "Settings":
         if self.environment == "production" and not self.cookie_secure:
