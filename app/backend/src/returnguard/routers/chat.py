@@ -30,7 +30,7 @@ from returnguard.models import (
 )
 from returnguard.pipeline.chat_assist import (
     ChatCase,
-    default_clients,
+    default_chat_client,
     draft_reply,
     thread_taken_over,
 )
@@ -96,12 +96,10 @@ async def _post_message_and_maybe_reply(
     await db.commit()
 
     if sender is MessageSender.CUSTOMER and not await thread_taken_over(db, ret.id):
-        embedder, chat = default_clients()
         policy = await db.scalar(select(PolicyDoc).where(PolicyDoc.is_active))
         reply = await draft_reply(
             db,
-            embedder=embedder,
-            chat=chat,
+            chat=default_chat_client(),
             policy_doc_id=policy.id if policy else None,
             case=ChatCase(
                 status=ret.status,

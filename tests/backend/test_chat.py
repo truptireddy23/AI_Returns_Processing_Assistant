@@ -6,6 +6,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from returnguard.config import get_settings
 from returnguard.models import AuditLog, MessageSender, ReturnMessage, Role, User
 from returnguard.pipeline.chat_assist import FALLBACK_REPLY
 
@@ -41,10 +42,19 @@ async def test_customer_can_send_and_list_messages(
 
 
 async def test_the_bot_auto_replies_with_the_fixed_message_when_no_key_is_configured(
-    db_client: httpx.AsyncClient, db_session: AsyncSession
+    db_client: httpx.AsyncClient,
+    db_session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+    request: pytest.FixtureRequest,
 ) -> None:
-    """The test environment never has OPENAI_API_KEY set (conftest.py), so the bot's
-    only honest option is the fixed fallback reply — never a guess."""
+    """With neither GROQ_API_KEY nor OPENAI_API_KEY set, the bot's only honest option
+    is the fixed fallback reply — never a guess. Explicitly cleared (not just relying
+    on the ambient environment) so this holds even when a developer's app/.env has
+    real keys set for manual testing."""
+    monkeypatch.setenv("GROQ_API_KEY", "")
+    monkeypatch.setenv("OPENAI_API_KEY", "")
+    get_settings.cache_clear()
+    request.addfinalizer(get_settings.cache_clear)
     ret = await make_return(db_session)
     customer = await db_session.get_one(User, ret.customer_id)
     headers = await signed_in(db_client, customer)

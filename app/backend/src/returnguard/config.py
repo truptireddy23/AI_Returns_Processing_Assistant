@@ -95,13 +95,17 @@ class Settings(BaseSettings):
     policy_model: str = "gpt-4o-mini"
     policy_retrieval_k: int = 4
 
-    # Chat assist (M9). When set, the customer-chat bot's replies are drafted by
-    # Groq instead of OPENAI_API_KEY's `policy_model` — faster/cheaper, same
-    # OpenAI-compatible JSON-mode call. Embeddings for policy retrieval still need
-    # OPENAI_API_KEY regardless (see above); without it there's nothing to ground
-    # a Groq reply in, so chat_assist.default_clients() falls back either way.
+    # Chat assist (M9). The customer-chat bot needs no embedding model — it's grounded
+    # in the store's whole policy document (a handful of short clauses), not a
+    # retrieved subset — so it's independent of OPENAI_API_KEY above. GROQ_API_KEY
+    # drafts replies when set; OPENAI_API_KEY's `policy_model` is the fallback if
+    # Groq isn't configured; with neither, chat_assist.default_chat_client() returns
+    # None and the bot uses FALLBACK_REPLY.
     groq_api_key: SecretStr = SecretStr("")
-    groq_chat_model: str = "llama-3.3-70b-versatile"
+    # A standard API key can't reach Groq's Llama models (Enterprise-tier, "Contact
+    # Sales" only, as of console.groq.com/docs/models); GPT-OSS 20B is Groq's own
+    # pay-as-you-go production model, so it's the one that actually works.
+    groq_chat_model: str = "openai/gpt-oss-20b"
 
     @model_validator(mode="after")
     def _production_guards(self) -> "Settings":
