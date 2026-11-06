@@ -6,13 +6,19 @@
 > photos). The judgment steps themselves (Policy RAG, photo authenticity, recommendation,
 > critic) are real model calls on this branch, wired into `worker.py`'s default — see
 > [§3](#3-the-pipeline) — falling back to the deterministic `RuleSteps` stand-in whenever
-> `OPENAI_API_KEY` isn't configured, so the app always runs, honestly, either way. See
+> `CHAT_API_KEY` isn't configured, so the app always runs, honestly, either way. See
 > [§5](#5-what-is-and-isnt-real-right-now) for the full breakdown, and `DESIGN_SPEC.md` for
 > the product and UX design this architecture implements.
 
 ---
 
 ## 1. System diagram
+
+![Return review pipeline](diagrams/architecture.png)
+
+Editable sources: [SVG](diagrams/return-review-pipeline.svg) and
+[Excalidraw](diagrams/return-review-pipeline.excalidraw).
+
 
 ```mermaid
 flowchart TB
@@ -51,7 +57,7 @@ flowchart TB
     API --> PG
     WORKER --> PG
     IMG --> S3
-    PIPE -- "ModelSteps, when OPENAI_API_KEY is set" --> LLM
+    PIPE -- "ModelSteps, when CHAT_API_KEY is set" --> LLM
     PIPE -- "ModelSteps.policy()" --> EMB
     PIPE -- "ModelSteps.photo(): customer photo + catalog reference" --> S3
     EMB -. "writes" .-> PG
@@ -109,7 +115,7 @@ changes. Tables that matter for the AI pipeline specifically:
 | `policy_docs` / `policy_chunks` | The versioned return policy, pre-split into clauses (`P1`…`P9`). `policy_chunks.embedding` is a `vector(1536)` column, filled in by `make embed-policy` once `EMBEDDING_API_KEY` is set (optional: without it the whole policy is sent instead). |
 | `product_photos` | Real uploaded catalog photos per product (first = main photo), with a source hash (skip re-upload) and a perceptual hash (near-duplicate comparison for the photo check). |
 | `jobs` | Durable work queue for the pipeline; one row per return, claimed by the worker. |
-| `agent_runs` / `agent_run_events` | One row per pipeline step execution: which step, which model (`null` when that step ran on `RuleSteps`), prompt version, policy version, input hash, token counts, cost, latency, and any error. `source` ("rules" vs. "model") is the authoritative answer to "did a model actually decide this?" for every step, every return. |
+| `agent_runs` / `agent_run_events` | One row per pipeline step execution: which step, policy version, input hash, output and latency. Model identity and token counts are nested in model step output; dedicated usage/cost columns are currently unpopulated (see observability.md). `source` ("rules" vs. "model") is the authoritative answer to "did a model actually decide this?" for every step, every return. |
 | `review_requests` | A customer's request for a second look at a denial; enforces that a *different* reviewer decides it. |
 | `audit_log` | One row per check, gate decision, settings change, and human action — the record a disputed denial is explained from. |
 | `settings` | The admin-controlled automation toggle, risk limit, high-value limit, and QA sample rate. |
@@ -141,7 +147,7 @@ Without a key configured, the app runs end to end exactly as it did on `RuleStep
 nothing breaks, nothing silently guesses. `app/.env.example` documents every setting
 (`CHAT_API_KEY`/`CHAT_BASE_URL`/`CHAT_MODEL`, `CHAT_EXTRA_BODY` for provider-specific
 fields, `CHAT_MAX_RETRIES`, `EMBEDDING_API_KEY`/`EMBEDDING_BASE_URL`/`EMBEDDING_MODEL`/
-`EMBEDDING_DIMENSIONS`, `POLICY_RETRIEVAL_K`). The older `OPENAI_API_KEY`,
+`EMBEDDING_DIMENSIONS`, `POLICY_RETRIEVAL_K`). The older `CHAT_API_KEY`,
 `OPENAI_CHAT_BASE_URL` and `POLICY_MODEL` names still work as fallbacks.
 
 ## 3. The pipeline
@@ -221,14 +227,24 @@ are the current observability mechanism — see `docs/observability.md`.
 | Admin: editable settings, dashboard, searchable paginated audit log | ✅ Live |
 | Data-quality check, policy window/value arithmetic | ✅ Live (`checks.py`) |
 | Pipeline runner, governance gate, worker job-claiming | ✅ Live |
-| Policy RAG (embed `policy_chunks`, retrieve, LLM-ground a decision) | ✅ Live (`ModelSteps.policy()`) when `OPENAI_API_KEY` is set; otherwise `RuleSteps` runs the same case honestly, as "unable to check" |
+| Policy RAG (embed `policy_chunks`, retrieve, LLM-ground a decision) | ✅ Live (`ModelSteps.policy()`) when `CHAT_API_KEY` is set; otherwise `RuleSteps` runs the same case honestly, as "unable to check" |
 | Photo authenticity (customer photo vs. real catalog reference, vision) | ✅ Live (`ModelSteps.photo()`), same fallback |
 | Recommendation + Critic (second-pass check for self-contradiction) | ✅ Live (`ModelSteps.recommend()` / `.critic()`), same fallback |
 | `app/prompts/` (policy, image, recommendation, critic — versioned, with few-shot examples tied to Checkpoint 2 cases) | ✅ Live |
 | Behavior risk model | ❌ Rule-based only (`behavior.py`); not a model input yet |
 | OPA / ContextForge / Langfuse / Prometheus | ❌ Named in the original proposal; not built, and superseded by `gate.py` + `agent_runs` + the admin dashboard |
 
-This table is the honest version of the diagram in §1: without a configured `OPENAI_API_KEY`,
+This table is the honest version of the diagram in §1: without a configured `CHAT_API_KEY`,
 every box here still works, just answered by `RuleSteps` instead of a model — the one
 intentional gap the system is built to make visible (`source: "rules"` vs. `"model"` on
 every `agent_runs` row and every pipeline finding shown to a reviewer), never to hide.
+
+## 6. Current integration limits
+
+Retrieval (`retrieve_policy_clauses` / `all_policy_clauses`) and return-window checks
+(`policy_facts`) run in Python. The model receives their results. There are no
+`search_policy` or `check_return_window` model tools and no `tools=` API calls.
+The runner executes steps sequentially. All chat judgment roles share the configured
+chat model, including the critic. No second-provider review fallback is implemented.
+See [safety and privacy](safety_privacy.md) for the input masking limitation and
+[demo runbook](demo.md) for fail-closed recovery.

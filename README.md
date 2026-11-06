@@ -20,7 +20,7 @@ A governed, human-centered Generative AI system that reviews e-commerce returns:
 
 | Name | Domain Responsibility | Contact |
 |---|---|---|
-| Aditya Kamath | Systems & AI Architecture — LangGraph pipeline design, governance integration (OPA/ContextForge), infrastructure | kamath6@illinois.edu |
+| Aditya Kamath | Systems & AI Architecture — Pipeline design, code governance gate, infrastructure | kamath6@illinois.edu |
 | Trupti Reddy | Frontend — Next.js shop interface and reviewer dashboard | tdreddy2@illinois.edu |
 | Avni Wadhwani | ML/Data — risk model, image matching, and policy RAG | avniw2@illinois.edu |
 | Sharayu Jadhav | Literature Review, Evaluation & QA — research synthesis, testing, and evaluation | sjadhav5@illinois.edu |
@@ -91,7 +91,13 @@ None of these combine (a) reasoning over multi-modal, unstructured evidence, (b)
 
 **How a return moves through the system:**
 
-A submitted return flows through a LangGraph pipeline of specialist agents: a **Data-Quality Gate** and **Planner** prepare the case, **Intake** structures it, **Policy (RAG)** checks it against the retrieved return policy, **Image** analyzes photo evidence (CLIP matching, AI-generated image detection), and **Behavior** scores return-history risk. A **Decision** agent synthesizes all of this into a verdict, a **Critic** agent reviews that reasoning for errors, and an **Explanation** agent produces a human-readable rationale. Every decision then passes through a **Governance Gate**: approvals can flow through automatically, but every denial is held for human confirmation before it's final.
+A submitted return queues a Postgres job. A Python worker runs a data-quality check,
+policy checks grounded in stored clauses, photo analysis when needed, behavior risk,
+recommendation and critic steps. With `CHAT_API_KEY` configured, the judgment steps call
+a real OpenAI-compatible model provider such as Groq. A deterministic governance gate
+allows only eligible approvals and routes every proposed denial or uncertain case to a
+person. Retrieval and return-window checks run in application code, without model
+function calling.
 
 **Why this needs GenAI, not a rules engine:**
 
@@ -101,7 +107,12 @@ A submitted return flows through a LangGraph pipeline of specialist agents: a **
 
 **Governance and auditability, by design:**
 
-Every tool and model call the agents make is checked against **OPA (Open Policy Agent)**, which fails closed — if a policy check errors out, the default is to block, not allow. **IBM ContextForge** governs tool orchestration at the MCP level. Combined with mandatory human review on every denial, the system is designed so AI can approve autonomously but can never unilaterally deny a customer. A hash-chained, append-only audit log (Postgres) plus tracing (Langfuse) and metrics (Prometheus/Grafana) make every decision inspectable after the fact — full architecture in `/proposal/PROPOSAL.md`; the design as refined by Checkpoint 2 evidence is in `DESIGN_SPEC.md`.
+The implemented controls live in `pipeline/gate.py` and database constraints. An
+append-only Postgres audit log, step traces (`agent_runs` / `agent_run_events`), structured
+logs and the admin dashboard make decisions inspectable. OPA, ContextForge, Langfuse,
+Prometheus/Grafana and a hash chain were proposal ideas and are not implemented. See
+[architecture](docs/architecture.md), [observability](docs/observability.md), and
+[installation](app/INSTALL.md) for the current system.
 
 ---
 

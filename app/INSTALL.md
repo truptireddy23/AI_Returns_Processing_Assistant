@@ -1,7 +1,8 @@
 # Installing ReturnGuard locally
 
-Everything runs on your machine with Docker. The only external services are the model
-providers (Groq, OpenAI) and Langfuse Cloud, which are added in later milestones.
+Run the stack locally with Docker. Real inference uses a configured OpenAI-compatible
+provider such as Groq. Neon and an embeddings provider are optional external services.
+Langfuse is not integrated.
 
 ## Prerequisites
 
@@ -71,6 +72,31 @@ done for the `production` branch.
 Open <http://localhost:3000>. The **System status** panel should show **API ok** and
 **Database ok**. Then **Sign in** with one of the demo accounts.
 
+### Real inference with Groq
+
+After `make env`, edit `app/.env` privately before starting the stack:
+
+```dotenv
+CHAT_API_KEY=<your Groq API key>
+CHAT_BASE_URL=https://api.groq.com/openai/v1
+CHAT_MODEL=<model enabled for your Groq account>
+CHAT_EXTRA_BODY={}
+```
+
+Choose a model that supports JSON responses and image inputs if demonstrating photo
+analysis. Provider-specific options in `.env.example` must match the chosen model.
+Groq availability and rate limits depend on the account. Never paste keys into git,
+screenshots or forum posts. After changing `.env`, run `docker compose up -d --force-recreate api worker`
+from `app/` so both services reload it. A restart alone does not reload Compose env files.
+
+Submit a synthetic return, open its reviewer trace and verify `source: model` plus model
+usage in the step output. A deterministic window check can legitimately show `rules`.
+Without `EMBEDDING_API_KEY`, the model receives the full policy. To use vector retrieval,
+configure a separate embeddings provider returning 1536 dimensions, then `make embed-policy`.
+
+An invalid configured key does not switch providers. Failures retry and eventually
+escalate to a reviewer. See [demo runbook](../docs/demo.md) for the recovery demonstration.
+
 ### Demo accounts
 
 The seed creates 7 customers, 2 reviewers, and 1 admin. Emails and the shared demo
@@ -93,13 +119,11 @@ works straight away. Click an order in **My orders** for its details (order ID, 
 ordered it, placed and delivered times, shipping and billing addresses, the card's last 4
 digits) and to return items from there.
 
-Once a return is submitted, the **worker** reviews it within a few seconds (the API wakes
-it directly; `docker compose logs -f worker` shows each step). Until the AI steps arrive
-(M5/M6), the policy, photo, recommendation, and critic steps are rule-based stand-ins:
-returns that need a photo always go to a person as "unverified photo", and with
-automatic approvals off (the default) every case goes to a person. A damage claim without
-a photo comes back to the customer as "We need a photo", and adding it from the return's
-page starts the review again.
+Once a return is submitted, the worker reviews it (`docker compose logs -f worker`).
+With `CHAT_API_KEY` configured, policy, photo analysis where needed, recommendation and
+critic use real inference. With no key, conservative `RuleSteps` run instead. Automatic
+approvals are off by default, so cases go to reviewers. A damage claim without a photo
+returns "We need a photo"; uploading evidence queues another review.
 
 Each customer is set up for a demo case (clean history, high return rate, two accounts
 sharing an address, a brand-new account); see `seed/users.json` and
