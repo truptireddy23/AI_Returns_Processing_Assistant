@@ -58,10 +58,17 @@ class FakeChat:
         self._response = response
         self._model = model
         self.calls: list[tuple[str, str]] = []
+        self.max_tokens: list[int | None] = []
 
     async def complete_json(
-        self, *, system: str, user: str, images: list[bytes] | None = None
+        self,
+        *,
+        system: str,
+        user: str,
+        images: list[bytes] | None = None,
+        max_tokens: int | None = None,
     ) -> tuple[dict[str, Any], ChatUsage]:
+        self.max_tokens.append(max_tokens)
         self.calls.append((system, user))
         if isinstance(self._response, Exception):
             raise self._response

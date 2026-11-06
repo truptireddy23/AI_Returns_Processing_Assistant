@@ -47,6 +47,11 @@ from returnguard.pipeline.steps import (
 # only app/backend). Edit app/prompts/, then `make sync-prompts`; a test fails if
 # the two differ.
 _PROMPTS_DIR = Path(__file__).resolve().parents[1] / "prompts"
+# Reply caps per step, sized well above what each step writes (policy ~70 tokens,
+# photo ~400, recommendation ~200, critic ~20). Providers budget a request by its
+# cap against per-minute limits (Groq's free tier: 1000 output tokens a minute), so
+# they must be set and kept tight; a reply that hits one fails closed as malformed.
+MAX_TOKENS = {"policy": 300, "photo": 700, "recommendation": 400, "critic": 200}
 _VALID_ELIGIBILITY = {e.value for e in Eligibility}
 _VALID_PROPOSALS = {d.value for d in Decision}
 
@@ -223,7 +228,9 @@ class ModelSteps:
             f"Final Sale: {case.is_final_sale}\n\n"
             f"Relevant policy clauses:\n{clauses_text}"
         )
-        raw, usage = await self._chat.complete_json(system=self._policy_prompt, user=user_prompt)
+        raw, usage = await self._chat.complete_json(
+            system=self._policy_prompt, user=user_prompt, max_tokens=MAX_TOKENS["policy"]
+        )
         eligibility, cited_clauses, reason = _parse_policy_response(raw, known_clause_ids=known_ids)
         return PolicyResult(
             eligibility=eligibility,
@@ -291,7 +298,10 @@ class ModelSteps:
             "The first image is the customer's submitted photo." + reference_note
         )
         raw, usage = await self._chat.complete_json(
-            system=self._image_prompt, user=user_prompt, images=images
+            system=self._image_prompt,
+            user=user_prompt,
+            images=images,
+            max_tokens=MAX_TOKENS["photo"],
         )
         check, notes = _parse_photo_response(raw)
         return PhotoResult(
@@ -325,7 +335,9 @@ class ModelSteps:
             f"Behavior factors: {behavior.explanation}"
         )
         raw, usage = await self._chat.complete_json(
-            system=self._recommendation_prompt, user=user_prompt
+            system=self._recommendation_prompt,
+            user=user_prompt,
+            max_tokens=MAX_TOKENS["recommendation"],
         )
         proposal, ambiguous, rationale, uncertain_about = _parse_recommendation_response(raw)
         return Recommendation(
@@ -357,7 +369,9 @@ class ModelSteps:
             f"Recommendation under review: proposal={recommendation.proposal.value}, "
             f"ambiguous={recommendation.ambiguous}, rationale={recommendation.rationale!r}"
         )
-        raw, usage = await self._chat.complete_json(system=self._critic_prompt, user=user_prompt)
+        raw, usage = await self._chat.complete_json(
+            system=self._critic_prompt, user=user_prompt, max_tokens=MAX_TOKENS["critic"]
+        )
         veto, concern = _parse_critic_response(raw)
         return CriticResult(
             veto=veto,

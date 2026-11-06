@@ -71,6 +71,8 @@ def default_steps(db: AsyncSession, policy_doc_id: uuid.UUID | None) -> Steps:
 # Statuses the pipeline may (re)start from. Anything else is already decided or
 # with a person, so a duplicate or late job is a no-op.
 RUNNABLE = {ReturnStatus.SUBMITTED, ReturnStatus.CHECKING}
+# A reviewer's re-run works on cases already with a person, and leaves them there.
+RERUNNABLE = {ReturnStatus.UNDER_REVIEW, ReturnStatus.FAILED}
 
 
 def _jsonable(value: Any) -> Any:
@@ -174,15 +176,22 @@ async def review_return(
     *,
     steps: Steps | None = None,
     rng: random.Random | None = None,
+    rerun: bool = False,
 ) -> ReturnStatus | None:
-    """Review one return. Commits its own progress. Returns the new status, or None if skipped."""
+    """Review one return. Commits its own progress. Returns the new status, or None if skipped.
+
+    `rerun=True` is a reviewer's "re-run the AI checks" on a case already with a person
+    (e.g. one first checked before a model was configured, or a pipeline error). It
+    records a fresh run for the case page but never decides: the case stays (or, from
+    FAILED, goes back) under review with the reviewer, and the claim is untouched.
+    """
     ret = await db.scalar(
         select(Return)
         .where(Return.id == return_id)
         .with_for_update()
         .execution_options(populate_existing=True)
     )
-    if ret is None or ret.status not in RUNNABLE:
+    if ret is None or ret.status not in (RERUNNABLE if rerun else RUNNABLE):
         await db.rollback()
         return None
 
@@ -202,9 +211,10 @@ async def review_return(
         steps = default_steps(db, policy.id if policy else None)
 
     trace = Trace(db, ret.id, policy_version)
-    ret.status = ReturnStatus.CHECKING
-    trace.event("pipeline", "started", {"reason": ret.reason.value})
-    await db.commit()  # the customer now sees "Being checked"
+    if not rerun:
+        ret.status = ReturnStatus.CHECKING
+    trace.event("pipeline", "started", {"reason": ret.reason.value, "rerun": rerun})
+    await db.commit()  # the customer now sees "Being checked" (not on a re-run)
 
     # 1. Data check (code). Missing evidence goes back to the customer (M6).
     t = datetime.now(UTC)
@@ -212,6 +222,11 @@ async def review_return(
         reason=ret.reason, photo_count=len(photos), delivered=order.delivered_at is not None
     )
     trace.step("data_check", {"reason": ret.reason, "photos": len(photos)}, dc, latency_ms=_ms(t))
+    if not dc.complete and rerun:
+        # Already with a reviewer: they see the data check and ask the customer themselves.
+        trace.event("pipeline", "finished", {"status": ret.status.value})
+        await db.commit()
+        return ret.status
     if not dc.complete:
         ret.status = ReturnStatus.NEEDS_INFO
         ret.route = Route.CUSTOMER
@@ -299,7 +314,11 @@ async def review_return(
     ret.route = gate.route
     ret.escalation_reason = gate.escalation_reason
     ret.policy_version = policy_version
-    if gate.auto_approved:
+    if rerun:
+        # A person is already on this case; the re-run only informs them.
+        ret.status = ReturnStatus.UNDER_REVIEW
+        ret.route = Route.REVIEWER
+    elif gate.auto_approved:
         ret.status = ReturnStatus.APPROVED
         ret.final_decision = Decision.APPROVE
         ret.decided_by_type = DeciderType.AUTO
@@ -315,7 +334,13 @@ async def review_return(
     audit.record(
         db,
         actor_type=ActorType.GATE,
-        action="gate.auto_approved" if gate.auto_approved else "gate.escalated",
+        action=(
+            "gate.rerun"
+            if rerun
+            else "gate.auto_approved"
+            if gate.auto_approved
+            else "gate.escalated"
+        ),
         return_id=ret.id,
         details={
             "route": gate.route.value,
@@ -324,6 +349,7 @@ async def review_return(
             "proposal": rec.proposal.value,
             "risk_score": behavior.score,
             "steps_source": getattr(steps, "source", "unknown"),
+            "rerun": rerun,
         },
     )
     trace.event("pipeline", "finished", {"status": ret.status.value})
@@ -333,6 +359,7 @@ async def review_return(
         case_number=ret.case_number,
         status=ret.status.value,
         reason=gate.escalation_reason.value if gate.escalation_reason else None,
+        rerun=rerun,
     )
     return ret.status
 
@@ -350,6 +377,19 @@ async def mark_pipeline_failed(db: AsyncSession, return_id: uuid.UUID, error: st
         actor_type=ActorType.SYSTEM,
         action="pipeline.failed",
         return_id=ret.id,
+        details={"error": error[:500]},
+    )
+    await db.commit()
+
+
+async def mark_rerun_failed(db: AsyncSession, return_id: uuid.UUID, error: str) -> None:
+    """After a re-run's last retry: the case stays as it was, with the reviewer; the
+    timeline says the re-run failed, so they know to check the evidence themselves."""
+    audit.record(
+        db,
+        actor_type=ActorType.SYSTEM,
+        action="pipeline.rerun_failed",
+        return_id=return_id,
         details={"error": error[:500]},
     )
     await db.commit()
