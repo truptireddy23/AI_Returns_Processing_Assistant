@@ -40,7 +40,7 @@ from returnguard.models import (
 from returnguard.pipeline.behavior import BehaviorInputs, BehaviorScore, score_behavior
 from returnguard.pipeline.checks import data_check, policy_facts
 from returnguard.pipeline.gate import GateInputs, GateSettings, governance_gate
-from returnguard.pipeline.llm import OpenAIClient
+from returnguard.pipeline.llm import model_client
 from returnguard.pipeline.model_steps import ModelSteps
 from returnguard.pipeline.steps import Case, RuleSteps, Steps
 from returnguard.storage import get_storage
@@ -49,19 +49,14 @@ log = structlog.get_logger(__name__)
 
 
 def default_steps(db: AsyncSession, policy_doc_id: uuid.UUID | None) -> Steps:
-    """`ModelSteps`, backed by real retrieval and OpenAI calls, when
-    `OPENAI_API_KEY` is set and a policy is active; `RuleSteps` otherwise. This
-    is the one place that chooses, so the worker and any direct caller agree."""
+    """`ModelSteps`, backed by real retrieval and model calls, when a chat and an
+    embedding provider are configured and a policy is active; `RuleSteps`
+    otherwise. This is the one place that chooses, so the worker and any direct
+    caller agree."""
     settings = get_settings()
-    api_key = settings.openai_api_key.get_secret_value()
-    if not api_key or policy_doc_id is None:
+    client = model_client(settings)
+    if client is None or policy_doc_id is None:
         return RuleSteps()
-    client = OpenAIClient(
-        api_key=api_key,
-        chat_base_url=settings.openai_chat_base_url,
-        embedding_model=settings.embedding_model,
-        chat_model=settings.policy_model,
-    )
     return ModelSteps(
         db,
         embedder=client,

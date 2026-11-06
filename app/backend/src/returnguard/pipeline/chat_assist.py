@@ -27,7 +27,7 @@ from returnguard.models import (
     ReturnMessage,
     ReturnStatus,
 )
-from returnguard.pipeline.llm import ChatClient, EmbeddingClient, OpenAIClient
+from returnguard.pipeline.llm import ChatClient, EmbeddingClient, model_client
 from returnguard.pipeline.retrieval import retrieve_policy_clauses
 
 _PROMPTS_DIR = Path(__file__).resolve().parents[4] / "prompts"
@@ -66,18 +66,12 @@ class ChatReply:
 
 
 def default_clients() -> tuple[EmbeddingClient, ChatClient] | tuple[None, None]:
-    """A real `OpenAIClient` (it implements both protocols) when `OPENAI_API_KEY` is
-    configured, or `(None, None)` to fall back to `FALLBACK_REPLY` without a model call."""
-    settings = get_settings()
-    api_key = settings.openai_api_key.get_secret_value()
-    if not api_key:
+    """A real `OpenAIClient` (it implements both protocols) when the chat and
+    embedding providers are configured, or `(None, None)` to fall back to
+    `FALLBACK_REPLY` without a model call."""
+    client = model_client(get_settings())
+    if client is None:
         return None, None
-    client = OpenAIClient(
-        api_key=api_key,
-        chat_base_url=settings.openai_chat_base_url,
-        embedding_model=settings.embedding_model,
-        chat_model=settings.policy_model,
-    )
     return client, client
 
 

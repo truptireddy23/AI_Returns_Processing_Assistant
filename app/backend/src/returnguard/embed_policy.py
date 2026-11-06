@@ -6,8 +6,8 @@ with `embedding = NULL`; this fills them in. Safe to re-run: only chunks with
 no embedding yet are touched, so it's a no-op once everything is embedded, and
 cheap to re-run after `make reset-db`.
 
-Needs `OPENAI_API_KEY` in `app/.env`. Does nothing (and says so) if it isn't set,
-rather than failing confusingly partway through.
+Needs `EMBEDDING_API_KEY` (or `OPENAI_API_KEY`) in `app/.env`. Does nothing (and
+says so) if it isn't set, rather than failing confusingly partway through.
 """
 
 import asyncio
@@ -36,16 +36,10 @@ async def embed_policy_chunks(session: AsyncSession, embedder: OpenAIClient) -> 
 async def _main() -> None:
     settings = get_settings()
     configure_logging(settings.log_level, settings.log_json)
-    api_key = settings.openai_api_key.get_secret_value()
-    if not api_key:
-        log.warning("embed_policy.skipped", reason="OPENAI_API_KEY is not set")
+    if not settings.embedding_api_key.get_secret_value():
+        log.warning("embed_policy.skipped", reason="EMBEDDING_API_KEY is not set")
         return
-    embedder = OpenAIClient(
-        api_key=api_key,
-        chat_base_url=settings.openai_chat_base_url,
-        embedding_model=settings.embedding_model,
-        chat_model=settings.policy_model,
-    )
+    embedder = OpenAIClient.from_settings(settings)
     async for session in db.get_session():
         count = await embed_policy_chunks(session, embedder)
         if count:

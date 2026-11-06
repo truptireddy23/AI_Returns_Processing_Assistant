@@ -2,9 +2,9 @@
 
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import SecretStr, model_validator
+from pydantic import AliasChoices, Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # app/.env, wherever the process is started from (inside Docker the file doesn't
@@ -84,15 +84,39 @@ class Settings(BaseSettings):
     # Seeding (local and test only)
     seed_dir: str = "../seed"
 
-    # Policy RAG (M5). Empty key = ModelSteps/embed_policy refuse clearly rather
-    # than silently falling back; review_return()'s default (RuleSteps) needs none
-    # of this. chat_base_url lets the chat call point at another OpenAI-compatible
-    # endpoint; embeddings always go to OpenAI directly (policy_chunks.embedding
-    # is sized for text-embedding-3-small — see models.EMBEDDING_DIMENSIONS).
-    openai_api_key: SecretStr = SecretStr("")
-    openai_chat_base_url: str = ""
+    # Model providers (M5). Chat and embeddings are configured separately because a
+    # provider may offer one without the other (Groq has no embeddings API). Each
+    # takes any OpenAI-compatible endpoint: a key, a base URL (empty = OpenAI) and a
+    # model. The older OPENAI_API_KEY / OPENAI_CHAT_BASE_URL / POLICY_MODEL names
+    # still work as fallbacks. The model-backed steps run only when both keys are
+    # set; otherwise review_return() uses RuleSteps, which needs none of this.
+    chat_api_key: SecretStr = Field(
+        SecretStr(""), validation_alias=AliasChoices("chat_api_key", "openai_api_key")
+    )
+    chat_base_url: str = Field(
+        "", validation_alias=AliasChoices("chat_base_url", "openai_chat_base_url")
+    )
+    chat_model: str = Field(
+        "gpt-4o-mini", validation_alias=AliasChoices("chat_model", "policy_model")
+    )
+    chat_temperature: float = 0.0
+    # Provider-specific request fields, as JSON, sent as-is with every chat call,
+    # e.g. CHAT_EXTRA_BODY={"reasoning_effort": "none"} for Qwen on Groq.
+    chat_extra_body: dict[str, Any] = {}
+    # Retries on 429/5xx, honoring the provider's Retry-After. Free tiers with a
+    # low tokens-per-minute cap need more than the SDK's default of 2.
+    chat_max_retries: int = 2
+    # policy_chunks.embedding is a fixed vector(1536) column
+    # (models.EMBEDDING_DIMENSIONS), so the embedding model must return 1536
+    # dimensions; EMBEDDING_DIMENSIONS asks models that support it (e.g. OpenAI's
+    # text-embedding-3-*) to shorten their output. Changing models means
+    # re-embedding the policy: clear policy_chunks.embedding, run `make embed-policy`.
+    embedding_api_key: SecretStr = Field(
+        SecretStr(""), validation_alias=AliasChoices("embedding_api_key", "openai_api_key")
+    )
+    embedding_base_url: str = ""
     embedding_model: str = "text-embedding-3-small"
-    policy_model: str = "gpt-4o-mini"
+    embedding_dimensions: int | None = None
     policy_retrieval_k: int = 4
 
     @model_validator(mode="after")

@@ -126,18 +126,22 @@ meaningful thing to compare a customer's real photo against).
 
 ### 2.5 Model endpoints
 
-`pipeline/llm.py` is a real OpenAI client (`OpenAIClient`), behind `EmbeddingClient`/`ChatClient`
+`pipeline/llm.py` is a real client for any OpenAI-compatible provider (`OpenAIClient`), with
+chat and embeddings configured separately (e.g. Qwen on Groq for chat, which has no
+embeddings API, and OpenAI for embeddings), behind `EmbeddingClient`/`ChatClient`
 `Protocol`s so every test runs with a fake and never needs the `openai` package installed or
 network access. `pipeline/runner.py::default_steps()` is the one place that decides, per
-return: build `ModelSteps` (real retrieval + real chat/vision calls) when `OPENAI_API_KEY`
-is set and a policy is active, or fall back to `RuleSteps` otherwise. The worker never
+return: build `ModelSteps` (real retrieval + real chat/vision calls) when both
+`CHAT_API_KEY` and `EMBEDDING_API_KEY` are set and a policy is active, or fall back to `RuleSteps` otherwise. The worker never
 hardcodes either — it asks `review_return()` for the default, built fresh per job on that
 job's own database session.
 
 Without a key configured, the app runs end to end exactly as it did on `RuleSteps` alone —
 nothing breaks, nothing silently guesses. `app/.env.example` documents every setting
-(`OPENAI_API_KEY`, `OPENAI_CHAT_BASE_URL` for an OpenAI-compatible alternative,
-`EMBEDDING_MODEL`, `POLICY_MODEL`, `POLICY_RETRIEVAL_K`).
+(`CHAT_API_KEY`/`CHAT_BASE_URL`/`CHAT_MODEL`, `CHAT_EXTRA_BODY` for provider-specific
+fields, `CHAT_MAX_RETRIES`, `EMBEDDING_API_KEY`/`EMBEDDING_BASE_URL`/`EMBEDDING_MODEL`/
+`EMBEDDING_DIMENSIONS`, `POLICY_RETRIEVAL_K`). The older `OPENAI_API_KEY`,
+`OPENAI_CHAT_BASE_URL` and `POLICY_MODEL` names still work as fallbacks.
 
 ## 3. The pipeline
 
