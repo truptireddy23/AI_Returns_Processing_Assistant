@@ -1,0 +1,121 @@
+{
+  "_comment": "Six ready-made demo cases, loaded by `make demo-cases` (returnguard.demo_cases). Each covers a scenario the regular seed and earlier demos don't: the exact day-30 window edge, a photo of a different product, photo-editing metadata, a 'not as described' material claim, a third account at an already-shared address, and a multi-pack return with a customer chat. Each customer has their own account age, order history, and return history; the return is submitted when the loader runs and the pipeline reviews it. Dates are relative to that moment. Customers sign in with the seed's customer password (users.json). Photos are in demo_photos/.",
+  "cases": [
+    {
+      "key": "last_day",
+      "email": "harold.jensen@example.com",
+      "display_name": "Harold Jensen",
+      "story": "6-year customer returns on the last allowed day (day 30), one item from a two-item order",
+      "account_age_days": 2200,
+      "history": { "orders": 40, "approved_returns": 2, "denied_returns": 0, "recent_returns": 0 },
+      "address": { "line1": "2207 Prairie Rose Dr", "city": "Mahomet", "postal_code": "61853" },
+      "card_last4": "4242",
+      "return": {
+        "sku": "CL-001",
+        "also_in_order": ["CL-003"],
+        "delivered_days_ago": 30,
+        "reason": "changed_mind",
+        "note": "The sweater is a little tight. Unworn, tags still on, original bag. Keeping the chinos.",
+        "photo": null
+      },
+      "expect": "Day 30 is inside the window (delivery is day 0): the code computes the date, never the model. No photo needed. Only the sweater is refunded, not the whole order. Very low risk."
+    },
+    {
+      "key": "photo_mismatch",
+      "email": "grace.liu@example.com",
+      "display_name": "Grace Liu",
+      "story": "1-year customer says her headphones arrived damaged, but the photo shows a pair of worn sneakers",
+      "account_age_days": 365,
+      "history": { "orders": 7, "approved_returns": 1, "denied_returns": 0, "recent_returns": 0 },
+      "address": { "line1": "611 E Daniel St, Apt 4B", "city": "Champaign", "postal_code": "61820" },
+      "card_last4": "8823",
+      "return": {
+        "sku": "EL-001",
+        "delivered_days_ago": 4,
+        "reason": "damaged",
+        "note": "The headband is cracked and the left ear cup is scratched. It came like this.",
+        "photo": "normal_wear_real.jpg"
+      },
+      "expect": "The photo check finds the photo doesn't show the product (headphones vs. sneakers): unverified photo, a person decides. The account itself looks normal."
+    },
+    {
+      "key": "edited_photo",
+      "email": "victor.hale@example.com",
+      "display_name": "Victor Hale",
+      "story": "10-month-old account; a real-looking defect photo whose file says it was edited in Photoshop",
+      "account_age_days": 300,
+      "history": { "orders": 6, "approved_returns": 1, "denied_returns": 1, "recent_returns": 1 },
+      "address": { "line1": "1502 W Kirby Ave", "city": "Champaign", "postal_code": "61821" },
+      "card_last4": "4417",
+      "return": {
+        "sku": "FW-002",
+        "delivered_days_ago": 18,
+        "reason": "defective",
+        "note": "The sole is coming away from the upper at the heel.",
+        "photo": "sole_separation_photoshop_edited.jpg"
+      },
+      "expect": "The pixels look like a genuine photo, but the file details show 'Software: Adobe Photoshop': a cue only the reviewer sees. Shows why a person checks the evidence the AI can't."
+    },
+    {
+      "key": "not_as_described",
+      "email": "aisha.rahman@example.com",
+      "display_name": "Aisha Rahman",
+      "story": "4-month-old account says the 'leather' shoes are synthetic; an untouched iPhone photo shows clean shoes",
+      "account_age_days": 120,
+      "history": { "orders": 3, "approved_returns": 0, "denied_returns": 0, "recent_returns": 0 },
+      "address": { "line1": "88 Windsor Rd", "city": "Champaign", "postal_code": "61820" },
+      "card_last4": "3090",
+      "return": {
+        "sku": "FW-002",
+        "delivered_days_ago": 2,
+        "reason": "not_as_described",
+        "note": "The listing says genuine leather but these feel like synthetic plastic, and the edges look glued, not stitched.",
+        "photo": "clean_shoes_iphone.jpg"
+      },
+      "expect": "The first 'not as described' claim (P8). A photo can't prove what material something is, so the call depends on judgment; the photo itself has normal iPhone camera data and no editing software."
+    },
+    {
+      "key": "address_ring",
+      "email": "jesse.moran@example.com",
+      "display_name": "Jesse Moran",
+      "story": "10-day-old account at the address Casey Morgan and Quinn Brooks already share; 2 of 3 orders already returned",
+      "account_age_days": 10,
+      "history": { "orders": 3, "approved_returns": 2, "denied_returns": 0, "recent_returns": 2 },
+      "address": { "line1": "1200 W. Springfield Ave", "city": "Champaign", "postal_code": "61821" },
+      "card_last4": "5150",
+      "return": {
+        "sku": "EL-003",
+        "delivered_days_ago": 3,
+        "reason": "changed_mind",
+        "note": "Don't need it anymore.",
+        "photo": null
+      },
+      "expect": "Three accounts at one address (shared-address factor at its maximum), a brand-new account, and a high return rate: elevated risk, even though the return itself is a simple change of mind."
+    },
+    {
+      "key": "bulk_with_chat",
+      "email": "rosa.delgado@example.com",
+      "display_name": "Rosa Delgado",
+      "story": "2.5-year customer returns 4 packs of tees from a cancelled event and asks the reviewer about timing in the chat",
+      "account_age_days": 900,
+      "history": { "orders": 15, "approved_returns": 1, "denied_returns": 0, "recent_returns": 0 },
+      "address": { "line1": "405 S Neil St", "city": "Champaign", "postal_code": "61820" },
+      "card_last4": "7702",
+      "return": {
+        "sku": "CL-004",
+        "quantity": 4,
+        "delivered_days_ago": 8,
+        "reason": "changed_mind",
+        "note": "Ordered 4 packs for a team event that was cancelled. All unopened.",
+        "photo": null
+      },
+      "chat": [
+        {
+          "sender": "customer",
+          "body": "Hi! The packs are still sealed. Will I get the full refund for all four, and how long does it usually take?"
+        }
+      ],
+      "expect": "Refund is quantity x price (4 x $35 = $140). The customer's question is waiting in the case chat for the reviewer to answer (with the AI's suggested replies)."
+    }
+  ]
+}

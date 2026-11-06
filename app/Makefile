@@ -5,7 +5,7 @@ BACKEND := cd backend &&
 FRONTEND := cd frontend &&
 
 .DEFAULT_GOAL := help
-.PHONY: help env up down logs ps migrate seed embed-policy sync-prompts product-photos reset-db psql dev-prep dev-api dev-worker dev-web \
+.PHONY: help env up down logs ps migrate seed demo-cases embed-policy sync-prompts product-photos reset-db psql dev-prep dev-api dev-worker dev-web \
         install test lint typecheck fmt check api-types requirements clean bias-audit smoke
 
 help: ## Show this help
@@ -29,6 +29,9 @@ ps: ## Show service status
 
 seed: ## Load demo data (does nothing if users already exist)
 	$(COMPOSE) run --rm -v ./seed:/srv/seed:ro -e SEED_DIR=/srv/seed api python -m returnguard.seed
+
+demo-cases: ## Add the six ready-made demo cases (seed/demo_cases.json); skips ones already loaded
+	$(BACKEND) LOG_JSON=false WORKER_WAKE_URL=http://localhost:8001/wake uv run python -m returnguard.demo_cases
 
 embed-policy: ## Embed the active policy's clauses for Policy RAG (needs EMBEDDING_API_KEY; no-op without it)
 	$(COMPOSE) run --rm api python -m returnguard.embed_policy
