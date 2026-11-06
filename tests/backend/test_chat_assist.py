@@ -81,7 +81,7 @@ async def _no_clauses(
 
 async def test_falls_back_when_no_model_is_configured() -> None:
     reply = await draft_reply(
-        None,  # type: ignore[arg-type]  # never touched: embedder/chat are None
+        None,  # type: ignore[arg-type]  # never touched: chat is None
         embedder=None,
         chat=None,
         policy_doc_id=uuid.uuid4(),
@@ -104,6 +104,29 @@ async def test_falls_back_when_no_policy_is_active() -> None:
     )
     assert reply.body == FALLBACK_REPLY
     assert reply.source == "fallback"
+
+
+async def test_sends_the_whole_policy_without_an_embedding_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def all_clauses(db: Any, *, policy_doc_id: Any) -> list[_Chunk]:
+        return [_Chunk("P1", "Return window", "30 days."), _Chunk("P2", "Damaged", "...")]
+
+    monkeypatch.setattr(chat_assist_module, "all_policy_clauses", all_clauses)
+    chat = FakeChat({"reply": "Your return is being reviewed.", "escalate": False})
+
+    reply = await draft_reply(
+        None,  # type: ignore[arg-type]
+        embedder=None,
+        chat=chat,
+        policy_doc_id=uuid.uuid4(),
+        case=make_case(),
+        customer_message="How long do I have?",
+    )
+
+    assert reply.source == "model"
+    assert reply.output["retrieved_clauses"] == ["P1", "P2"]
+    assert "P1. Return window" in chat.calls[0][1]
 
 
 async def test_falls_back_when_the_model_call_raises(monkeypatch: pytest.MonkeyPatch) -> None:

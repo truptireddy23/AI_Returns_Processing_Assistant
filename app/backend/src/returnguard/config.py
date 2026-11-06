@@ -4,7 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import AliasChoices, Field, SecretStr, model_validator
+from pydantic import AliasChoices, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # app/.env, wherever the process is started from (inside Docker the file doesn't
@@ -88,8 +88,8 @@ class Settings(BaseSettings):
     # provider may offer one without the other (Groq has no embeddings API). Each
     # takes any OpenAI-compatible endpoint: a key, a base URL (empty = OpenAI) and a
     # model. The older OPENAI_API_KEY / OPENAI_CHAT_BASE_URL / POLICY_MODEL names
-    # still work as fallbacks. The model-backed steps run only when both keys are
-    # set; otherwise review_return() uses RuleSteps, which needs none of this.
+    # still work as fallbacks. The model-backed steps run when CHAT_API_KEY is set;
+    # otherwise review_return() uses RuleSteps, which needs none of this.
     chat_api_key: SecretStr = Field(
         SecretStr(""), validation_alias=AliasChoices("chat_api_key", "openai_api_key")
     )
@@ -106,6 +106,8 @@ class Settings(BaseSettings):
     # Retries on 429/5xx, honoring the provider's Retry-After. Free tiers with a
     # low tokens-per-minute cap need more than the SDK's default of 2.
     chat_max_retries: int = 2
+    # Embeddings are optional. Without EMBEDDING_API_KEY the policy step and chat
+    # assist send the whole policy instead of retrieving the closest clauses.
     # policy_chunks.embedding is a fixed vector(1536) column
     # (models.EMBEDDING_DIMENSIONS), so the embedding model must return 1536
     # dimensions; EMBEDDING_DIMENSIONS asks models that support it (e.g. OpenAI's
@@ -118,6 +120,12 @@ class Settings(BaseSettings):
     embedding_model: str = "text-embedding-3-small"
     embedding_dimensions: int | None = None
     policy_retrieval_k: int = 4
+
+    @field_validator("embedding_dimensions", mode="before")
+    @classmethod
+    def _blank_means_unset(cls, value: object) -> object:
+        # `EMBEDDING_DIMENSIONS=` in .env (as in .env.example) means "not set".
+        return None if value == "" else value
 
     @model_validator(mode="after")
     def _production_guards(self) -> "Settings":

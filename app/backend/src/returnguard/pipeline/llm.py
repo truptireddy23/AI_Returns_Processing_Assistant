@@ -5,8 +5,9 @@ being imported. `OpenAIClient` is the only real implementation and speaks the
 OpenAI wire format, so any OpenAI-compatible provider (OpenAI, Groq, Gemini, a
 local server) is a settings change, not a new client. Chat and embeddings each
 have their own key and base URL, since a provider may offer only one of them.
-`model_client()` builds it from settings, or returns `None` when either half is
-unconfigured, rather than letting `ModelSteps` fail halfway through a review.
+`model_client()` builds it from settings, or returns `None` when chat is
+unconfigured. Embeddings are optional: without them the pipeline sends the whole
+policy instead of retrieving clauses.
 """
 
 from __future__ import annotations
@@ -18,16 +19,12 @@ import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Protocol, cast
 
-import structlog
-
 from returnguard.models import EMBEDDING_DIMENSIONS
 
 if TYPE_CHECKING:
     from openai.types.chat import ChatCompletionMessageParam
 
     from returnguard.config import Settings
-
-log = structlog.get_logger(__name__)
 
 # Reasoning models (e.g. Qwen) may put their thinking in the reply as <think>...</think>,
 # and some providers wrap JSON in a ```json fence even in JSON mode.
@@ -91,7 +88,8 @@ class OpenAIClient:
     """Real client for any OpenAI-compatible chat and embeddings endpoints.
 
     Either half may be left unconfigured (no key): calling it then raises clearly.
-    `embed_policy` needs only embeddings; `model_client()` requires both.
+    `embed_policy` needs only embeddings; the pipeline needs chat and uses
+    embeddings when `has_embeddings`.
     """
 
     def __init__(
@@ -131,6 +129,10 @@ class OpenAIClient:
         self._chat_extra_body = chat_extra_body or {}
         self._embedding_model = embedding_model
         self._embedding_dimensions = embedding_dimensions
+
+    @property
+    def has_embeddings(self) -> bool:
+        return self._embedding_client is not None
 
     @classmethod
     def from_settings(cls, settings: Settings) -> OpenAIClient:
@@ -213,18 +215,8 @@ class OpenAIClient:
 
 
 def model_client(settings: Settings) -> OpenAIClient | None:
-    """The real client when both chat and embeddings are configured, else `None`
-    (callers then run without a model). Policy RAG needs both, so half a
-    configuration is logged and treated as none at all."""
-    chat_key = settings.chat_api_key.get_secret_value()
-    embedding_key = settings.embedding_api_key.get_secret_value()
-    if not chat_key and not embedding_key:
-        return None
-    if not chat_key or not embedding_key:
-        log.warning(
-            "model_client.incomplete",
-            missing="CHAT_API_KEY" if not chat_key else "EMBEDDING_API_KEY",
-            effect="running without a model",
-        )
+    """The real client when a chat provider is configured, else `None` (callers
+    then run without a model). Embeddings are optional; see `has_embeddings`."""
+    if not settings.chat_api_key.get_secret_value():
         return None
     return OpenAIClient.from_settings(settings)

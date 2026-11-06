@@ -106,7 +106,7 @@ changes. Tables that matter for the AI pipeline specifically:
 
 | Table | Purpose |
 |---|---|
-| `policy_docs` / `policy_chunks` | The versioned return policy, pre-split into clauses (`P1`…`P9`). `policy_chunks.embedding` is a `vector(1536)` column, filled in by `make embed-policy` once `OPENAI_API_KEY` is set. |
+| `policy_docs` / `policy_chunks` | The versioned return policy, pre-split into clauses (`P1`…`P9`). `policy_chunks.embedding` is a `vector(1536)` column, filled in by `make embed-policy` once `EMBEDDING_API_KEY` is set (optional: without it the whole policy is sent instead). |
 | `product_photos` | Real uploaded catalog photos per product (first = main photo), with a source hash (skip re-upload) and a perceptual hash (near-duplicate comparison for the photo check). |
 | `jobs` | Durable work queue for the pipeline; one row per return, claimed by the worker. |
 | `agent_runs` / `agent_run_events` | One row per pipeline step execution: which step, which model (`null` when that step ran on `RuleSteps`), prompt version, policy version, input hash, token counts, cost, latency, and any error. `source` ("rules" vs. "model") is the authoritative answer to "did a model actually decide this?" for every step, every return. |
@@ -131,8 +131,9 @@ chat and embeddings configured separately (e.g. Qwen on Groq for chat, which has
 embeddings API, and OpenAI for embeddings), behind `EmbeddingClient`/`ChatClient`
 `Protocol`s so every test runs with a fake and never needs the `openai` package installed or
 network access. `pipeline/runner.py::default_steps()` is the one place that decides, per
-return: build `ModelSteps` (real retrieval + real chat/vision calls) when both
-`CHAT_API_KEY` and `EMBEDDING_API_KEY` are set and a policy is active, or fall back to `RuleSteps` otherwise. The worker never
+return: build `ModelSteps` (real chat/vision calls) when `CHAT_API_KEY` is set and a
+policy is active — retrieving the closest clauses when `EMBEDDING_API_KEY` is set too, or
+sending the whole (short) policy when it isn't — or fall back to `RuleSteps` otherwise. The worker never
 hardcodes either — it asks `review_return()` for the default, built fresh per job on that
 job's own database session.
 

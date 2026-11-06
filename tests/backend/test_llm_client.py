@@ -5,6 +5,8 @@ is pure. Covers what an OpenAI-compatible provider such as Groq changes: separat
 chat and embedding providers, the old OPENAI_* names, and reasoning-model replies.
 """
 
+import uuid
+from dataclasses import dataclass
 from typing import Any
 
 import pytest
@@ -12,6 +14,7 @@ from pydantic import SecretStr
 
 from returnguard.config import Settings
 from returnguard.pipeline.llm import OpenAIClient, model_client, parse_json_reply
+from returnguard.pipeline.retrieval import all_policy_clauses
 
 
 def settings(**overrides: Any) -> Settings:
@@ -45,12 +48,23 @@ def test_chat_and_embeddings_can_use_different_providers(monkeypatch: pytest.Mon
     assert model_client(s) is not None
 
 
-@pytest.mark.parametrize(
-    ("chat_key", "embedding_key"), [("", ""), ("gsk-groq", ""), ("", "sk-embed")]
-)
-def test_no_model_client_without_both_providers(chat_key: str, embedding_key: str) -> None:
-    s = settings(chat_api_key=SecretStr(chat_key), embedding_api_key=SecretStr(embedding_key))
+def test_no_model_client_without_a_chat_provider() -> None:
+    s = settings(chat_api_key=SecretStr(""), embedding_api_key=SecretStr("sk-embed"))
     assert model_client(s) is None
+
+
+def test_chat_alone_is_enough_and_embeddings_are_optional() -> None:
+    s = settings(chat_api_key=SecretStr("gsk-groq"), embedding_api_key=SecretStr(""))
+    client = model_client(s)
+    assert client is not None
+    assert client.has_embeddings is False
+    s = settings(chat_api_key=SecretStr("gsk-groq"), embedding_api_key=SecretStr("sk-embed"))
+    assert model_client(s).has_embeddings is True  # type: ignore[union-attr]
+
+
+def test_a_blank_embedding_dimensions_means_unset(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("EMBEDDING_DIMENSIONS", "")
+    assert settings().embedding_dimensions is None
 
 
 async def test_calling_an_unconfigured_half_raises_clearly() -> None:
@@ -77,3 +91,16 @@ def test_parse_json_reply_handles_reasoning_model_output(content: str) -> None:
 )
 def test_parse_json_reply_returns_empty_for_anything_else(content: str) -> None:
     assert parse_json_reply(content) == {}
+
+
+async def test_all_policy_clauses_come_back_in_clause_order() -> None:
+    @dataclass
+    class Chunk:
+        clause_id: str
+
+    class FakeDb:
+        async def scalars(self, stmt: Any) -> list[Chunk]:
+            return [Chunk(c) for c in ("P10", "P2", "P1", "P9")]
+
+    chunks = await all_policy_clauses(FakeDb(), policy_doc_id=uuid.uuid4())  # type: ignore[arg-type]
+    assert [c.clause_id for c in chunks] == ["P1", "P2", "P9", "P10"]

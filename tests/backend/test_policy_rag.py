@@ -111,7 +111,7 @@ class FakeChat:
 
 def make_steps(
     *,
-    embedder: FakeEmbedder,
+    embedder: FakeEmbedder | None,
     chat: FakeChat,
     chunks: list[_Chunk],
     monkeypatch: pytest.MonkeyPatch,
@@ -124,7 +124,11 @@ def make_steps(
     ) -> list[_Chunk]:
         return chunks
 
+    async def fake_all(db: Any, *, policy_doc_id: Any) -> list[_Chunk]:
+        return chunks
+
     monkeypatch.setattr(model_steps_module, "retrieve_policy_clauses", fake_retrieve)
+    monkeypatch.setattr(model_steps_module, "all_policy_clauses", fake_all)
     return ModelSteps(
         FakeDb(reference_photo_row),  # type: ignore[arg-type]
         embedder=embedder,
@@ -181,6 +185,21 @@ async def test_policy_grounds_the_decision_in_retrieved_clauses(
     assert result.output["retrieved_clauses"] == ["P2", "P4"]
     assert len(embedder.calls) == 1
     assert len(chat.calls) == 1
+
+
+async def test_policy_sends_the_whole_policy_without_an_embedding_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    chunks = [_Chunk(f"P{i}", f"Clause {i}", "...") for i in range(1, 10)]
+    chat = FakeChat({"eligibility": "eligible", "cited_clauses": ["P2"], "reason": "Covered."})
+    steps = make_steps(embedder=None, chat=chat, chunks=chunks, monkeypatch=monkeypatch)
+
+    result = await steps.policy(make_case(), make_facts())
+
+    assert result.eligibility is Eligibility.ELIGIBLE
+    assert result.output["retrieval"] == "full_policy"
+    assert result.output["retrieved_clauses"] == sorted(c.clause_id for c in chunks)
+    assert all(f"P{i}. Clause {i}" in chat.calls[0][1] for i in range(1, 10))
 
 
 async def test_policy_filters_clause_ids_the_model_invented(

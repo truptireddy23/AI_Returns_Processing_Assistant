@@ -28,7 +28,7 @@ from returnguard.models import (
     ReturnStatus,
 )
 from returnguard.pipeline.llm import ChatClient, EmbeddingClient, model_client
-from returnguard.pipeline.retrieval import retrieve_policy_clauses
+from returnguard.pipeline.retrieval import all_policy_clauses, retrieve_policy_clauses
 
 _PROMPTS_DIR = Path(__file__).resolve().parents[4] / "prompts"
 
@@ -65,14 +65,14 @@ class ChatReply:
     output: dict[str, Any]
 
 
-def default_clients() -> tuple[EmbeddingClient, ChatClient] | tuple[None, None]:
-    """A real `OpenAIClient` (it implements both protocols) when the chat and
-    embedding providers are configured, or `(None, None)` to fall back to
-    `FALLBACK_REPLY` without a model call."""
+def default_clients() -> tuple[EmbeddingClient | None, ChatClient | None]:
+    """`(embedder, chat)` from the real `OpenAIClient`. `chat` is `None` with no chat
+    provider configured (fall back to `FALLBACK_REPLY` without a model call);
+    `embedder` is `None` with no embedding provider (send the whole policy)."""
     client = model_client(get_settings())
     if client is None:
         return None, None
-    return client, client
+    return (client if client.has_embeddings else None), client
 
 
 def _parse_chat_response(raw: dict[str, Any]) -> tuple[str, bool, bool]:
@@ -107,14 +107,17 @@ async def draft_reply(
     customer_message: str,
     retrieval_k: int = 3,
 ) -> ChatReply:
-    if embedder is None or chat is None or policy_doc_id is None:
+    if chat is None or policy_doc_id is None:
         return ChatReply(FALLBACK_REPLY, True, "fallback", {"error": "no_model_configured"})
 
     try:
-        query_embedding = await embedder.embed(customer_message)
-        chunks = await retrieve_policy_clauses(
-            db, query_embedding=query_embedding, policy_doc_id=policy_doc_id, k=retrieval_k
-        )
+        if embedder is None:
+            chunks = await all_policy_clauses(db, policy_doc_id=policy_doc_id)
+        else:
+            query_embedding = await embedder.embed(customer_message)
+            chunks = await retrieve_policy_clauses(
+                db, query_embedding=query_embedding, policy_doc_id=policy_doc_id, k=retrieval_k
+            )
         clauses_text = (
             "\n\n".join(f"{c.clause_id}. {c.title}\n{c.body}" for c in chunks)
             if chunks

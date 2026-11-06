@@ -3,6 +3,10 @@
 Cosine distance over `policy_chunks.embedding` (pgvector), restricted to one
 policy document version at a time, so a partially re-embedded new policy
 version can never leak a mix of old and new clauses into one decision.
+
+Without an embedding provider configured, `all_policy_clauses` sends the whole
+policy instead. The policy is a handful of short clauses, so that costs about as
+many tokens as retrieving four, and no clause can be missed.
 """
 
 import uuid
@@ -35,3 +39,9 @@ async def retrieve_policy_clauses(
         .limit(k)
     )
     return list(await db.scalars(stmt))
+
+
+async def all_policy_clauses(db: AsyncSession, *, policy_doc_id: uuid.UUID) -> list[PolicyChunk]:
+    """Every chunk of `policy_doc_id`, in clause order (P1, P2, ..., P10)."""
+    chunks = await db.scalars(select(PolicyChunk).where(PolicyChunk.policy_doc_id == policy_doc_id))
+    return sorted(chunks, key=lambda c: (len(c.clause_id), c.clause_id))

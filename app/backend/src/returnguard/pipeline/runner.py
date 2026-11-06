@@ -49,17 +49,17 @@ log = structlog.get_logger(__name__)
 
 
 def default_steps(db: AsyncSession, policy_doc_id: uuid.UUID | None) -> Steps:
-    """`ModelSteps`, backed by real retrieval and model calls, when a chat and an
-    embedding provider are configured and a policy is active; `RuleSteps`
-    otherwise. This is the one place that chooses, so the worker and any direct
-    caller agree."""
+    """`ModelSteps`, backed by real model calls, when a chat provider is configured
+    and a policy is active; `RuleSteps` otherwise. With an embedding provider too,
+    the policy step retrieves the closest clauses; without one it sends them all.
+    This is the one place that chooses, so the worker and any direct caller agree."""
     settings = get_settings()
     client = model_client(settings)
     if client is None or policy_doc_id is None:
         return RuleSteps()
     return ModelSteps(
         db,
-        embedder=client,
+        embedder=client if client.has_embeddings else None,
         chat=client,
         policy_doc_id=policy_doc_id,
         retrieval_k=settings.policy_retrieval_k,
