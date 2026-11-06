@@ -451,6 +451,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/review/cases/{return_id}/rerun": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rerun Case
+         * @description Re-run the AI checks on a case already with a person, e.g. one first checked
+         *     before a model was configured, or after a pipeline error. The fresh run replaces
+         *     what the case page shows; the case stays with the reviewer and is never decided
+         *     by it (pipeline.runner.review_return, rerun=True).
+         */
+        post: operations["rerun_case_api_review_cases__return_id__rerun_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/review/queue": {
         parameters: {
             query?: never;
@@ -601,8 +624,12 @@ export interface components {
             ai: components["schemas"]["AiOut"];
             /** Can Decide */
             can_decide: boolean;
+            /** Can Rerun */
+            can_rerun: boolean;
             /** Cannot Decide Reason */
             cannot_decide_reason: string | null;
+            /** Cannot Rerun Reason */
+            cannot_rerun_reason: string | null;
             /** Case Number */
             case_number: number;
             /** Checks */
@@ -655,6 +682,8 @@ export interface components {
             reason_text: string;
             /** Refund Amount Cents */
             refund_amount_cents: number;
+            /** Rerun Pending */
+            rerun_pending: boolean;
             review_request: components["schemas"]["ReviewRequestOut"] | null;
             status: components["schemas"]["ReturnStatus"];
             /** Timeline */
@@ -2120,6 +2149,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MessageOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rerun_case_api_review_cases__return_id__rerun_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                return_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseOut"];
                 };
             };
             /** @description Validation Error */

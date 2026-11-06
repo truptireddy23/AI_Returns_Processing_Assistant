@@ -376,6 +376,10 @@
             "title": "Can Decide",
             "type": "boolean"
           },
+          "can_rerun": {
+            "title": "Can Rerun",
+            "type": "boolean"
+          },
           "cannot_decide_reason": {
             "anyOf": [
               {
@@ -386,6 +390,17 @@
               }
             ],
             "title": "Cannot Decide Reason"
+          },
+          "cannot_rerun_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cannot Rerun Reason"
           },
           "case_number": {
             "title": "Case Number",
@@ -588,6 +603,10 @@
             "title": "Refund Amount Cents",
             "type": "integer"
           },
+          "rerun_pending": {
+            "title": "Rerun Pending",
+            "type": "boolean"
+          },
           "review_request": {
             "anyOf": [
               {
@@ -638,6 +657,9 @@
           "claimed_by_me",
           "can_decide",
           "cannot_decide_reason",
+          "rerun_pending",
+          "can_rerun",
+          "cannot_rerun_reason",
           "final_decision",
           "decided_by_type",
           "decided_by_name",
@@ -3609,6 +3631,50 @@
         "summary": "Send Reviewer Message",
         "tags": [
           "chat"
+        ]
+      }
+    },
+    "/api/review/cases/{return_id}/rerun": {
+      "post": {
+        "description": "Re-run the AI checks on a case already with a person, e.g. one first checked\nbefore a model was configured, or after a pipeline error. The fresh run replaces\nwhat the case page shows; the case stays with the reviewer and is never decided\nby it (pipeline.runner.review_return, rerun=True).",
+        "operationId": "rerun_case_api_review_cases__return_id__rerun_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "return_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Return Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Rerun Case",
+        "tags": [
+          "review"
         ]
       }
     },

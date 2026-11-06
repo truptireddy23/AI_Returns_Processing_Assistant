@@ -22,6 +22,7 @@ from returnguard.models import Job, JobStatus
 log = structlog.get_logger(__name__)
 
 REVIEW_JOB = "review_return"
+RERUN_JOB = "rerun_review"  # a reviewer's "re-run the AI checks" (never decides)
 
 
 async def claim_next(db: AsyncSession) -> Job | None:

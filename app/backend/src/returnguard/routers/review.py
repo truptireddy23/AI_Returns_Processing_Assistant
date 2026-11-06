@@ -21,13 +21,14 @@ from enum import StrEnum
 from typing import Annotated, Any, Literal
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.orm import aliased, selectinload
 
-from returnguard import audit
+from returnguard import audit, jobs
 from returnguard.auth import DbSession, require_role
+from returnguard.config import get_settings
 from returnguard.models import (
     AgentRun,
     AgreementKind,
@@ -37,6 +38,8 @@ from returnguard.models import (
     Decision,
     EscalationReason,
     EvidenceStrength,
+    Job,
+    JobStatus,
     Order,
     OrderItem,
     PolicyDoc,
@@ -54,8 +57,10 @@ from returnguard.models import (
     User,
 )
 from returnguard.pipeline.checks import RETURN_WINDOW_DAYS, days_since_delivery, shop_date
+from returnguard.pipeline.llm import model_client
 from returnguard.pipeline.runner import behavior_inputs
 from returnguard.routers.catalog import WITH_PHOTOS, main_photo_url
+from returnguard.wake import nudge_worker
 
 log = structlog.get_logger(__name__)
 
@@ -299,6 +304,10 @@ class CaseOut(BaseModel):
     claimed_by_me: bool
     can_decide: bool
     cannot_decide_reason: str | None
+    # Re-running the AI checks on a case already with a person (never decides it).
+    rerun_pending: bool
+    can_rerun: bool
+    cannot_rerun_reason: str | None
 
     final_decision: Decision | None
     decided_by_type: DeciderType | None
@@ -469,6 +478,35 @@ def _can_decide(
     return True, None
 
 
+def _model_configured() -> bool:
+    return model_client(get_settings()) is not None
+
+
+async def _rerun_pending(db: DbSession, return_id: uuid.UUID) -> bool:
+    job_id = await db.scalar(
+        select(Job.id)
+        .where(
+            Job.return_id == return_id,
+            Job.kind == jobs.RERUN_JOB,
+            Job.status.in_((JobStatus.QUEUED, JobStatus.RUNNING)),
+        )
+        .limit(1)
+    )
+    return job_id is not None
+
+
+def _can_rerun(ret: Return, user: User, pending: bool, now: datetime) -> tuple[bool, str | None]:
+    if ret.status not in OPEN_STATUSES:
+        return False, "This case has already been decided."
+    if pending:
+        return False, "The AI checks are already re-running."
+    if _claim_is_live(ret, now) and ret.claimed_by_user_id != user.id:
+        return False, "Another reviewer is working on this case."
+    if not _model_configured():
+        return False, "No AI model is configured, so a re-run would only repeat the rules."
+    return True, None
+
+
 async def _load_case(db: DbSession, return_id: uuid.UUID, *, lock: bool = False) -> Return:
     stmt = select(Return).where(Return.id == return_id).execution_options(populate_existing=True)
     if lock:
@@ -552,6 +590,8 @@ async def _case_out(db: DbSession, ret: Return, user: User) -> CaseOut:
     )
     decider = await db.get(User, ret.decided_by_user_id) if ret.decided_by_user_id else None
     can, why_not = _can_decide(ret, user, rr, now)
+    rerun_pending = await _rerun_pending(db, ret.id)
+    can_rerun, why_not_rerun = _can_rerun(ret, user, rerun_pending, now)
 
     entries = list(
         await db.scalars(select(AuditLog).where(AuditLog.return_id == ret.id).order_by(AuditLog.id))
@@ -633,6 +673,9 @@ async def _case_out(db: DbSession, ret: Return, user: User) -> CaseOut:
         claimed_by_me=claimer is not None and claimer.id == user.id,
         can_decide=can,
         cannot_decide_reason=why_not,
+        rerun_pending=rerun_pending,
+        can_rerun=can_rerun,
+        cannot_rerun_reason=why_not_rerun,
         final_decision=ret.final_decision,
         decided_by_type=ret.decided_by_type,
         decided_by_name=decider.display_name if decider else None,
@@ -653,6 +696,33 @@ async def _case_out(db: DbSession, ret: Return, user: User) -> CaseOut:
 
 @router.get("/cases/{return_id}", response_model=CaseOut)
 async def get_case(return_id: uuid.UUID, user: Reviewer, db: DbSession) -> CaseOut:
+    return await _case_out(db, await _load_case(db, return_id), user)
+
+
+@router.post("/cases/{return_id}/rerun", response_model=CaseOut)
+async def rerun_case(
+    return_id: uuid.UUID, user: Reviewer, db: DbSession, background: BackgroundTasks
+) -> CaseOut:
+    """Re-run the AI checks on a case already with a person, e.g. one first checked
+    before a model was configured, or after a pipeline error. The fresh run replaces
+    what the case page shows; the case stays with the reviewer and is never decided
+    by it (pipeline.runner.review_return, rerun=True)."""
+    ret = await _load_case(db, return_id, lock=True)
+    can, why_not = _can_rerun(ret, user, await _rerun_pending(db, ret.id), datetime.now(UTC))
+    if not can:
+        raise HTTPException(status.HTTP_409_CONFLICT, why_not)
+    # Outbox, as with a new return: the job is committed with the audit entry.
+    db.add(Job(kind=jobs.RERUN_JOB, return_id=ret.id))
+    audit.record(
+        db,
+        actor_type=audit.actor_for_role(user.role),
+        actor_user_id=user.id,
+        action="review.rerun_requested",
+        return_id=ret.id,
+    )
+    await db.commit()
+    background.add_task(nudge_worker)
+    log.info("review.rerun_requested", case_number=ret.case_number)
     return await _case_out(db, await _load_case(db, return_id), user)
 
 

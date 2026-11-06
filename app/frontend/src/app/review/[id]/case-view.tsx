@@ -27,6 +27,9 @@ import {
 } from "@/lib/api";
 
 type Check = ReviewCase["checks"][number];
+
+const RERUN_POLL_MS = 5000;
+const RERUN_POLL_LIMIT_MS = 5 * 60 * 1000;
 type Clause = ReviewCase["clauses"][number];
 
 export function CaseView() {
@@ -74,6 +77,31 @@ function Case() {
     if (data) setCase(data);
     else setNotice(errorMessage(error, "Couldn't claim this case."));
   }
+
+  async function rerun() {
+    const { data, error } = await api.POST("/api/review/cases/{return_id}/rerun", { params: { path: { return_id: id } } });
+    if (data) setCase(data);
+    else setNotice(errorMessage(error, "Couldn't re-run the AI checks."));
+  }
+
+  // While a re-run is queued or running, refresh until its result lands.
+  const rerunPending = c?.rerun_pending ?? false;
+  useEffect(() => {
+    if (!rerunPending) return;
+    const started = Date.now();
+    const timer = setInterval(() => {
+      if (Date.now() - started > RERUN_POLL_LIMIT_MS) {
+        clearInterval(timer);
+        setNotice("The AI checks are taking longer than usual. Reload the page to see if they finished.");
+        return;
+      }
+      api
+        .GET("/api/review/cases/{return_id}", { params: { path: { return_id: id } } })
+        .then(({ data }) => data && setCase(data))
+        .catch(() => undefined);
+    }, RERUN_POLL_MS);
+    return () => clearInterval(timer);
+  }, [rerunPending, id]);
 
   async function release() {
     const { data, error } = await api.DELETE("/api/review/cases/{return_id}/claim", { params: { path: { return_id: id } } });
@@ -131,7 +159,7 @@ function Case() {
           policy and history that back it up. A two-column grid here left a
           lopsided gap whenever one side's cards ran shorter than the other's. */}
       <div className="flex flex-col gap-5">
-        <Recommendation c={c} />
+        <Recommendation c={c} onRerun={rerun} />
         <Checks checks={c.checks} />
         <Evidence c={c} />
         <Policy c={c} />
@@ -150,6 +178,44 @@ function Case() {
 }
 
 // --- Panels -----------------------------------------------------------------
+
+/** Re-run the AI checks on a case that is already with a person, e.g. one checked
+ * before a model was configured, or after the checks failed. The fresh result
+ * replaces this card; the case stays here and is never decided by the re-run. */
+function RerunControl({ c, onRerun }: { c: ReviewCase; onRerun: () => Promise<void> }) {
+  const [busy, setBusy] = useState(false);
+  if (c.rerun_pending) {
+    return (
+      <p role="status" className="flex items-center gap-2 border-t border-zinc-200 pt-3 text-sm text-zinc-600 dark:border-zinc-800 dark:text-zinc-400">
+        <span className="h-2 w-2 animate-pulse rounded-full bg-sky-500" />
+        Re-running the AI checks… this card updates on its own, usually within a minute.
+      </p>
+    );
+  }
+  if (!c.can_rerun) return null;
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+      <p className="text-xs text-zinc-500">
+        Result looks stale or incomplete? Run the AI checks again. The case stays with you either way.
+      </p>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true);
+          try {
+            await onRerun();
+          } finally {
+            setBusy(false);
+          }
+        }}
+        className="rounded border border-zinc-300 px-3 py-1.5 text-sm font-medium hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-900"
+      >
+        {busy ? "Starting…" : "Re-run AI checks"}
+      </button>
+    </div>
+  );
+}
 
 function Card({ title, children, aside }: { title: string; children: React.ReactNode; aside?: React.ReactNode }) {
   return (
@@ -234,7 +300,7 @@ function ReviewRequestPanel({ c }: { c: ReviewCase }) {
   );
 }
 
-function Recommendation({ c }: { c: ReviewCase }) {
+function Recommendation({ c, onRerun }: { c: ReviewCase; onRerun: () => Promise<void> }) {
   const counted = c.checks.filter((k) => k.state !== "info");
   const clear = counted.filter((k) => k.state === "pass").length;
   const fromRules = c.ai.source === "rules";
@@ -277,6 +343,7 @@ function Recommendation({ c }: { c: ReviewCase }) {
           : "A recommendation, not a decision. You make the call."}
         {c.ai.ran_at ? ` Checked ${formatDateTime(c.ai.ran_at)}.` : ""}
       </p>
+      <RerunControl c={c} onRerun={onRerun} />
     </Card>
   );
 }

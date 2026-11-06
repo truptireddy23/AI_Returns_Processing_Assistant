@@ -20,7 +20,7 @@ from returnguard import __version__, db, jobs
 from returnguard.config import get_settings
 from returnguard.log_config import configure_logging
 from returnguard.pipeline.llm import model_client
-from returnguard.pipeline.runner import mark_pipeline_failed, review_return
+from returnguard.pipeline.runner import mark_pipeline_failed, mark_rerun_failed, review_return
 from returnguard.pipeline.steps import Steps
 
 log = structlog.get_logger(__name__)
@@ -68,6 +68,8 @@ async def process_one(steps: Steps | None, rng: random.Random | None = None) -> 
         try:
             if kind == jobs.REVIEW_JOB and return_id is not None:
                 await review_return(session, return_id, steps=steps, rng=rng)
+            elif kind == jobs.RERUN_JOB and return_id is not None:
+                await review_return(session, return_id, steps=steps, rng=rng, rerun=True)
             else:
                 raise ValueError(f"Unknown job kind: {kind}")
         except Exception as exc:
@@ -75,7 +77,10 @@ async def process_one(steps: Steps | None, rng: random.Random | None = None) -> 
             error = f"{type(exc).__name__}: {exc}"
             log.exception("worker.job_error", job_id=str(job_id), attempt=attempt)
             if await jobs.fail(session, job_id, error) and return_id is not None:
-                await mark_pipeline_failed(session, return_id, error)
+                if kind == jobs.RERUN_JOB:
+                    await mark_rerun_failed(session, return_id, error)
+                else:
+                    await mark_pipeline_failed(session, return_id, error)
             return True
         await jobs.complete(session, job_id)
         log.info("worker.job_done", job_id=str(job_id))
