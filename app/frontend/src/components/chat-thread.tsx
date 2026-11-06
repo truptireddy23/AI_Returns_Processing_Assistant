@@ -8,19 +8,50 @@ import {
   formatDateTime,
   MESSAGE_SENDER_LABELS,
   type ChatMessage,
+  type ReturnStatus,
 } from "@/lib/api";
 
 const POLL_MS = 4000;
 const MAX_LENGTH = 2000;
 
+/** What the chat quick-reply chips need to know about the return, kept to the
+ * three fields that actually change which questions make sense. */
+export type ChatContext = {
+  status: ReturnStatus;
+  can_request_review: boolean;
+};
+
+const ALWAYS = "What's your return policy?";
+
 /** Quick-reply chips for the customer's composer — one tap sends the question,
- * no typing needed. Reviewers write their own messages, so these don't apply there. */
-const PRESET_QUESTIONS = [
-  "What's the status of my return?",
-  "Can I add another photo?",
-  "How long will this take?",
-  "What's your return policy?",
-];
+ * no typing needed. Chosen from the return's own status (and whether a reviewer
+ * has already taken over the thread) instead of a fixed list, so they stay
+ * relevant as the return moves through the pipeline. Reviewers write their own
+ * messages, so this doesn't apply there. */
+function suggestedQuestions(context: ChatContext | undefined, takenOver: boolean): string[] {
+  if (!context) return [ALWAYS];
+  switch (context.status) {
+    case "needs_info":
+      return ["What information do you still need from me?", "Can I add another photo?", ALWAYS];
+    case "submitted":
+    case "checking":
+      return ["What's the status of my return?", "How long will this take?", ALWAYS];
+    case "under_review":
+      return takenOver
+        ? ["Can you give me an update?", "What are you looking into?", ALWAYS]
+        : ["What's the status of my return?", "Why was this sent to a reviewer?", ALWAYS];
+    case "approved":
+      return ["When will I get my refund?", "How was my refund calculated?", ALWAYS];
+    case "denied":
+      return context.can_request_review
+        ? ["Why was my return denied?", "Can I request another review?", ALWAYS]
+        : ["Why was my return denied?", ALWAYS];
+    case "failed":
+      return ["What's the status of my return?", "How long will this take?", ALWAYS];
+    default:
+      return [ALWAYS];
+  }
+}
 
 /** The return's chat thread: a customer's questions, answered by the AI assistant
  * until a reviewer sends a message (then the bot stops answering that thread).
@@ -28,15 +59,25 @@ const PRESET_QUESTIONS = [
  * `floating`: shows a collapsed launcher button (bottom-right) with an unread
  * badge instead of the panel always being open. Used on the customer's return
  * page; the reviewer's case page stays inline since a reviewer is actively
- * working the case and shouldn't have to notice and open a bubble. */
+ * working the case and shouldn't have to notice and open a bubble.
+ *
+ * `bare`: renders just the message list and composer, with no outer border or
+ * "Chat" header of its own — for a caller that already wraps it in its own
+ * card (the reviewer's case page, matching its other panels). Not used with
+ * `floating`, which always needs its own popup frame. */
 export function ChatThread({
   returnId,
   as,
   floating = false,
+  bare = false,
+  context,
 }: {
   returnId: string;
   as: "customer" | "reviewer";
   floating?: boolean;
+  bare?: boolean;
+  /** The return's status, so the customer's quick-reply chips stay relevant. */
+  context?: ChatContext;
 }) {
   const [messages, setMessages] = useState<ChatMessage[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -142,30 +183,41 @@ export function ChatThread({
       className={
         floating
           ? "fixed right-5 bottom-5 z-40 flex w-80 flex-col rounded-lg border border-zinc-200 bg-white shadow-xl dark:border-zinc-800 dark:bg-zinc-950"
-          : "flex flex-col gap-2 rounded border border-zinc-200 dark:border-zinc-800"
+          : bare
+            ? "flex flex-col gap-2"
+            : "flex flex-col gap-2 rounded border border-zinc-200 dark:border-zinc-800"
       }
     >
-      <div className="flex items-center justify-between border-b border-zinc-200 px-3 py-2 text-sm font-medium dark:border-zinc-800">
-        Chat
-        {floating ? (
-          <button
-            type="button"
-            onClick={() => setOpen(false)}
-            aria-label="Close chat"
-            className="rounded p-1 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-          >
-            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-4 w-4">
-              <path strokeLinecap="round" d="M5 5l10 10M15 5L5 15" />
-            </svg>
-          </button>
-        ) : null}
-      </div>
+      {bare ? null : (
+        <div className="flex items-center justify-between border-b border-zinc-200 px-3 py-2 text-sm font-medium dark:border-zinc-800">
+          Chat
+          {floating ? (
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              aria-label="Close chat"
+              className="rounded p-1 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            >
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-4 w-4">
+                <path strokeLinecap="round" d="M5 5l10 10M15 5L5 15" />
+              </svg>
+            </button>
+          ) : null}
+        </div>
+      )}
 
       {messages === null ? (
-        <p className="p-3 text-sm text-zinc-500">Loading…</p>
+        <p className={bare ? "text-sm text-zinc-500" : "p-3 text-sm text-zinc-500"}>Loading…</p>
       ) : (
         <>
-          <div ref={listRef} className="flex max-h-72 flex-col gap-2 overflow-y-auto px-3 py-2">
+          <div
+            ref={listRef}
+            className={
+              bare
+                ? "flex max-h-80 flex-col gap-2 overflow-y-auto rounded-md bg-zinc-50 p-3 dark:bg-zinc-900"
+                : "flex max-h-72 flex-col gap-2 overflow-y-auto px-3 py-2"
+            }
+          >
             {messages.length === 0 ? (
               <p className="py-4 text-center text-sm text-zinc-500">
                 {as === "customer"
@@ -198,7 +250,10 @@ export function ChatThread({
 
           {as === "customer" ? (
             <div className="flex flex-wrap gap-1.5 px-3 pb-1">
-              {PRESET_QUESTIONS.map((q) => (
+              {suggestedQuestions(
+                context,
+                messages.some((m) => m.sender === "reviewer"),
+              ).map((q) => (
                 <button
                   key={q}
                   type="button"
@@ -212,7 +267,13 @@ export function ChatThread({
             </div>
           ) : null}
 
-          <div className="flex flex-col gap-1 border-t border-zinc-200 p-2 dark:border-zinc-800">
+          <div
+            className={
+              bare
+                ? "flex flex-col gap-1"
+                : "flex flex-col gap-1 border-t border-zinc-200 p-2 dark:border-zinc-800"
+            }
+          >
             {error ? (
               <p role="alert" className="text-sm text-red-700 dark:text-red-400">
                 {error}
