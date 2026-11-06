@@ -96,8 +96,9 @@ policy checks grounded in stored clauses, photo analysis when needed, behavior r
 recommendation and critic steps. With `CHAT_API_KEY` configured, the judgment steps call
 a real OpenAI-compatible model provider such as Groq. A deterministic governance gate
 allows only eligible approvals and routes every proposed denial or uncertain case to a
-person. Retrieval and return-window checks run in application code, without model
-function calling.
+person. The policy model can invoke read-only `search_policy` and `check_return_window` tools.
+Python owns their retrieval/arithmetic and the final gate. The reviewer trace streams
+step progress while provider responses assemble for validation.
 
 **Why this needs GenAI, not a rules engine:**
 

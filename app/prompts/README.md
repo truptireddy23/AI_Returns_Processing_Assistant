@@ -1,18 +1,29 @@
 # Prompts
 
-Version-controlled prompts for every model step in the pipeline (added in M5–M6).
+Each Markdown file contains its version, system prompt, few-shot examples, output schema
+and intended settings. The backend ships a synchronized copy. Edit here, run
+`make sync-prompts`, and run `test_prompts.py` to check the copies match.
 
-Each step gets one Markdown file whose first line is `version: N`, followed by its system
-prompt and few-shot examples, plus a JSON Schema for the step's output and its model
-settings (role, temperature, max tokens). The version is logged with every model call.
+| File | Step |
+|---|---|
+| `policy.md` | Policy eligibility grounded in active clauses |
+| `image.md` | Product match, photo condition and authenticity concerns |
+| `recommendation.md` | Proposed outcome, rationale and uncertainties |
+| `critic.md` | Independent prompt that can add caution |
+| `chat.md` | Case-specific customer assistance |
 
-| File (planned) | Step | Model role |
-|---|---|---|
-| `policy.md` | Policy eligibility, with policy search tools | `reason` |
-| `image.md` | Photo match and condition | `vision` |
-| `recommendation.md` | Approve / deny / escalate, with rationale | `reason` |
-| `critic.md` | Independent check that can only add caution | `critic` |
+Runtime settings in `.env` override illustrative model roles in prompt documents. All
+roles currently share `CHAT_MODEL`, temperature and provider configuration. Actual reply
+caps live in `pipeline/model_steps.py` and `pipeline/chat_assist.py`. The critic uses a
+separate prompt, not a separate provider/model family.
 
-The API ships with a copy of these files in `app/backend/src/returnguard/prompts/`, because
-Vercel and Docker deploy only `app/backend`. After editing a prompt here, run
-`make sync-prompts`; `tests/backend/test_prompts.py` fails if the copies differ.
+With `CHAT_TOOLS_ENABLED=true`, the policy client executes `search_policy` and
+`check_return_window` as actual model function calls. Both are read-only, take no
+arguments and stay scoped to the current return. The code still owns retrieval, math
+and the final gate. Blocking window/Final Sale checks skip the policy model call.
+
+Judgment step traces record the prompt file's version, model identity, token counts,
+latency, tool calls and configured cost estimates. Chat usage appears in its reply
+metadata. Missing provider usage or prices remain unknown. `CHAT_STREAM_ENABLED=true`
+streams provider responses, then validates the assembled JSON before using it. The UI
+streams safe step metadata rather than partial model text.

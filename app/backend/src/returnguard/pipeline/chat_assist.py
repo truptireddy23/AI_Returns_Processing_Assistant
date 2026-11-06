@@ -28,6 +28,7 @@ from returnguard.models import (
     ReturnStatus,
 )
 from returnguard.pipeline.llm import ChatClient, EmbeddingClient, model_client
+from returnguard.pipeline.privacy import sanitize_text
 from returnguard.pipeline.retrieval import all_policy_clauses, retrieve_policy_clauses
 
 # The copy of app/prompts/ that ships with the package (Vercel and Docker deploy
@@ -112,10 +113,12 @@ async def draft_reply(
     case: ChatCase,
     customer_message: str,
     retrieval_k: int = 3,
+    identifiers: tuple[str, ...] = (),
 ) -> ChatReply:
     if chat is None or policy_doc_id is None:
         return ChatReply(FALLBACK_REPLY, True, "fallback", {"error": "no_model_configured"})
 
+    customer_message = sanitize_text(customer_message, identifiers)
     try:
         if embedder is None:
             chunks = await all_policy_clauses(db, policy_doc_id=policy_doc_id)
@@ -158,6 +161,9 @@ async def draft_reply(
             "tokens_in": usage.tokens_in,
             "tokens_out": usage.tokens_out,
             "latency_ms": usage.latency_ms,
+            "cost_usd": str(usage.cost_usd) if usage.cost_usd is not None else None,
+            "stream_chunks": usage.stream_chunks,
+            "usage_complete": usage.usage_complete,
             "retrieved_clauses": sorted(c.clause_id for c in chunks),
             "raw_response": raw,
         },

@@ -6,7 +6,7 @@ FRONTEND := cd frontend &&
 
 .DEFAULT_GOAL := help
 .PHONY: help env up down logs ps migrate seed embed-policy sync-prompts product-photos reset-db psql dev-prep dev-api dev-worker dev-web \
-        install test lint typecheck fmt check api-types requirements clean
+        install test lint typecheck fmt check api-types requirements clean bias-audit smoke
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-14s %s\n", $$1, $$2}'
@@ -95,3 +95,9 @@ requirements: ## Regenerate backend/requirements.txt from uv.lock
 
 clean: ## Stop the stack and delete the database volume
 	$(COMPOSE) down -v
+
+bias-audit: ## Screen the paired synthetic behavior groups (offline; no model calls)
+	$(BACKEND) uv run python -m returnguard.bias_audit ../../tests/fixtures/behavior_groups.csv --reference synthetic_a
+
+smoke: ## Read-only HTTP smoke check (set SMOKE_ARGS for a private local live test)
+	$(BACKEND) uv run python -m returnguard.smoke $(SMOKE_ARGS)

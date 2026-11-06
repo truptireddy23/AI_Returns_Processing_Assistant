@@ -22,6 +22,8 @@ from returnguard.config import get_settings
 from returnguard.models import (
     ActorType,
     MessageSender,
+    Order,
+    OrderItem,
     PolicyDoc,
     Return,
     ReturnMessage,
@@ -34,6 +36,7 @@ from returnguard.pipeline.chat_assist import (
     draft_reply,
     thread_taken_over,
 )
+from returnguard.pipeline.privacy import identity_terms
 from returnguard.ratelimit import rate_limit
 
 router = APIRouter(prefix="/api", tags=["chat"])
@@ -98,6 +101,10 @@ async def _post_message_and_maybe_reply(
     if sender is MessageSender.CUSTOMER and not await thread_taken_over(db, ret.id):
         embedder, chat = default_clients()
         policy = await db.scalar(select(PolicyDoc).where(PolicyDoc.is_active))
+        order = await db.scalar(
+            select(Order).join(OrderItem).where(OrderItem.id == ret.order_item_id)
+        )
+        assert order is not None
         reply = await draft_reply(
             db,
             embedder=embedder,
@@ -111,6 +118,7 @@ async def _post_message_and_maybe_reply(
                 final_decision=ret.final_decision,
             ),
             customer_message=body,
+            identifiers=identity_terms(user, order),
         )
         db.add(ReturnMessage(return_id=ret.id, sender=MessageSender.BOT, body=reply.body))
         audit.record(

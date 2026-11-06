@@ -11,6 +11,7 @@ import random
 import uuid
 from dataclasses import asdict, is_dataclass
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Any
 
 import structlog
@@ -42,6 +43,7 @@ from returnguard.pipeline.checks import data_check, policy_facts
 from returnguard.pipeline.gate import GateInputs, GateSettings, governance_gate
 from returnguard.pipeline.llm import model_client
 from returnguard.pipeline.model_steps import ModelSteps
+from returnguard.pipeline.privacy import identity_terms, sanitize_text
 from returnguard.pipeline.steps import Case, RuleSteps, Steps
 from returnguard.storage import get_storage
 
@@ -111,19 +113,39 @@ class Trace:
         self, step: str, inputs: Any, output: Any, *, latency_ms: int, model: str | None = None
     ) -> None:
         payload = json.dumps(_jsonable(inputs), sort_keys=True).encode()
+        result = _jsonable(output)
+        usage = result.get("output", {}) if isinstance(result, dict) else {}
         self.db.add(
             AgentRun(
                 return_id=self.return_id,
                 run_id=self.run_id,
                 step=step,
-                model=model,
+                model=usage.get("model", model),
+                prompt_version=usage.get("prompt_version"),
+                tokens_in=usage.get("tokens_in") if usage.get("usage_complete", True) else None,
+                tokens_out=usage.get("tokens_out") if usage.get("usage_complete", True) else None,
+                cost_usd=Decimal(usage["cost_usd"]) if usage.get("cost_usd") is not None else None,
                 policy_version=self.policy_version,
                 input_hash=hashlib.sha256(payload).hexdigest(),
                 output=_jsonable(output),
                 latency_ms=latency_ms,
             )
         )
-        self.event(step, "finished", {"latency_ms": latency_ms})
+        self.event(
+            step,
+            "finished",
+            {
+                "latency_ms": latency_ms,
+                "model": usage.get("model"),
+                "tokens_in": usage.get("tokens_in") if usage.get("usage_complete", True) else None,
+                "tokens_out": usage.get("tokens_out")
+                if usage.get("usage_complete", True)
+                else None,
+                "cost_usd": usage.get("cost_usd"),
+                "stream_chunks": usage.get("stream_chunks", 0),
+                "tools": [call["name"] for call in usage.get("tool_calls", [])],
+            },
+        )
 
 
 async def behavior_inputs(
@@ -255,7 +277,7 @@ async def review_return(
     )
     case = Case(
         reason=ret.reason,
-        reason_text=ret.reason_text,
+        reason_text=sanitize_text(ret.reason_text, identity_terms(customer, order)),
         product_name=product.name,
         product_category=product.category.value,
         is_final_sale=product.is_final_sale,
@@ -267,11 +289,17 @@ async def review_return(
 
     # 2-3. Policy and photo.
     t = datetime.now(UTC)
+    trace.event("policy", "started")
+    await db.commit()
     policy_result = await steps.policy(case, facts)
     trace.step("policy", {"facts": facts, "reason": ret.reason}, policy_result, latency_ms=_ms(t))
+    await db.commit()
     t = datetime.now(UTC)
+    trace.event("image", "started")
+    await db.commit()
     photo_result = await steps.photo(case, facts)
     trace.step("image", {"photos": len(photos)}, photo_result, latency_ms=_ms(t))
+    await db.commit()
 
     # 4. Behaviour risk (code).
     t = datetime.now(UTC)
@@ -279,14 +307,21 @@ async def review_return(
         await behavior_inputs(db, ret, order, customer, settings.high_value_limit_cents)
     )
     trace.step("behavior", {"customer": "masked"}, behavior, latency_ms=_ms(t))
+    await db.commit()
 
     # 5-6. Recommendation and critic.
     t = datetime.now(UTC)
+    trace.event("recommendation", "started")
+    await db.commit()
     rec = await steps.recommend(case, facts, policy_result, photo_result, behavior)
     trace.step("recommendation", {"policy": policy_result.eligibility}, rec, latency_ms=_ms(t))
+    await db.commit()
     t = datetime.now(UTC)
+    trace.event("critic", "started")
+    await db.commit()
     critic = await steps.critic(case, policy_result, photo_result, rec)
     trace.step("critic", {"proposal": rec.proposal}, critic, latency_ms=_ms(t))
+    await db.commit()
 
     # 7. Governance gate (code): the only place a decision becomes final.
     gate = governance_gate(

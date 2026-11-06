@@ -1,0 +1,30 @@
+{
+  "reference": "synthetic_a",
+  "risk_limit": 0.5,
+  "ratio_threshold": 0.8,
+  "groups": {
+    "synthetic_a": {
+      "n": 4,
+      "mean_risk": 0.41,
+      "risk_pass_rate": 0.75,
+      "risk_flag_rate": 0.25,
+      "pass_rate_ratio": 1.0,
+      "screen_flag": false,
+      "small_sample": true
+    },
+    "synthetic_b": {
+      "n": 4,
+      "mean_risk": 0.41,
+      "risk_pass_rate": 0.75,
+      "risk_flag_rate": 0.25,
+      "pass_rate_ratio": 1.0,
+      "screen_flag": false,
+      "small_sample": true
+    }
+  },
+  "flagged": false,
+  "warnings": [
+    "Descriptive risk-only screening, not final decision fairness or causal evidence.",
+    "Synthetic or small samples cannot establish population fairness."
+  ]
+}

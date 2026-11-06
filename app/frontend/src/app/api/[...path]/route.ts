@@ -5,7 +5,7 @@
  *   per client rather than shared by everyone behind this server;
  * - read the API address at runtime instead of baking it in at build time;
  * - return a clear 502 when the API is unreachable instead of a bare 500;
- * - stream bodies both ways (uploads now, Server-Sent Events later).
+ * - stream bodies both ways (uploads and Server-Sent Events).
  */
 
 const API_INTERNAL_URL = process.env.API_INTERNAL_URL ?? "http://localhost:8000";

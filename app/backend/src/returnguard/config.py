@@ -1,5 +1,6 @@
 """Runtime settings, read from environment variables (and `.env` in local runs)."""
 
+from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal
@@ -100,6 +101,11 @@ class Settings(BaseSettings):
         "gpt-4o-mini", validation_alias=AliasChoices("chat_model", "policy_model")
     )
     chat_temperature: float = 0.0
+    chat_stream_enabled: bool = True
+    chat_tools_enabled: bool = True
+    # Deployment-specific estimates, not a provider invoice. Unknown is NULL, never zero.
+    chat_input_usd_per_million: Decimal | None = Field(None, ge=0)
+    chat_output_usd_per_million: Decimal | None = Field(None, ge=0)
     # Provider-specific request fields, as JSON, sent as-is with every chat call,
     # e.g. CHAT_EXTRA_BODY={"reasoning_effort": "none"} for Qwen on Groq.
     chat_extra_body: dict[str, Any] = {}
@@ -121,7 +127,12 @@ class Settings(BaseSettings):
     embedding_dimensions: int | None = None
     policy_retrieval_k: int = 4
 
-    @field_validator("embedding_dimensions", mode="before")
+    @field_validator(
+        "embedding_dimensions",
+        "chat_input_usd_per_million",
+        "chat_output_usd_per_million",
+        mode="before",
+    )
     @classmethod
     def _blank_means_unset(cls, value: object) -> object:
         # `EMBEDDING_DIMENSIONS=` in .env (as in .env.example) means "not set".
