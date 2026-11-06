@@ -78,10 +78,13 @@ Current actions include `auth.signup`, `auth.login`, `auth.logout`, `order.place
 
 ## Keeping a scale-to-zero database asleep
 
-Neon suspends the database after 5 minutes without queries, and every query wakes it. So
-nothing polls it: the worker is woken over HTTP by the API, its backstop sweep runs every
-30 minutes (`WORKER_SWEEP_SECONDS`), and a customer's open status page re-checks with
-back-off (1.5 s, growing to 30 s) only while a return is being processed.
+Neon can suspend after idle periods, and a query wakes it. The worker avoids frequent
+background polling: the API wakes it over HTTP and its backstop sweep runs every
+30 minutes (`WORKER_SWEEP_SECONDS`). A customer's open status page re-checks with
+backoff (1.5 seconds, growing to 30 seconds) while a return is processing. An active
+reviewer SSE connection checks for trace events every second for up to 20 seconds,
+releasing its database connection between queries. The browser reconnects during a
+pending re-run and stops after loading a completed trace.
 
 ## Implemented and deferred
 
