@@ -80,7 +80,12 @@ class ChatUsage:
 
 class ChatClient(Protocol):
     async def complete_json(
-        self, *, system: str, user: str, images: list[bytes] | None = None
+        self,
+        *,
+        system: str,
+        user: str,
+        images: list[bytes] | None = None,
+        max_tokens: int | None = None,
     ) -> tuple[dict[str, Any], ChatUsage]: ...
 
 
@@ -168,8 +173,18 @@ class OpenAIClient:
         return embedding
 
     async def complete_json(
-        self, *, system: str, user: str, images: list[bytes] | None = None
+        self,
+        *,
+        system: str,
+        user: str,
+        images: list[bytes] | None = None,
+        max_tokens: int | None = None,
     ) -> tuple[dict[str, Any], ChatUsage]:
+        """`max_tokens` caps the reply. Set it: providers budget a request's output
+        against per-minute limits by its cap, and without one Groq assumes 2048,
+        more than its free tier's 1000 output tokens per minute, so every call is
+        refused as "request too large". A reply cut off by the cap isn't valid JSON
+        and fails closed like any malformed reply (parse_json_reply)."""
         if self._chat_client is None:
             raise RuntimeError("CHAT_API_KEY (or OPENAI_API_KEY) is not set.")
         start = time.monotonic()
@@ -193,11 +208,13 @@ class OpenAIClient:
                 {"role": "user", "content": user_content},
             ],
         )
+        limit: dict[str, Any] = {"max_completion_tokens": max_tokens} if max_tokens else {}
         resp = await self._chat_client.chat.completions.create(
             model=self._chat_model,
             temperature=self._chat_temperature,
             response_format={"type": "json_object"},
             messages=messages,
+            **limit,
             extra_body=self._chat_extra_body or None,
         )
         latency_ms = int((time.monotonic() - start) * 1000)

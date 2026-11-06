@@ -97,11 +97,18 @@ class FakeChat:
         self._response = response
         self._model = model
         self.calls: list[tuple[str, str]] = []
+        self.max_tokens: list[int | None] = []
         self.image_calls: list[list[bytes]] = []
 
     async def complete_json(
-        self, *, system: str, user: str, images: list[bytes] | None = None
+        self,
+        *,
+        system: str,
+        user: str,
+        images: list[bytes] | None = None,
+        max_tokens: int | None = None,
     ) -> tuple[dict[str, Any], ChatUsage]:
+        self.max_tokens.append(max_tokens)
         self.calls.append((system, user))
         self.image_calls.append(images or [])
         return self._response, ChatUsage(
@@ -200,6 +207,48 @@ async def test_policy_sends_the_whole_policy_without_an_embedding_provider(
     assert result.output["retrieval"] == "full_policy"
     assert result.output["retrieved_clauses"] == sorted(c.clause_id for c in chunks)
     assert all(f"P{i}. Clause {i}" in chat.calls[0][1] for i in range(1, 10))
+
+
+async def test_every_model_step_caps_its_reply(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Each call carries its own reply cap (providers budget requests by it)."""
+    from returnguard.pipeline.behavior import BehaviorScore
+
+    chunks = [_Chunk("P2", "Damaged or defective items", "...")]
+    chat = FakeChat(
+        {
+            "eligibility": "eligible",
+            "cited_clauses": ["P2"],
+            "reason": "Covered.",
+            "product_match": "yes",
+            "authenticity": "genuine",
+            "synthetic_signs": [],
+            "proposal": "approve",
+            "veto": False,
+        }
+    )
+    steps = make_steps(
+        embedder=FakeEmbedder(),
+        chat=chat,
+        chunks=chunks,
+        monkeypatch=monkeypatch,
+        storage=FakeStorage(b"\xff\xd8fake-jpeg-bytes"),
+    )
+    case = make_case(photo_keys=["returns/r1/photo.jpg"])
+    facts = make_facts(photo_required=True)
+
+    policy = await steps.policy(case, facts)
+    photo = await steps.photo(case, facts)
+    rec = await steps.recommend(case, facts, policy, photo, BehaviorScore(score=0.1))
+    await steps.critic(case, policy, photo, rec)
+
+    caps = model_steps_module.MAX_TOKENS
+    assert chat.max_tokens == [
+        caps["policy"],
+        caps["photo"],
+        caps["recommendation"],
+        caps["critic"],
+    ]
+    assert all(cap <= 1000 for cap in caps.values())  # Groq free tier: 1000 output tokens/min
 
 
 async def test_policy_filters_clause_ids_the_model_invented(

@@ -104,3 +104,57 @@ async def test_all_policy_clauses_come_back_in_clause_order() -> None:
 
     chunks = await all_policy_clauses(FakeDb(), policy_doc_id=uuid.uuid4())  # type: ignore[arg-type]
     assert [c.clause_id for c in chunks] == ["P1", "P2", "P9", "P10"]
+
+
+class _RecordingCompletions:
+    """Stands in for the SDK's chat.completions: records the request, returns `content`."""
+
+    def __init__(self, content: str) -> None:
+        self.content = content
+        self.kwargs: dict[str, Any] = {}
+
+    async def create(self, **kwargs: Any) -> Any:
+        from types import SimpleNamespace
+
+        self.kwargs = kwargs
+        message = SimpleNamespace(content=self.content)
+        return SimpleNamespace(
+            model="qwen/qwen3.8-27b",
+            choices=[SimpleNamespace(message=message)],
+            usage=SimpleNamespace(prompt_tokens=10, completion_tokens=5),
+        )
+
+
+def _client_with(content: str) -> tuple[OpenAIClient, _RecordingCompletions]:
+    from types import SimpleNamespace
+
+    client = OpenAIClient(chat_api_key="gsk-test", chat_model="qwen/qwen3.8-27b")
+    completions = _RecordingCompletions(content)
+    client._chat_client = SimpleNamespace(chat=SimpleNamespace(completions=completions))  # type: ignore[assignment]
+    return client, completions
+
+
+async def test_the_reply_cap_is_sent_when_given() -> None:
+    """Without a cap Groq budgets 2048 output tokens per call, over its free tier's
+    1000 a minute, and refuses every call as "request too large"."""
+    client, completions = _client_with('{"veto": false}')
+
+    await client.complete_json(system="s", user="u", max_tokens=200)
+
+    assert completions.kwargs["max_completion_tokens"] == 200
+
+
+async def test_no_cap_field_is_sent_without_one() -> None:
+    client, completions = _client_with('{"veto": false}')
+
+    await client.complete_json(system="s", user="u")
+
+    assert "max_completion_tokens" not in completions.kwargs
+
+
+async def test_a_reply_cut_off_at_the_cap_fails_closed() -> None:
+    client, _ = _client_with('{"product_match": "yes", "authenticity": "gen')
+
+    raw, _usage = await client.complete_json(system="s", user="u", max_tokens=5)
+
+    assert raw == {}
