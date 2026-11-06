@@ -30,7 +30,7 @@ ps: ## Show service status
 seed: ## Load demo data (does nothing if users already exist)
 	$(COMPOSE) run --rm -v ./seed:/srv/seed:ro -e SEED_DIR=/srv/seed api python -m returnguard.seed
 
-embed-policy: ## Embed the active policy's clauses for Policy RAG (needs OPENAI_API_KEY; no-op without it)
+embed-policy: ## Embed the active policy's clauses for Policy RAG (needs EMBEDDING_API_KEY; no-op without it)
 	$(COMPOSE) run --rm api python -m returnguard.embed_policy
 
 product-photos: ## Upload catalog photos from ../Photos to the product-photos bucket (only changes)

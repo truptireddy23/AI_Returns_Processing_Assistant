@@ -33,7 +33,7 @@ from returnguard.pipeline.behavior import BehaviorScore
 from returnguard.pipeline.checks import PolicyFacts
 from returnguard.pipeline.gate import Eligibility, PhotoCheck
 from returnguard.pipeline.llm import ChatClient, EmbeddingClient
-from returnguard.pipeline.retrieval import retrieve_policy_clauses
+from returnguard.pipeline.retrieval import all_policy_clauses, retrieve_policy_clauses
 from returnguard.pipeline.steps import (
     Case,
     CriticResult,
@@ -85,23 +85,34 @@ def _parse_policy_response(
 
 
 def _parse_photo_response(raw: dict[str, Any]) -> tuple[PhotoCheck, list[str]]:
-    """Verified only when both the product match and the authenticity read are
-    clean. Anything else — including a bad response — is `NOT_VERIFIED`."""
+    """Verified only when the product matches, the authenticity read is "genuine",
+    and the model listed no synthetic signs. The signs list must be present: the
+    prompt has the model inspect and list them before deciding, and a "genuine"
+    that skipped that step (or contradicts it) is not trusted. Anything else,
+    including a bad response, is `NOT_VERIFIED`."""
     match = str(raw.get("product_match", "")).strip().lower()
     authenticity = str(raw.get("authenticity", "")).strip().lower()
+    signs_raw = raw.get("synthetic_signs")
+    signs = (
+        [str(s).strip() for s in signs_raw if str(s).strip()]
+        if isinstance(signs_raw, list)
+        else None
+    )
     notes_parts = [
         str(raw.get("authenticity_notes", "")).strip(),
         str(raw.get("condition_description", "")).strip(),
     ]
+    if signs:
+        notes_parts.append("Synthetic signs: " + "; ".join(signs))
     notes = [n for n in notes_parts if n] or ["The model's response didn't include notes."]
-    if match == "yes" and authenticity == "genuine":
-        return PhotoCheck.VERIFIED, notes
-    if match not in {"yes", "no", "unclear"} or authenticity not in {
-        "genuine",
-        "suspicious",
-        "unclear",
-    }:
+    if (
+        signs is None
+        or match not in {"yes", "no", "unclear"}
+        or authenticity not in {"genuine", "suspicious", "unclear"}
+    ):
         return PhotoCheck.NOT_VERIFIED, ["The model's response didn't match the expected format."]
+    if match == "yes" and authenticity == "genuine" and not signs:
+        return PhotoCheck.VERIFIED, notes
     return PhotoCheck.NOT_VERIFIED, notes
 
 
@@ -149,7 +160,7 @@ class ModelSteps:
         self,
         db: AsyncSession,
         *,
-        embedder: EmbeddingClient,
+        embedder: EmbeddingClient | None,
         chat: ChatClient,
         policy_doc_id: uuid.UUID,
         retrieval_k: int = 4,
@@ -176,15 +187,19 @@ class ModelSteps:
             # a model call, and never overridable by one.
             return await self._rules.policy(case, facts)
 
-        query_embedding = await self._embedder.embed(f"{case.reason.value}: {case.reason_text}")
-        chunks = await retrieve_policy_clauses(
-            self._db,
-            query_embedding=query_embedding,
-            policy_doc_id=self._policy_doc_id,
-            k=self._retrieval_k,
-        )
+        if self._embedder is None:
+            # No embedding provider: the whole (short) policy instead of the top k.
+            chunks = await all_policy_clauses(self._db, policy_doc_id=self._policy_doc_id)
+        else:
+            query_embedding = await self._embedder.embed(f"{case.reason.value}: {case.reason_text}")
+            chunks = await retrieve_policy_clauses(
+                self._db,
+                query_embedding=query_embedding,
+                policy_doc_id=self._policy_doc_id,
+                k=self._retrieval_k,
+            )
         if not chunks:
-            # No embedded policy to ground on — never guess at eligibility.
+            # No policy to ground on — never guess at eligibility.
             return PolicyResult(
                 eligibility=Eligibility.UNCLEAR,
                 cited_clauses=[],
@@ -218,6 +233,7 @@ class ModelSteps:
                 "tokens_out": usage.tokens_out,
                 "latency_ms": usage.latency_ms,
                 "retrieved_clauses": sorted(known_ids),
+                "retrieval": "full_policy" if self._embedder is None else "embedding",
                 "raw_response": raw,
             },
         )

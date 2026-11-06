@@ -111,7 +111,7 @@ class FakeChat:
 
 def make_steps(
     *,
-    embedder: FakeEmbedder,
+    embedder: FakeEmbedder | None,
     chat: FakeChat,
     chunks: list[_Chunk],
     monkeypatch: pytest.MonkeyPatch,
@@ -124,7 +124,11 @@ def make_steps(
     ) -> list[_Chunk]:
         return chunks
 
+    async def fake_all(db: Any, *, policy_doc_id: Any) -> list[_Chunk]:
+        return chunks
+
     monkeypatch.setattr(model_steps_module, "retrieve_policy_clauses", fake_retrieve)
+    monkeypatch.setattr(model_steps_module, "all_policy_clauses", fake_all)
     return ModelSteps(
         FakeDb(reference_photo_row),  # type: ignore[arg-type]
         embedder=embedder,
@@ -181,6 +185,21 @@ async def test_policy_grounds_the_decision_in_retrieved_clauses(
     assert result.output["retrieved_clauses"] == ["P2", "P4"]
     assert len(embedder.calls) == 1
     assert len(chat.calls) == 1
+
+
+async def test_policy_sends_the_whole_policy_without_an_embedding_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    chunks = [_Chunk(f"P{i}", f"Clause {i}", "...") for i in range(1, 10)]
+    chat = FakeChat({"eligibility": "eligible", "cited_clauses": ["P2"], "reason": "Covered."})
+    steps = make_steps(embedder=None, chat=chat, chunks=chunks, monkeypatch=monkeypatch)
+
+    result = await steps.policy(make_case(), make_facts())
+
+    assert result.eligibility is Eligibility.ELIGIBLE
+    assert result.output["retrieval"] == "full_policy"
+    assert result.output["retrieved_clauses"] == sorted(c.clause_id for c in chunks)
+    assert all(f"P{i}. Clause {i}" in chat.calls[0][1] for i in range(1, 10))
 
 
 async def test_policy_filters_clause_ids_the_model_invented(
@@ -267,6 +286,13 @@ async def test_customer_note_is_sent_as_quoted_data(monkeypatch: pytest.MonkeyPa
     assert repr(injection) in user_prompt
 
 
+def test_policy_prompt_says_how_to_tell_a_defect_from_wear() -> None:
+    prompt = model_steps_module._load_system_prompt("policy.md")
+    assert "A part failing structurally soon after delivery is a manufacturing defect" in prompt
+    assert '"Sole wear" in P3 means tread wearing down' in prompt
+    assert 'answer "unclear" rather than guessing' in prompt
+
+
 def test_system_prompt_tells_the_model_to_ignore_embedded_instructions() -> None:
     prompt = model_steps_module._load_system_prompt("policy.md")
     lowered = prompt.lower()
@@ -343,6 +369,7 @@ async def test_photo_is_verified_only_when_match_and_authenticity_both_pass(
         {
             "product_match": "yes",
             "authenticity": "genuine",
+            "synthetic_signs": [],
             "authenticity_notes": "looks real",
             "condition_description": "sole separated",
         }
@@ -393,6 +420,77 @@ async def test_photo_the_checkpoint2_fake_photo_case_is_not_verified(
     result = await steps.photo(case, make_facts(photo_required=True))
 
     assert result.check is PhotoCheck.NOT_VERIFIED
+
+
+@pytest.mark.parametrize(
+    "signs",
+    [
+        ["malformed lettering on the tongue label"],  # "genuine" contradicts its own signs
+        None,  # skipped the inspection step entirely
+        "none",  # not a list
+    ],
+)
+async def test_photo_genuine_is_not_trusted_without_a_clean_signs_list(
+    signs: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from returnguard.pipeline.gate import PhotoCheck
+
+    response: dict[str, Any] = {
+        "product_match": "yes",
+        "authenticity": "genuine",
+        "authenticity_notes": "looks real",
+        "condition_description": "upper torn",
+    }
+    if signs is not None:
+        response["synthetic_signs"] = signs
+    steps = make_steps(
+        embedder=FakeEmbedder(),
+        chat=FakeChat(response),
+        chunks=[],
+        monkeypatch=monkeypatch,
+        storage=FakeStorage(b"\xff\xd8fake-jpeg-bytes"),
+    )
+
+    result = await steps.photo(
+        make_case(photo_keys=["returns/r1/photo.jpg"]), make_facts(photo_required=True)
+    )
+
+    assert result.check is PhotoCheck.NOT_VERIFIED
+
+
+async def test_photo_synthetic_signs_reach_the_reviewer_notes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    chat = FakeChat(
+        {
+            "product_match": "yes",
+            "authenticity": "suspicious",
+            "synthetic_signs": ["malformed lettering", "staged cinematic composition"],
+            "authenticity_notes": "points to a generated image",
+            "condition_description": "upper torn",
+        }
+    )
+    steps = make_steps(
+        embedder=FakeEmbedder(),
+        chat=chat,
+        chunks=[],
+        monkeypatch=monkeypatch,
+        storage=FakeStorage(b"\xff\xd8fake-jpeg-bytes"),
+    )
+
+    result = await steps.photo(
+        make_case(photo_keys=["returns/r1/photo.jpg"]), make_facts(photo_required=True)
+    )
+
+    assert "Synthetic signs: malformed lettering; staged cinematic composition" in result.notes
+
+
+def test_photo_prompt_asks_for_observations_before_the_verdict() -> None:
+    prompt = model_steps_module._load_system_prompt("image.md")
+    fields = ["visible_text", "damage_physics", "scene", "synthetic_signs", "authenticity"]
+    positions = [prompt.index(f'"{f}"') for f in fields]
+    assert positions == sorted(positions)
+    assert 'Never default to "genuine"' in prompt
 
 
 async def test_photo_is_not_verified_on_a_malformed_response(

@@ -38,6 +38,9 @@ os.environ["DATABASE_URL_UNPOOLED"] = TEST_DATABASE_URL
 # Likewise photos go to a temporary folder, never the Neon bucket in app/.env.
 os.environ["AWS_ENDPOINT_URL_S3"] = ""
 os.environ["LOCAL_STORAGE_DIR"] = tempfile.mkdtemp(prefix="returnguard-test-storage-")
+# And no test ever calls a real model provider with keys from app/.env.
+for key in ("CHAT_API_KEY", "EMBEDDING_API_KEY", "OPENAI_API_KEY"):
+    os.environ[key] = ""
 os.environ.setdefault("ENVIRONMENT", "test")
 get_settings.cache_clear()
 

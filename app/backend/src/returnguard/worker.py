@@ -19,6 +19,7 @@ import structlog
 from returnguard import __version__, db, jobs
 from returnguard.config import get_settings
 from returnguard.log_config import configure_logging
+from returnguard.pipeline.llm import model_client
 from returnguard.pipeline.runner import mark_pipeline_failed, review_return
 from returnguard.pipeline.steps import Steps
 
@@ -126,7 +127,7 @@ async def run(stop: asyncio.Event, *, steps: Steps | None = None) -> None:
         steps=(
             getattr(steps, "source", type(steps).__name__)
             if steps is not None
-            else ("model" if settings.openai_api_key.get_secret_value() else "rules")
+            else ("model" if model_client(settings) else "rules")
         ),
         **db.describe(db.database_url()),
     )
