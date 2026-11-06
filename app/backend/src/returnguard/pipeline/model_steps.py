@@ -85,23 +85,34 @@ def _parse_policy_response(
 
 
 def _parse_photo_response(raw: dict[str, Any]) -> tuple[PhotoCheck, list[str]]:
-    """Verified only when both the product match and the authenticity read are
-    clean. Anything else — including a bad response — is `NOT_VERIFIED`."""
+    """Verified only when the product matches, the authenticity read is "genuine",
+    and the model listed no synthetic signs. The signs list must be present: the
+    prompt has the model inspect and list them before deciding, and a "genuine"
+    that skipped that step (or contradicts it) is not trusted. Anything else,
+    including a bad response, is `NOT_VERIFIED`."""
     match = str(raw.get("product_match", "")).strip().lower()
     authenticity = str(raw.get("authenticity", "")).strip().lower()
+    signs_raw = raw.get("synthetic_signs")
+    signs = (
+        [str(s).strip() for s in signs_raw if str(s).strip()]
+        if isinstance(signs_raw, list)
+        else None
+    )
     notes_parts = [
         str(raw.get("authenticity_notes", "")).strip(),
         str(raw.get("condition_description", "")).strip(),
     ]
+    if signs:
+        notes_parts.append("Synthetic signs: " + "; ".join(signs))
     notes = [n for n in notes_parts if n] or ["The model's response didn't include notes."]
-    if match == "yes" and authenticity == "genuine":
-        return PhotoCheck.VERIFIED, notes
-    if match not in {"yes", "no", "unclear"} or authenticity not in {
-        "genuine",
-        "suspicious",
-        "unclear",
-    }:
+    if (
+        signs is None
+        or match not in {"yes", "no", "unclear"}
+        or authenticity not in {"genuine", "suspicious", "unclear"}
+    ):
         return PhotoCheck.NOT_VERIFIED, ["The model's response didn't match the expected format."]
+    if match == "yes" and authenticity == "genuine" and not signs:
+        return PhotoCheck.VERIFIED, notes
     return PhotoCheck.NOT_VERIFIED, notes
 
 

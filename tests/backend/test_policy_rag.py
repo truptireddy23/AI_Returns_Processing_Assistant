@@ -362,6 +362,7 @@ async def test_photo_is_verified_only_when_match_and_authenticity_both_pass(
         {
             "product_match": "yes",
             "authenticity": "genuine",
+            "synthetic_signs": [],
             "authenticity_notes": "looks real",
             "condition_description": "sole separated",
         }
@@ -412,6 +413,77 @@ async def test_photo_the_checkpoint2_fake_photo_case_is_not_verified(
     result = await steps.photo(case, make_facts(photo_required=True))
 
     assert result.check is PhotoCheck.NOT_VERIFIED
+
+
+@pytest.mark.parametrize(
+    "signs",
+    [
+        ["malformed lettering on the tongue label"],  # "genuine" contradicts its own signs
+        None,  # skipped the inspection step entirely
+        "none",  # not a list
+    ],
+)
+async def test_photo_genuine_is_not_trusted_without_a_clean_signs_list(
+    signs: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from returnguard.pipeline.gate import PhotoCheck
+
+    response: dict[str, Any] = {
+        "product_match": "yes",
+        "authenticity": "genuine",
+        "authenticity_notes": "looks real",
+        "condition_description": "upper torn",
+    }
+    if signs is not None:
+        response["synthetic_signs"] = signs
+    steps = make_steps(
+        embedder=FakeEmbedder(),
+        chat=FakeChat(response),
+        chunks=[],
+        monkeypatch=monkeypatch,
+        storage=FakeStorage(b"\xff\xd8fake-jpeg-bytes"),
+    )
+
+    result = await steps.photo(
+        make_case(photo_keys=["returns/r1/photo.jpg"]), make_facts(photo_required=True)
+    )
+
+    assert result.check is PhotoCheck.NOT_VERIFIED
+
+
+async def test_photo_synthetic_signs_reach_the_reviewer_notes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    chat = FakeChat(
+        {
+            "product_match": "yes",
+            "authenticity": "suspicious",
+            "synthetic_signs": ["malformed lettering", "staged cinematic composition"],
+            "authenticity_notes": "points to a generated image",
+            "condition_description": "upper torn",
+        }
+    )
+    steps = make_steps(
+        embedder=FakeEmbedder(),
+        chat=chat,
+        chunks=[],
+        monkeypatch=monkeypatch,
+        storage=FakeStorage(b"\xff\xd8fake-jpeg-bytes"),
+    )
+
+    result = await steps.photo(
+        make_case(photo_keys=["returns/r1/photo.jpg"]), make_facts(photo_required=True)
+    )
+
+    assert "Synthetic signs: malformed lettering; staged cinematic composition" in result.notes
+
+
+def test_photo_prompt_asks_for_observations_before_the_verdict() -> None:
+    prompt = model_steps_module._load_system_prompt("image.md")
+    fields = ["visible_text", "damage_physics", "scene", "synthetic_signs", "authenticity"]
+    positions = [prompt.index(f'"{f}"') for f in fields]
+    assert positions == sorted(positions)
+    assert 'Never default to "genuine"' in prompt
 
 
 async def test_photo_is_not_verified_on_a_malformed_response(
