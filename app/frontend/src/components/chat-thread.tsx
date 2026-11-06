@@ -8,19 +8,50 @@ import {
   formatDateTime,
   MESSAGE_SENDER_LABELS,
   type ChatMessage,
+  type ReturnStatus,
 } from "@/lib/api";
 
 const POLL_MS = 4000;
 const MAX_LENGTH = 2000;
 
+/** What the chat quick-reply chips need to know about the return, kept to the
+ * three fields that actually change which questions make sense. */
+export type ChatContext = {
+  status: ReturnStatus;
+  can_request_review: boolean;
+};
+
+const ALWAYS = "What's your return policy?";
+
 /** Quick-reply chips for the customer's composer — one tap sends the question,
- * no typing needed. Reviewers write their own messages, so these don't apply there. */
-const PRESET_QUESTIONS = [
-  "What's the status of my return?",
-  "Can I add another photo?",
-  "How long will this take?",
-  "What's your return policy?",
-];
+ * no typing needed. Chosen from the return's own status (and whether a reviewer
+ * has already taken over the thread) instead of a fixed list, so they stay
+ * relevant as the return moves through the pipeline. Reviewers write their own
+ * messages, so this doesn't apply there. */
+function suggestedQuestions(context: ChatContext | undefined, takenOver: boolean): string[] {
+  if (!context) return [ALWAYS];
+  switch (context.status) {
+    case "needs_info":
+      return ["What information do you still need from me?", "Can I add another photo?", ALWAYS];
+    case "submitted":
+    case "checking":
+      return ["What's the status of my return?", "How long will this take?", ALWAYS];
+    case "under_review":
+      return takenOver
+        ? ["Can you give me an update?", "What are you looking into?", ALWAYS]
+        : ["What's the status of my return?", "Why was this sent to a reviewer?", ALWAYS];
+    case "approved":
+      return ["When will I get my refund?", "How was my refund calculated?", ALWAYS];
+    case "denied":
+      return context.can_request_review
+        ? ["Why was my return denied?", "Can I request another review?", ALWAYS]
+        : ["Why was my return denied?", ALWAYS];
+    case "failed":
+      return ["What's the status of my return?", "How long will this take?", ALWAYS];
+    default:
+      return [ALWAYS];
+  }
+}
 
 /** The return's chat thread: a customer's questions, answered by the AI assistant
  * until a reviewer sends a message (then the bot stops answering that thread).
@@ -33,10 +64,13 @@ export function ChatThread({
   returnId,
   as,
   floating = false,
+  context,
 }: {
   returnId: string;
   as: "customer" | "reviewer";
   floating?: boolean;
+  /** The return's status, so the customer's quick-reply chips stay relevant. */
+  context?: ChatContext;
 }) {
   const [messages, setMessages] = useState<ChatMessage[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -198,7 +232,10 @@ export function ChatThread({
 
           {as === "customer" ? (
             <div className="flex flex-wrap gap-1.5 px-3 pb-1">
-              {PRESET_QUESTIONS.map((q) => (
+              {suggestedQuestions(
+                context,
+                messages.some((m) => m.sender === "reviewer"),
+              ).map((q) => (
                 <button
                   key={q}
                   type="button"
