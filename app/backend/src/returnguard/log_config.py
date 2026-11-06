@@ -31,6 +31,9 @@ def configure_logging(level: str = "INFO", json: bool = True) -> None:
         structlog.stdlib.add_log_level,
         structlog.stdlib.add_logger_name,
         structlog.processors.TimeStamper(fmt="iso", utc=True),
+        # log.exception(...) sets exc_info; without this the JSON line says only
+        # "exc_info": true and the traceback is lost.
+        structlog.processors.format_exc_info,
         _add_request_id,
         _redact_secrets,
     ]

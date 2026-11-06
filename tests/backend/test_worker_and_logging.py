@@ -1,10 +1,12 @@
 import asyncio
+import json
+import logging
 
 import pytest
 
 from returnguard import jobs, worker
 from returnguard.config import Settings
-from returnguard.log_config import _redact_secrets
+from returnguard.log_config import _redact_secrets, configure_logging
 
 
 def quiet_settings(**overrides: object) -> Settings:
@@ -123,3 +125,21 @@ def test_secrets_are_redacted_from_log_events() -> None:
     assert redacted["api_key"] == "[redacted]"
     assert redacted["Authorization"] == "[redacted]"
     assert redacted["user"] == "u1"
+
+
+def test_logged_exceptions_include_the_traceback(capsys: pytest.CaptureFixture[str]) -> None:
+    """A job error once logged only "exc_info": true, hiding a FileNotFoundError."""
+    import structlog
+
+    configure_logging("INFO", json=True)
+    try:
+        try:
+            raise FileNotFoundError("prompts/policy.md")
+        except FileNotFoundError:
+            structlog.get_logger("test").exception("worker.job_error", attempt=1)
+        entry = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    finally:
+        logging.getLogger().handlers = []
+    assert "exc_info" not in entry
+    assert "FileNotFoundError: prompts/policy.md" in entry["exception"]
+    assert "Traceback" in entry["exception"]
