@@ -126,16 +126,16 @@ function Case() {
       {!open ? <DecidedPanel c={c} /> : <ClaimBar c={c} onClaim={claim} onRelease={release} />}
       {notice ? <p role="alert" className="text-sm text-red-700 dark:text-red-400">{notice}</p> : null}
 
-      <div className="grid gap-5 md:grid-cols-2">
-        <div className="flex flex-col gap-5">
-          <Recommendation c={c} />
-          <Checks checks={c.checks} />
-        </div>
-        <div className="flex flex-col gap-5">
-          <Evidence c={c} />
-          <Policy c={c} />
-          <History c={c} />
-        </div>
+      {/* A single column, in the order a reviewer actually works a case: what the
+          system thinks, whether its checks passed, the evidence behind them, the
+          policy and history that back it up. A two-column grid here left a
+          lopsided gap whenever one side's cards ran shorter than the other's. */}
+      <div className="flex flex-col gap-5">
+        <Recommendation c={c} />
+        <Checks checks={c.checks} />
+        <Evidence c={c} />
+        <Policy c={c} />
+        <History c={c} />
       </div>
 
       <Card title="Chat" aside={<LiveBadge />}>
