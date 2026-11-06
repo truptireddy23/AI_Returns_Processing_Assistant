@@ -167,10 +167,22 @@ reflects them. Each is covered by `tests/backend/test_review.py`.
 | Every change is audited | `admin.settings_changed` records who changed what, with old and new values. |
 | Oversight | The dashboard shows the escalation rate, why cases go to people, reviewer agreement with the AI by product type and escalation reason (last 50 decisions), and the most common overrides (S1). The audit log is searchable by actor, action, and case; customers appear by role only. |
 
-## Planned
+## Model inputs and error recovery today
 
-- *(M5)* Masking customer names, emails, addresses, and gendered words before every
-  model call (M8); Langfuse receives masked inputs only.
-- *(M5)* Prompt-injection handling: customer text is passed as quoted data; the gate is
-  code, so text can't change a route.
-- *(M5)* Model fallback, schema validation with one repair, and fail-closed escalation.
+- Judgment steps receive a restricted `Case` without profile names, emails or raw
+  addresses. This is data minimization, not a text masking filter: customer notes and
+  chat messages can still contain PII and are sent to the configured provider. Use
+  synthetic data for the demo. Name/email/address and gendered-word masking is deferred.
+- Policy prompts quote customer notes as data and explicitly reject instructions in
+  them. The code owns window arithmetic and the final gate. Prompt instructions reduce
+  injection risk but do not guarantee that model reasoning ignores hostile text.
+- Responses use JSON mode and step-specific parsers. Invalid fields route conservatively
+  (unclear policy, unverified photo, escalation or critic veto). There is no schema-repair
+  model call and no automatic switch to a second provider.
+- With no chat key, review uses `RuleSteps`. A configured provider failing is different:
+  transport errors retry through the SDK and job queue, then escalate to a human as
+  "Pipeline error" after three job attempts. Chat assist alone uses a fixed safe reply
+  on errors. Langfuse is not integrated.
+
+A disparate-impact evaluation script is not implemented. Excluding profile identity
+from model inputs does not establish fairness of behavior scores or final decisions.

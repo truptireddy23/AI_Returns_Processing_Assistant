@@ -12,7 +12,7 @@ wrong. This document grows with each milestone; *(planned)* marks what isn't bui
 | What did the pipeline do for one return, and why? | `agent_runs` (one row per step) and `agent_run_events` (the timeline) |
 | Who did what, when? | `audit_log` (append-only) |
 | Is work stuck or failing? | `jobs` (status, attempts, `last_error`, `run_after`) |
-| *(planned, M5)* What did the models cost and how long did they take? | Langfuse traces and the token/cost columns on `agent_runs` |
+| How many tokens did model steps use, and how long did they take? | `agent_runs.output.output` contains model token counts and provider latency; `agent_runs.latency_ms` measures step duration. Cost is not calculated. |
 
 ## Logs
 
@@ -40,12 +40,12 @@ Every review gets a `run_id`. Each step writes an `agent_runs` row:
 | `input_hash` | SHA-256 of the step's input, so identical inputs can be matched without storing customer text |
 | `policy_version` | The policy the step used |
 | `latency_ms` | How long the step took |
-| `model`, `prompt_version`, `tokens_in`, `tokens_out`, `cost_usd` | Filled once steps call models (M5) |
+| `model`, `prompt_version`, `tokens_in`, `tokens_out`, `cost_usd` | Schema columns exist but the current trace writer does not populate them. Model ID and token usage are nested in the step result (`output.output`); cost is not calculated. |
 | `error` | Set if the step failed |
 
-`agent_run_events` records `started` / `finished` events per step for the live trace view
-(admin, M8). Until the AI steps exist, the stand-in steps label their output
-`"source": "rules"`, and the gate's audit entry records `steps_source`.
+`agent_run_events` records step timeline events for the trace view. Model-backed results
+label their source `model`; deterministic results label it `rules`. The gate audit entry
+records `steps_source`. Real inference runs when `CHAT_API_KEY` is configured.
 
 ## The audit log (`audit_log`)
 
@@ -75,9 +75,11 @@ nothing polls it: the worker is woken over HTTP by the API, its backstop sweep r
 30 minutes (`WORKER_SWEEP_SECONDS`), and a customer's open status page re-checks with
 back-off (1.5 s, growing to 30 s) only while a return is being processed.
 
-## *(planned)*
+## Implemented and deferred
 
-- **M5:** Langfuse Cloud traces for every model call (prompt version, tokens, cost,
-  latency, errors), linked to `agent_runs` by `run_id`; masked inputs only.
-- **M8:** admin views for the trace, the audit log, escalation rate, agreement with
-  reviewers by product type and reason, and cost per decision.
+The admin dashboard, trace view, searchable audit log, escalation metrics and reviewer
+agreement breakdowns are implemented. Langfuse and Prometheus/Grafana are not integrated.
+`agent_runs`, `agent_run_events`, structured logs and the admin dashboard cover current
+observability. Dollar cost calculation and population of dedicated model usage columns
+remain deferred. Failed model attempts can roll back their step rows, so inspect worker
+logs and job errors as well as successful traces.
