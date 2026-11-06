@@ -11,6 +11,7 @@ A governed, human-centered Generative AI system that reviews e-commerce returns:
 - [Competitive Landscape](#competitive-landscape)
 - [Initial Concept & Value Proposition](#initial-concept--value-proposition)
 - [Checkpoint 2: Prompt-Based Validation](#checkpoint-2-prompt-based-validation)
+- [Checkpoint 3: Working Implementation & Demo](#checkpoint-3-working-implementation--demo)
 - [Milestones Roadmap](#milestones-roadmap)
 - [Repository Structure](#repository-structure)
 
@@ -160,14 +161,72 @@ that evidence to refine the design.
 
 ---
 
+## Checkpoint 3: Working Implementation & Demo
+
+ReturnGuard now runs end to end with real model inference: a customer shops, checks out
+with a test card, and submits a return; a Python worker runs the review pipeline; a
+reviewer decides flagged cases; an admin tunes settings and reads the audit log.
+
+**What is implemented**
+- **Shop and returns (Next.js + FastAPI):** sign-up/sign-in with roles, catalog with real
+  product photos, cart and test-card checkout, return submission with photo upload, live
+  status page, and requests for another review.
+- **Review pipeline:** rule-based data check → policy check grounded in stored clauses
+  (optional pgvector retrieval) with `search_policy` / `check_return_window` tool calls →
+  photo analysis → behavior risk → recommendation → independent critic → deterministic
+  governance gate. Missing evidence returns `needs_info`; denials and uncertain cases always
+  go to a person.
+- **Reviewer workspace:** queue with claiming, case page with evidence, named escalation
+  reason, streamed pipeline trace (latency, tokens, cost estimate, prompt version, tool calls),
+  AI re-run, approve/deny with a cited clause, and AI-assisted chat with the customer.
+- **Admin:** automation settings, dashboard metrics and an append-only audit log.
+- **Safety:** PII masking before model calls, per-IP and per-account rate limits, upload
+  limits, retries with escalation on provider errors, and a behavior-risk group audit.
+
+Models: any OpenAI-compatible provider; the default is Qwen 3.8 27B on Groq. Without a
+`CHAT_API_KEY` the app still runs on conservative rule-based steps. Hosting: Neon
+(Postgres + Object Storage) and Vercel, or entirely local with Docker Compose.
+
+**Run it**
+
+```bash
+cd app
+make env       # creates app/.env from .env.example; add CHAT_API_KEY
+make up        # db, api, worker, web
+make migrate
+make seed
+```
+
+Open http://localhost:3000. Seed accounts are in [`app/seed/users.json`](app/seed/users.json).
+Full instructions: [`app/INSTALL.md`](app/INSTALL.md). `make check` runs lint, type checks
+and the 309 backend tests.
+
+**Where to find it**
+
+| Deliverable | File |
+|---|---|
+| Source code | [`app/`](app/) — [`backend/`](app/backend/), [`frontend/`](app/frontend/) |
+| Setup and config template | [`app/INSTALL.md`](app/INSTALL.md), [`app/.env.example`](app/.env.example) |
+| Prompts, schemas, model settings | [`app/prompts/`](app/prompts/) |
+| Run scripts | [`app/Makefile`](app/Makefile), [`app/docker-compose.yml`](app/docker-compose.yml), [`app/backend/requirements.txt`](app/backend/requirements.txt), [`app/frontend/package.json`](app/frontend/package.json) |
+| Architecture and dataflow | [`docs/architecture.md`](docs/architecture.md), [`docs/diagrams/architecture.png`](docs/diagrams/architecture.png) |
+| Use cases and test mapping | [`docs/use-cases.md`](docs/use-cases.md) |
+| Observability | [`docs/observability.md`](docs/observability.md) |
+| Safety and privacy | [`docs/safety_privacy.md`](docs/safety_privacy.md) |
+| Tests | [`tests/`](tests/) |
+| Verification record and bias audit | [`docs/evaluation/`](docs/evaluation/) |
+| Demo runbook and forum post | [`docs/demo.md`](docs/demo.md), [`docs/forum-post.md`](docs/forum-post.md) |
+
+---
+
 ## Milestones Roadmap
 
 | Checkpoint | Target | Key Deliverables |
 |---|---|---|
 | **Checkpoint 1** | Project kickoff | Problem definition, literature review (8+ papers), formal proposal, GitHub repo structure, slide deck |
-| **Checkpoint 2** (this deliverable) | Prompt-based validation | Prompting study across 4 AI tools (24 runs), speed-dating interviews, gap analysis, complementarity theory lens (Gonzalez et al., 2026), prioritised features, design spec v1, clickthrough prototype |
-| **Checkpoint 3** | System build + complementarity test | Core pipeline (data check → policy RAG → image → behavior → decision → governance gate), reviewer UI; evaluate hybrid vs. human-alone vs. AI-alone |
-| **Checkpoint 4** | Final delivery | End-to-end demo on realistic return scenarios; audit-log/traceability walkthrough; evaluation results and final report |
+| **Checkpoint 2** | Prompt-based validation | Prompting study across 4 AI tools (24 runs), speed-dating interviews, gap analysis, complementarity theory lens (Gonzalez et al., 2026), prioritised features, design spec v1, clickthrough prototype |
+| **Checkpoint 3** (this deliverable) | Working implementation & live demo | Shop, returns, model-backed pipeline (data check → policy RAG with tools → image → behavior → recommendation → critic → governance gate), reviewer and admin UI, observability, safety docs, tests |
+| **Checkpoint 4** | Evaluation & final delivery | Evaluate hybrid vs. human-alone vs. AI-alone; audit-log/traceability walkthrough; evaluation results and final report |
 
 ---
 
@@ -200,11 +259,20 @@ that evidence to refine the design.
 │   ├── /seed/                 # Synthetic demo data: products, policy, customers, demo orders,
 │   │                          #   and the script that draws the product images
 │   ├── docker-compose.yml     # db (Postgres + pgvector), api, worker, web
-│   └── Makefile               # One command per operation (`make help`)
-├── /docs/                     # Checkpoint 3 docs: safety_privacy.md, observability.md
+│   ├── Makefile               # One command per operation (`make help`)
+│   ├── INSTALL.md             # Local setup
+│   └── .env.example           # Configuration template (no secrets)
+├── /docs/                     # Checkpoint 3 documentation
+│   ├── architecture.md        # System and dataflow (diagram in /diagrams/)
+│   ├── use-cases.md           # User-flow walkthroughs mapped to tests
+│   ├── observability.md       # Logging, traces, latency, token cost, errors
+│   ├── safety_privacy.md      # PII masking, rate limits, guardrails, fallbacks
+│   ├── demo.md                # Live-demo runbook
+│   ├── forum-post.md          # Forum submission draft
+│   └── /evaluation/           # Verification record and behavior-risk audit
 ├── neon.ts                    # Neon services: Postgres + `return-photos` and `product-photos` buckets
 ├── /Photos/                   # (git-ignored) catalog photos to upload with `make product-photos`
-├── /tests/                    # Backend unit + integration tests
+├── /tests/                    # Backend unit + integration tests (pytest, 309 tests)
 ├── .github/workflows/ci.yml   # Lint, type check, tests, builds on every push and PR
 └── (GitHub Projects & Issues) # Task assignment & milestone tracking
 ```
