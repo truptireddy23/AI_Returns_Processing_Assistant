@@ -216,6 +216,7 @@ and the 309 backend tests.
 | Tests | [`tests/`](tests/) |
 | Verification record and bias audit | [`docs/evaluation/`](docs/evaluation/) |
 | Demo runbook and forum post | [`docs/demo.md`](docs/demo.md), [`docs/forum-post.md`](docs/forum-post.md) |
+| Slides | [`docs/ReturnGuard_Checkpoint3_Slides.pptx`](docs/ReturnGuard_Checkpoint3_Slides.pptx) |
 
 ---
 
@@ -269,6 +270,7 @@ and the 309 backend tests.
 │   ├── safety_privacy.md      # PII masking, rate limits, guardrails, fallbacks
 │   ├── demo.md                # Live-demo runbook
 │   ├── forum-post.md          # Forum submission draft
+│   ├── ReturnGuard_Checkpoint3_Slides.pptx # Checkpoint 3 presentation
 │   └── /evaluation/           # Verification record and behavior-risk audit
 ├── neon.ts                    # Neon services: Postgres + `return-photos` and `product-photos` buckets
 ├── /Photos/                   # (git-ignored) catalog photos to upload with `make product-photos`
