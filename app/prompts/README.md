@@ -12,3 +12,7 @@ settings (role, temperature, max tokens). The version is logged with every model
 | `image.md` | Photo match and condition | `vision` |
 | `recommendation.md` | Approve / deny / escalate, with rationale | `reason` |
 | `critic.md` | Independent check that can only add caution | `critic` |
+
+The API ships with a copy of these files in `app/backend/src/returnguard/prompts/`, because
+Vercel and Docker deploy only `app/backend`. After editing a prompt here, run
+`make sync-prompts`; `tests/backend/test_prompts.py` fails if the copies differ.

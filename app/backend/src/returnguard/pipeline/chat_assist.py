@@ -30,7 +30,10 @@ from returnguard.models import (
 from returnguard.pipeline.llm import ChatClient, EmbeddingClient, model_client
 from returnguard.pipeline.retrieval import all_policy_clauses, retrieve_policy_clauses
 
-_PROMPTS_DIR = Path(__file__).resolve().parents[4] / "prompts"
+# The copy of app/prompts/ that ships with the package (Vercel and Docker deploy
+# only app/backend). Edit app/prompts/, then `make sync-prompts`; a test fails if
+# the two differ.
+_PROMPTS_DIR = Path(__file__).resolve().parents[1] / "prompts"
 
 FALLBACK_REPLY = "Thanks for your message — a reviewer will follow up with you here shortly."
 

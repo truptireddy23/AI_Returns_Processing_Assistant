@@ -43,7 +43,10 @@ from returnguard.pipeline.steps import (
     RuleSteps,
 )
 
-_PROMPTS_DIR = Path(__file__).resolve().parents[4] / "prompts"
+# The copy of app/prompts/ that ships with the package (Vercel and Docker deploy
+# only app/backend). Edit app/prompts/, then `make sync-prompts`; a test fails if
+# the two differ.
+_PROMPTS_DIR = Path(__file__).resolve().parents[1] / "prompts"
 _VALID_ELIGIBILITY = {e.value for e in Eligibility}
 _VALID_PROPOSALS = {d.value for d in Decision}
 

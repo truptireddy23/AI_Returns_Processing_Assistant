@@ -5,7 +5,7 @@ BACKEND := cd backend &&
 FRONTEND := cd frontend &&
 
 .DEFAULT_GOAL := help
-.PHONY: help env up down logs ps migrate seed embed-policy product-photos reset-db psql dev-prep dev-api dev-worker dev-web \
+.PHONY: help env up down logs ps migrate seed embed-policy sync-prompts product-photos reset-db psql dev-prep dev-api dev-worker dev-web \
         install test lint typecheck fmt check api-types requirements clean
 
 help: ## Show this help
@@ -32,6 +32,9 @@ seed: ## Load demo data (does nothing if users already exist)
 
 embed-policy: ## Embed the active policy's clauses for Policy RAG (needs EMBEDDING_API_KEY; no-op without it)
 	$(COMPOSE) run --rm api python -m returnguard.embed_policy
+
+sync-prompts: ## Copy app/prompts/*.md into the backend package (the copy the API ships with)
+	find prompts -maxdepth 1 -name '*.md' ! -name README.md -exec cp {} backend/src/returnguard/prompts/ \;
 
 product-photos: ## Upload catalog photos from ../Photos to the product-photos bucket (only changes)
 	$(BACKEND) LOG_JSON=false uv run python -m returnguard.product_photos ../../Photos
