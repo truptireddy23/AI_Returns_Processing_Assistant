@@ -83,11 +83,20 @@ CHAT_MODEL=<model enabled for your Groq account>
 CHAT_EXTRA_BODY={}
 ```
 
-Choose a model that supports JSON responses and image inputs if demonstrating photo
-analysis. Provider-specific options in `.env.example` must match the chosen model.
+Choose a model that supports JSON responses, function calling, streaming and image
+inputs if demonstrating photo analysis. Provider-specific options in `.env.example` must match the chosen model.
 Groq availability and rate limits depend on the account. Never paste keys into git,
 screenshots or forum posts. After changing `.env`, run `docker compose up -d --force-recreate api worker`
 from `app/` so both services reload it. A restart alone does not reload Compose env files.
+
+`CHAT_TOOLS_ENABLED=true` enables the policy model's two read-only function tools.
+`CHAT_STREAM_ENABLED=true` streams provider JSON for assembly before validation. These
+are enabled by default. If a provider lacks either capability, disable that flag and
+record the demo limitation. The reviewer Pipeline trace streams step metadata over SSE.
+
+To record estimated dollar cost, set BOTH `CHAT_INPUT_USD_PER_MILLION` and
+`CHAT_OUTPUT_USD_PER_MILLION` to the current prices for your configured model. Blank
+values mean unknown, not free. Estimates are not billing statements.
 
 Submit a synthetic return, open its reviewer trace and verify `source: model` plus model
 usage in the step output. A deterministic window check can legitimately show `rules`.
@@ -152,6 +161,8 @@ make dev-api    # API with auto-reload on :8000
 make dev-worker # worker; restart it after changing pipeline code (it doesn't auto-reload)
 make dev-web    # Next.js dev server with live reload on :3000
 make check      # lint + type check + tests — the same as CI
+make bias-audit # offline paired synthetic risk-group audit
+make smoke      # read-only HTTP health/readiness/catalog check
 ```
 
 Run each `dev-*` command in its own terminal. They use the same `app/.env` as Docker

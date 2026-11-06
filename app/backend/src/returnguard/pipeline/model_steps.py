@@ -22,6 +22,7 @@ the case); they never fall back merely to avoid a model call.
 from __future__ import annotations
 
 import uuid
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -32,7 +33,7 @@ from returnguard.models import Decision, ProductPhoto
 from returnguard.pipeline.behavior import BehaviorScore
 from returnguard.pipeline.checks import PolicyFacts
 from returnguard.pipeline.gate import Eligibility, PhotoCheck
-from returnguard.pipeline.llm import ChatClient, EmbeddingClient
+from returnguard.pipeline.llm import ChatClient, EmbeddingClient, OpenAIClient
 from returnguard.pipeline.retrieval import all_policy_clauses, retrieve_policy_clauses
 from returnguard.pipeline.steps import (
     Case,
@@ -228,9 +229,29 @@ class ModelSteps:
             f"Final Sale: {case.is_final_sale}\n\n"
             f"Relevant policy clauses:\n{clauses_text}"
         )
-        raw, usage = await self._chat.complete_json(
-            system=self._policy_prompt, user=user_prompt, max_tokens=MAX_TOKENS["policy"]
-        )
+        if isinstance(self._chat, OpenAIClient) and self._chat.tools_enabled:
+
+            async def search_policy() -> dict[str, Any]:
+                return {
+                    "policy_version": case.policy_version,
+                    "clauses": [
+                        {"id": c.clause_id, "title": c.title, "body": c.body} for c in chunks
+                    ],
+                }
+
+            async def check_return_window() -> dict[str, Any]:
+                return asdict(facts)
+
+            raw, usage = await self._chat.policy_with_tools(
+                system=self._policy_prompt,
+                user=user_prompt.split("Relevant policy clauses:")[0],
+                tools={"search_policy": search_policy, "check_return_window": check_return_window},
+                max_tokens=MAX_TOKENS["policy"],
+            )
+        else:
+            raw, usage = await self._chat.complete_json(
+                system=self._policy_prompt, user=user_prompt, max_tokens=MAX_TOKENS["policy"]
+            )
         eligibility, cited_clauses, reason = _parse_policy_response(raw, known_clause_ids=known_ids)
         return PolicyResult(
             eligibility=eligibility,
@@ -238,10 +259,17 @@ class ModelSteps:
             reason=reason,
             source=self.source,
             output={
+                "prompt_version": int(
+                    (_PROMPTS_DIR / "policy.md").read_text().splitlines()[0].split(":")[1]
+                ),
                 "model": usage.model,
                 "tokens_in": usage.tokens_in,
                 "tokens_out": usage.tokens_out,
                 "latency_ms": usage.latency_ms,
+                "tool_calls": list(usage.tool_calls),
+                "stream_chunks": usage.stream_chunks,
+                "usage_complete": usage.usage_complete,
+                "cost_usd": str(usage.cost_usd) if usage.cost_usd is not None else None,
                 "retrieved_clauses": sorted(known_ids),
                 "retrieval": "full_policy" if self._embedder is None else "embedding",
                 "raw_response": raw,
@@ -309,10 +337,17 @@ class ModelSteps:
             notes=notes,
             source=self.source,
             output={
+                "prompt_version": int(
+                    (_PROMPTS_DIR / "image.md").read_text().splitlines()[0].split(":")[1]
+                ),
                 "model": usage.model,
                 "tokens_in": usage.tokens_in,
                 "tokens_out": usage.tokens_out,
                 "latency_ms": usage.latency_ms,
+                "tool_calls": list(usage.tool_calls),
+                "stream_chunks": usage.stream_chunks,
+                "usage_complete": usage.usage_complete,
+                "cost_usd": str(usage.cost_usd) if usage.cost_usd is not None else None,
                 "compared_to_reference": reference is not None,
                 "raw_response": raw,
             },
@@ -347,10 +382,17 @@ class ModelSteps:
             ambiguous=ambiguous,
             source=self.source,
             output={
+                "prompt_version": int(
+                    (_PROMPTS_DIR / "recommendation.md").read_text().splitlines()[0].split(":")[1]
+                ),
                 "model": usage.model,
                 "tokens_in": usage.tokens_in,
                 "tokens_out": usage.tokens_out,
                 "latency_ms": usage.latency_ms,
+                "tool_calls": list(usage.tool_calls),
+                "stream_chunks": usage.stream_chunks,
+                "usage_complete": usage.usage_complete,
+                "cost_usd": str(usage.cost_usd) if usage.cost_usd is not None else None,
                 "raw_response": raw,
             },
         )
@@ -378,10 +420,17 @@ class ModelSteps:
             concern=concern,
             source=self.source,
             output={
+                "prompt_version": int(
+                    (_PROMPTS_DIR / "critic.md").read_text().splitlines()[0].split(":")[1]
+                ),
                 "model": usage.model,
                 "tokens_in": usage.tokens_in,
                 "tokens_out": usage.tokens_out,
                 "latency_ms": usage.latency_ms,
+                "tool_calls": list(usage.tool_calls),
+                "stream_chunks": usage.stream_chunks,
+                "usage_complete": usage.usage_complete,
+                "cost_usd": str(usage.cost_usd) if usage.cost_usd is not None else None,
                 "raw_response": raw,
             },
         )

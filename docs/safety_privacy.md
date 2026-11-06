@@ -169,10 +169,15 @@ reflects them. Each is covered by `tests/backend/test_review.py`.
 
 ## Model inputs and error recovery today
 
-- Judgment steps receive a restricted `Case` without profile names, emails or raw
-  addresses. This is data minimization, not a text masking filter: customer notes and
-  chat messages can still contain PII and are sent to the configured provider. Use
-  synthetic data for the demo. Name/email/address and gendered-word masking is deferred.
+- Judgment steps receive a restricted `Case`. `pipeline/privacy.py` removes known
+  customer/order names, email, shipping/billing address fields, common contact patterns
+  and gendered cues from notes before inference. Chat uses the same identifiers and
+  sanitizes before embedding or chat calls. The provider client applies pattern masking
+  again to text requests. Unicode normalization covers compatibility variants.
+- This deterministic filter is not general-purpose named-entity recognition. Unknown
+  third-party names, unusual addresses and PII visible in photos can remain. Use
+  synthetic demo data. Original notes/messages remain in the access-controlled database
+  for customer support; masking protects provider inputs, not every stored field.
 - Policy prompts quote customer notes as data and explicitly reject instructions in
   them. The code owns window arithmetic and the final gate. Prompt instructions reduce
   injection risk but do not guarantee that model reasoning ignores hostile text.
@@ -184,5 +189,25 @@ reflects them. Each is covered by `tests/backend/test_review.py`.
   "Pipeline error" after three job attempts. Chat assist alone uses a fixed safe reply
   on errors. Langfuse is not integrated.
 
-A disparate-impact evaluation script is not implemented. Excluding profile identity
-from model inputs does not establish fairness of behavior scores or final decisions.
+## Behavior-risk group audit (M8)
+
+`python -m returnguard.bias_audit` evaluates explicitly labeled offline CSV groups. It
+reports score averages, risk-flag rates and risk-pass ratios, flags differences below a
+configurable threshold, and warns about small samples or a zero reference pass rate.
+The group label never enters the scorer. `make bias-audit` runs a matched synthetic
+fixture, with the example report in `docs/evaluation/behavior-risk-audit.json`.
+
+Synthetic invariance does not establish population fairness. The current audit covers
+behavior risk only, not complete gate or human outcomes. Shared-address and account-age
+factors can still have unequal effects. See `docs/evaluation/README.md` for data and
+interpretation limits.
+
+## Model tools and streaming
+
+Policy function calls expose only `search_policy` and `check_return_window`. Both take
+no arguments and return current-case policy/facts. The client rejects unknown names,
+nonempty arguments, repeats and excessive calls, with at most two tool rounds. There are
+no write tools or arbitrary query execution. Code owns the gate regardless of tool output.
+Provider deltas are assembled before JSON validation. The reviewer SSE endpoint checks
+staff roles and streams metadata only. Partial model output never becomes a customer
+message or decision.

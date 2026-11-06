@@ -1,10 +1,10 @@
 # ReturnGuard — Architecture
 
-> Status as of this document: **M1–M8 are merged to `main`** (skeleton, data model/auth,
+> Status as of this document: **The application is implemented** (skeleton, data model/auth,
 > shop/checkout/return submission, pipeline runner + governance gate + worker, reviewer
 > queue + case decisions + claiming, admin settings + dashboard + audit log, real catalog
-> photos). The judgment steps themselves (Policy RAG, photo authenticity, recommendation,
-> critic) are real model calls on this branch, wired into `worker.py`'s default — see
+> photos). The judgment steps (Policy RAG, photo authenticity, recommendation,
+> critic) make real model calls, wired into `worker.py`'s default — see
 > [§3](#3-the-pipeline) — falling back to the deterministic `RuleSteps` stand-in whenever
 > `CHAT_API_KEY` isn't configured, so the app always runs, honestly, either way. See
 > [§5](#5-what-is-and-isnt-real-right-now) for the full breakdown, and `DESIGN_SPEC.md` for
@@ -115,7 +115,7 @@ changes. Tables that matter for the AI pipeline specifically:
 | `policy_docs` / `policy_chunks` | The versioned return policy, pre-split into clauses (`P1`…`P9`). `policy_chunks.embedding` is a `vector(1536)` column, filled in by `make embed-policy` once `EMBEDDING_API_KEY` is set (optional: without it the whole policy is sent instead). |
 | `product_photos` | Real uploaded catalog photos per product (first = main photo), with a source hash (skip re-upload) and a perceptual hash (near-duplicate comparison for the photo check). |
 | `jobs` | Durable work queue for the pipeline; one row per return, claimed by the worker. |
-| `agent_runs` / `agent_run_events` | One row per pipeline step execution: which step, policy version, input hash, output and latency. Model identity and token counts are nested in model step output; dedicated usage/cost columns are currently unpopulated (see observability.md). `source` ("rules" vs. "model") is the authoritative answer to "did a model actually decide this?" for every step, every return. |
+| `agent_runs` / `agent_run_events` | One row per pipeline step execution: which step, policy version, input hash, output and latency. Model identity, prompt version, token counts and configured cost estimates populate dedicated columns and remain in step output (see observability.md). `source` ("rules" vs. "model") is the authoritative answer to "did a model actually decide this?" for every step, every return. |
 | `review_requests` | A customer's request for a second look at a denial; enforces that a *different* reviewer decides it. |
 | `audit_log` | One row per check, gate decision, settings change, and human action — the record a disputed denial is explained from. |
 | `settings` | The admin-controlled automation toggle, risk limit, high-value limit, and QA sample rate. |
@@ -231,7 +231,7 @@ are the current observability mechanism — see `docs/observability.md`.
 | Photo authenticity (customer photo vs. real catalog reference, vision) | ✅ Live (`ModelSteps.photo()`), same fallback |
 | Recommendation + Critic (second-pass check for self-contradiction) | ✅ Live (`ModelSteps.recommend()` / `.critic()`), same fallback |
 | `app/prompts/` (policy, image, recommendation, critic — versioned, with few-shot examples tied to Checkpoint 2 cases) | ✅ Live |
-| Behavior risk model | ❌ Rule-based only (`behavior.py`); not a model input yet |
+| Behavior risk | ✅ Transparent deterministic score (`behavior.py`), passed to the recommendation step; no trained risk model |
 | OPA / ContextForge / Langfuse / Prometheus | ❌ Named in the original proposal; not built, and superseded by `gate.py` + `agent_runs` + the admin dashboard |
 
 This table is the honest version of the diagram in §1: without a configured `CHAT_API_KEY`,
@@ -239,12 +239,21 @@ every box here still works, just answered by `RuleSteps` instead of a model — 
 intentional gap the system is built to make visible (`source: "rules"` vs. `"model"` on
 every `agent_runs` row and every pipeline finding shown to a reviewer), never to hide.
 
-## 6. Current integration limits
+## 6. Policy tools, streaming and integration limits
 
-Retrieval (`retrieve_policy_clauses` / `all_policy_clauses`) and return-window checks
-(`policy_facts`) run in Python. The model receives their results. There are no
-`search_policy` or `check_return_window` model tools and no `tools=` API calls.
-The runner executes steps sequentially. All chat judgment roles share the configured
-chat model, including the critic. No second-provider review fallback is implemented.
-See [safety and privacy](safety_privacy.md) for the input masking limitation and
-[demo runbook](demo.md) for fail-closed recovery.
+When `CHAT_TOOLS_ENABLED=true`, the policy model makes actual function calls to
+`search_policy` and `check_return_window`. The read-only tools return the clauses
+retrieved for the current case and server-computed policy facts. Both accept no model
+arguments. The client enforces an exact allowlist and a maximum of two tool rounds, then
+asks for the final JSON answer. Deterministically blocked cases skip the policy call.
+All other judgment steps use the same provider/model and run sequentially.
+
+With `CHAT_STREAM_ENABLED=true`, provider replies stream into the client for assembly
+and validation. The reviewer page separately receives committed step progress over an
+authenticated SSE endpoint. Step output records tool results and streamed chunk counts.
+No raw partial model text enters the customer interface or governance gate.
+
+There is no second-provider review fallback. Provider errors retry and ultimately route
+to a person. Text masking and the offline behavior-risk group audit implement M8 with
+the limitations in [safety and privacy](safety_privacy.md). See the [demo runbook](demo.md)
+and [evaluation guide](evaluation/README.md).

@@ -131,6 +131,8 @@ function Case() {
         </p>
       </div>
 
+      <LiveTrace returnId={id} active={rerunPending} />
+
       {/* Why the case is here comes first (M2, M4). */}
       {open && c.escalation_reason ? (
         <div role="note" className="flex flex-col gap-1 rounded-md border border-amber-300 bg-amber-50 p-3 text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100" data-testid="why-here">
@@ -771,6 +773,62 @@ function Timeline({ c }: { c: ReviewCase }) {
         })}
       </ol>
       <p className="mt-3 text-xs text-zinc-500">From the append-only audit log. Escalation reason now: <ReasonBadge reason={c.escalation_reason} /></p>
+    </details>
+  );
+}
+
+
+type TraceEvent = {
+  run_id: string;
+  step: string;
+  kind: string;
+  data: {
+    latency_ms?: number;
+    model?: string;
+    tokens_in?: number;
+    tokens_out?: number;
+    cost_usd?: string | null;
+    stream_chunks?: number;
+    tools?: string[];
+  };
+};
+
+function LiveTrace({ returnId, active }: { returnId: string; active: boolean }) {
+  const [events, setEvents] = useState<TraceEvent[]>([]);
+  const [connection, setConnection] = useState("Connecting to trace…");
+  useEffect(() => {
+    const source = new EventSource(`/api/review/cases/${encodeURIComponent(returnId)}/events`);
+    source.onopen = () => setConnection(active ? "Live updates" : "Latest trace");
+    source.onmessage = (message) => {
+      const event: TraceEvent = JSON.parse(message.data);
+      setEvents((previous) => {
+        const sameRun = previous.filter((item) => item.run_id === event.run_id);
+        return [...sameRun, event].slice(-20);
+      });
+    };
+    source.onerror = () => {
+      setConnection(active ? "Reconnecting to trace…" : "Trace loaded");
+      if (!active) source.close();
+    };
+    return () => source.close();
+  }, [returnId, active]);
+  return (
+    <details className="rounded-md border border-zinc-200 p-3 dark:border-zinc-800" open={active || undefined}>
+      <summary className="cursor-pointer text-sm font-semibold">Pipeline trace · {connection}</summary>
+      <ol className="mt-3 space-y-2 text-sm" aria-label="Pipeline trace" aria-live="polite">
+        {events.length === 0 ? <li>No pipeline events yet.</li> : null}
+        {events.map((event, index) => (
+          <li key={`${event.run_id}-${index}`}>
+            <span className="font-medium">{event.step.replaceAll("_", " ")}</span> {event.kind}
+            {event.data.latency_ms != null ? ` · ${event.data.latency_ms} ms` : ""}
+            {event.data.model ? ` · ${event.data.model}` : ""}
+            {event.data.tokens_in != null ? ` · ${event.data.tokens_in} input / ${event.data.tokens_out} output tokens` : ""}
+            {event.data.cost_usd != null ? ` · estimated $${event.data.cost_usd}` : ""}
+            {event.data.stream_chunks ? ` · ${event.data.stream_chunks} streamed chunks` : ""}
+            {event.data.tools?.length ? ` · tools: ${event.data.tools.join(", ")}` : ""}
+          </li>
+        ))}
+      </ol>
     </details>
   );
 }

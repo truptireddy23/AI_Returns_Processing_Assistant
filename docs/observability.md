@@ -12,7 +12,7 @@ wrong. This document grows with each milestone; *(planned)* marks what isn't bui
 | What did the pipeline do for one return, and why? | `agent_runs` (one row per step) and `agent_run_events` (the timeline) |
 | Who did what, when? | `audit_log` (append-only) |
 | Is work stuck or failing? | `jobs` (status, attempts, `last_error`, `run_after`) |
-| How many tokens did model steps use, and how long did they take? | `agent_runs.output.output` contains model token counts and provider latency; `agent_runs.latency_ms` measures step duration. Cost is not calculated. |
+| How many tokens did model steps use, and how long did they take? | `agent_runs.tokens_in`, `tokens_out`, `cost_usd` and `latency_ms`; detailed provider usage is also in `output.output`. Cost is a configured estimate, or NULL when unknown. |
 
 ## Logs
 
@@ -40,10 +40,18 @@ Every review gets a `run_id`. Each step writes an `agent_runs` row:
 | `input_hash` | SHA-256 of the step's input, so identical inputs can be matched without storing customer text |
 | `policy_version` | The policy the step used |
 | `latency_ms` | How long the step took |
-| `model`, `prompt_version`, `tokens_in`, `tokens_out`, `cost_usd` | Schema columns exist but the current trace writer does not populate them. Model ID and token usage are nested in the step result (`output.output`); cost is not calculated. |
-| `error` | Set if the step failed |
+| `model`, `prompt_version`, `tokens_in`, `tokens_out`, `cost_usd` | Populated for model judgment steps. Cost uses configured input/output USD per million tokens. Missing prices/usage produce NULL, never an assumed zero. Rules and skipped calls keep these fields NULL. |
+| `error` | Reserved schema field; exceptions currently appear in worker logs and `jobs.last_error`. A committed start without a finish identifies the interrupted step. |
 
-`agent_run_events` records step timeline events for the trace view. Model-backed results
+`agent_run_events` records committed step starts/finishes for the reviewer SSE trace view
+(`/api/review/cases/{id}/events`, staff only). The stream reconnects using Last-Event-ID
+and exposes safe metadata only, never customer notes or raw model deltas.
+
+Provider JSON replies stream when `CHAT_STREAM_ENABLED=true`; the client assembles and
+validates the response before the pipeline uses it. Stream chunk counts and actual policy
+tool calls appear in step output and their names in the live trace. Token usage for the
+policy step includes its tool rounds and final answer.
+ Model-backed results
 label their source `model`; deterministic results label it `rules`. The gate audit entry
 records `steps_source`. Real inference runs when `CHAT_API_KEY` is configured.
 
@@ -70,16 +78,24 @@ Current actions include `auth.signup`, `auth.login`, `auth.logout`, `order.place
 
 ## Keeping a scale-to-zero database asleep
 
-Neon suspends the database after 5 minutes without queries, and every query wakes it. So
-nothing polls it: the worker is woken over HTTP by the API, its backstop sweep runs every
-30 minutes (`WORKER_SWEEP_SECONDS`), and a customer's open status page re-checks with
-back-off (1.5 s, growing to 30 s) only while a return is being processed.
+Neon can suspend after idle periods, and a query wakes it. The worker avoids frequent
+background polling: the API wakes it over HTTP and its backstop sweep runs every
+30 minutes (`WORKER_SWEEP_SECONDS`). A customer's open status page re-checks with
+backoff (1.5 seconds, growing to 30 seconds) while a return is processing. An active
+reviewer SSE connection checks for trace events every second for up to 20 seconds,
+releasing its database connection between queries. The browser reconnects during a
+pending re-run and stops after loading a completed trace.
 
 ## Implemented and deferred
 
 The admin dashboard, trace view, searchable audit log, escalation metrics and reviewer
 agreement breakdowns are implemented. Langfuse and Prometheus/Grafana are not integrated.
 `agent_runs`, `agent_run_events`, structured logs and the admin dashboard cover current
-observability. Dollar cost calculation and population of dedicated model usage columns
-remain deferred. Failed model attempts can roll back their step rows, so inspect worker
-logs and job errors as well as successful traces.
+observability. Set BOTH `CHAT_INPUT_USD_PER_MILLION` and `CHAT_OUTPUT_USD_PER_MILLION` from
+your provider's current price for `CHAT_MODEL`. Estimates exclude embeddings, failed
+attempts without usage and provider billing adjustments. The database stores six decimal
+places, so a very small amount may round to zero. Incomplete usage stays unknown.
+
+Step rows commit as they finish, so partial traces survive a later failure. A start with
+no matching finish identifies an interrupted or failed step. Inspect worker logs and
+job errors for the exception and retry outcome.

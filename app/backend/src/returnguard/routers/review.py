@@ -15,13 +15,18 @@ The customer's name and email are never sent to the case page: the reviewer judg
 the return and the account's behaviour, not the person (bias safeguard, M8).
 """
 
+import asyncio
+import json
+import time
 import uuid
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Annotated, Any, Literal
 
 import structlog
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.orm import aliased, selectinload
@@ -31,6 +36,7 @@ from returnguard.auth import DbSession, require_role
 from returnguard.config import get_settings
 from returnguard.models import (
     AgentRun,
+    AgentRunEvent,
     AgreementKind,
     AgreementSample,
     AuditLog,
@@ -966,3 +972,89 @@ async def decide_case(
         re_review=re_review,
     )
     return await _case_out(db, await _load_case(db, return_id), user)
+
+
+TRACE_STREAM_SECONDS = 20.0
+
+
+@router.get(
+    "/cases/{return_id}/events",
+    response_class=StreamingResponse,
+    responses={200: {"content": {"text/event-stream": {"schema": {"type": "string"}}}}},
+)
+async def stream_case_events(
+    return_id: uuid.UUID,
+    user: Reviewer,
+    db: DbSession,
+    request: Request,
+    after: Annotated[int, Query(ge=0)] = 0,
+) -> StreamingResponse:
+    """Stream trace metadata to staff only. Reconnect with Last-Event-ID, no raw prompts."""
+    if await db.get(Return, return_id) is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Return not found")
+    cursor = (
+        max(after, int(request.headers.get("last-event-id", "0")))
+        if (request.headers.get("last-event-id", "0").isdigit())
+        else after
+    )
+    await db.rollback()
+
+    async def events() -> AsyncIterator[str]:
+        nonlocal cursor
+        deadline = time.monotonic() + TRACE_STREAM_SECONDS
+        while time.monotonic() < deadline:
+            if await request.is_disconnected():
+                return
+            rows = list(
+                await db.scalars(
+                    select(AgentRunEvent)
+                    .where(AgentRunEvent.return_id == return_id, AgentRunEvent.id > cursor)
+                    .order_by(AgentRunEvent.id)
+                    .limit(100)
+                )
+            )
+            # Copy before rollback expires ORM objects and release the connection
+            # between polls. Customer text and images never appear in this stream.
+            payloads = [
+                (
+                    row.id,
+                    {
+                        "run_id": str(row.run_id),
+                        "step": row.step,
+                        "kind": row.kind,
+                        "data": {
+                            k: v
+                            for k, v in row.data.items()
+                            if k
+                            in {
+                                "latency_ms",
+                                "model",
+                                "tokens_in",
+                                "tokens_out",
+                                "cost_usd",
+                                "stream_chunks",
+                                "tools",
+                                "status",
+                                "rerun",
+                            }
+                        },
+                    },
+                )
+                for row in rows
+            ]
+            await db.rollback()
+            for event_id, payload in payloads:
+                cursor = event_id
+                yield f"id: {event_id}\ndata: {json.dumps(payload)}\n\n"
+            if not rows:
+                yield ": keepalive\n\n"
+                await asyncio.sleep(1)
+
+    return StreamingResponse(
+        events(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-store",
+            "X-Accel-Buffering": "no",
+        },
+    )

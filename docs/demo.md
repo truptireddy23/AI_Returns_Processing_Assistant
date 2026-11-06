@@ -1,5 +1,9 @@
 # CP3 demo and submission runbook
 
+Verification already performed: [fresh-source install, real provider checks and tests](evaluation/CP3_VERIFICATION.md).
+Forum text is prepared in [submission draft](forum-post.md). Independent teammate and
+presenter tasks remain unchecked below.
+
 ## Before rehearsal
 
 Follow `app/INSTALL.md` on a fresh clone with local Postgres and synthetic seed data.
@@ -27,9 +31,12 @@ Target 6 minutes total with at least 3 minutes live. Presentation is maintained 
 
 Auto-approval requires the admin automation switch on and every gate condition clear.
 QA sampling can still route a clean case to a person. Do not promise a specific model
-judgment for ambiguous or synthetic photos. Retrieval and date arithmetic are Python
-operations, not model function calls. Do not claim tool calling, parallel execution or
-a second-provider fallback in this demonstration.
+judgment for ambiguous or synthetic photos. Expand Pipeline trace, choose Re-run AI,
+and show step events arriving over SSE. On a complete in-window case, the policy step
+shows real `search_policy` and `check_return_window` function calls when tools are enabled.
+Their underlying operations remain Python code. Show token counts, streamed chunk counts
+and estimated cost when prices are configured. Do not claim parallel execution or a
+second-provider fallback.
 
 ## Provider failure rehearsal
 
@@ -71,13 +78,14 @@ and separate prompt-development cases from the held-out set.
 Compare RuleSteps with ModelSteps using the same cases. Report routing accuracy,
 unsafe auto-approvals, automatic denials (must be zero), escalation rate and reviewer
 agreement, with per-category counts and repeated runs for model variability. Report
-step latency and observed token counts. Do not report dollar cost until pricing and cost
-calculation are implemented. Include failure cases and small-sample limits. A fairness
+step latency and observed token counts. Report dollar estimates only when both model
+prices are configured, and distinguish them from provider invoices. Include failure cases and small-sample limits. A fairness
 benchmark needs a defined population and suitable data, not demographic claims from
 synthetic account histories.
 
 ## Deferred scope
 
-Playwright `tests/e2e/`, `make smoke`, a disparate-impact script, input text masking,
-model function calling and a second review provider remain unimplemented. These are
+Playwright `tests/e2e/` and a second review provider remain unimplemented. These are
 follow-up work, not completed CP3 features. Google sign-in remains optional after CP3.
+The offline bias screen and deterministic masking are implemented, with coverage limits
+documented in `docs/safety_privacy.md` and `docs/evaluation/README.md`.

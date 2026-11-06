@@ -158,3 +158,162 @@ async def test_a_reply_cut_off_at_the_cap_fails_closed() -> None:
     raw, _usage = await client.complete_json(system="s", user="u", max_tokens=5)
 
     assert raw == {}
+
+
+@pytest.mark.parametrize("missing_usage", [False, True])
+async def test_policy_tools_are_case_scoped_and_cost_includes_all_rounds(
+    missing_usage: bool,
+) -> None:
+    from decimal import Decimal
+    from types import SimpleNamespace
+
+    client = OpenAIClient(
+        chat_api_key="test",
+        input_usd_per_million=Decimal("1"),
+        output_usd_per_million=Decimal("2"),
+    )
+    requests: list[dict[str, Any]] = []
+    executed: list[str] = []
+
+    async def window() -> dict[str, Any]:
+        executed.append("window")
+        return {"within_window": True}
+
+    async def policy() -> dict[str, Any]:
+        executed.append("policy")
+        return {"clauses": ["P1"]}
+
+    async def create(**kwargs: Any) -> Any:
+        requests.append(kwargs)
+        if "tools" in kwargs:
+            name = kwargs["tools"][0]["function"]["name"]
+            call = SimpleNamespace(id=name, function=SimpleNamespace(name=name, arguments="{}"))
+            message = SimpleNamespace(
+                tool_calls=[call],
+                model_dump=lambda **_: {
+                    "role": "assistant",
+                    "tool_calls": [
+                        {
+                            "id": name,
+                            "type": "function",
+                            "function": {"name": name, "arguments": "{}"},
+                        }
+                    ],
+                },
+            )
+        else:
+            message = SimpleNamespace(content='{"eligibility": "eligible"}')
+        return SimpleNamespace(
+            model="test",
+            choices=[SimpleNamespace(message=message)],
+            usage=None
+            if missing_usage and len(requests) == 1
+            else SimpleNamespace(prompt_tokens=10, completion_tokens=5),
+        )
+
+    client._chat_client = SimpleNamespace(
+        chat=SimpleNamespace(  # type: ignore[assignment]
+            completions=SimpleNamespace(create=create)
+        )
+    )
+    raw, usage = await client.policy_with_tools(
+        system="Policy",
+        user="Return",
+        tools={"search_policy": policy, "check_return_window": window},
+        max_tokens=300,
+    )
+    assert raw["eligibility"] == "eligible"
+    assert executed == ["policy", "window"]
+    assert usage.tokens_in == (20 if missing_usage else 30)
+    assert usage.tokens_out == (10 if missing_usage else 15)
+    assert usage.usage_complete is (not missing_usage)
+    assert usage.cost_usd == (None if missing_usage else Decimal("0.00006"))
+    assert len(usage.tool_calls) == 2
+    assert requests[-1]["response_format"] == {"type": "json_object"}
+    assert sum(m["role"] == "tool" for m in requests[-1]["messages"]) == 2
+
+
+@pytest.mark.parametrize(
+    "name,args", [("delete_return", "{}"), ("search_policy", '{"sql":"DROP"}')]
+)
+async def test_untrusted_tool_requests_fail_before_execution(name: str, args: str) -> None:
+    from types import SimpleNamespace
+
+    client = OpenAIClient(chat_api_key="test")
+    executed: list[bool] = []
+
+    async def tool() -> dict[str, Any]:
+        executed.append(True)
+        return {}
+
+    async def create(**kwargs: Any) -> Any:
+        call = SimpleNamespace(id="1", function=SimpleNamespace(name=name, arguments=args))
+        return SimpleNamespace(
+            usage=None,
+            choices=[
+                SimpleNamespace(
+                    message=SimpleNamespace(
+                        tool_calls=[call], model_dump=lambda **_: {"role": "assistant"}
+                    )
+                )
+            ],
+        )
+
+    client._chat_client = SimpleNamespace(
+        chat=SimpleNamespace(  # type: ignore[assignment]
+            completions=SimpleNamespace(create=create)
+        )
+    )
+    with pytest.raises(ValueError):
+        await client.policy_with_tools(
+            system="s",
+            user="u",
+            max_tokens=100,
+            tools={"search_policy": tool, "check_return_window": tool},
+        )
+    assert not executed
+
+
+async def test_streaming_assembles_json_accounts_usage_and_closes() -> None:
+    from types import SimpleNamespace
+
+    class Stream:
+        closed = False
+
+        def __aiter__(self) -> Any:
+            async def chunks() -> Any:
+                for text in ('{"veto":', "false}"):
+                    yield SimpleNamespace(
+                        model="test",
+                        usage=None,
+                        choices=[SimpleNamespace(delta=SimpleNamespace(content=text))],
+                    )
+                yield SimpleNamespace(
+                    model="test",
+                    choices=[],
+                    usage=SimpleNamespace(prompt_tokens=8, completion_tokens=4),
+                )
+
+            return chunks()
+
+        async def close(self) -> None:
+            self.closed = True
+
+    stream = Stream()
+    requests: list[dict[str, Any]] = []
+
+    async def create(**kwargs: Any) -> Any:
+        requests.append(kwargs)
+        return stream
+
+    client = OpenAIClient(chat_api_key="test", stream_enabled=True)
+    client._chat_client = SimpleNamespace(
+        chat=SimpleNamespace(  # type: ignore[assignment]
+            completions=SimpleNamespace(create=create)
+        )
+    )
+    raw, usage = await client.complete_json(system="s", user="u")
+    assert raw == {"veto": False}
+    assert usage.stream_chunks == 2 and usage.tokens_in == 8 and usage.tokens_out == 4
+    assert requests[0]["stream_options"] == {"include_usage": True}
+    assert stream.closed

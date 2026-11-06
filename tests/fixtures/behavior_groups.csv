@@ -1,0 +1,9 @@
+group,past_orders,past_returns,recent_returns_30d,account_age_days,other_accounts_at_address,refund_cents,high_value_limit_cents
+synthetic_a,10,1,0,365,0,5000,25000
+synthetic_a,10,4,2,90,1,10000,25000
+synthetic_a,10,8,3,7,2,20000,25000
+synthetic_a,2,1,1,10,0,5000,25000
+synthetic_b,10,1,0,365,0,5000,25000
+synthetic_b,10,4,2,90,1,10000,25000
+synthetic_b,10,8,3,7,2,20000,25000
+synthetic_b,2,1,1,10,0,5000,25000
