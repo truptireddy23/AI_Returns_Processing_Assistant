@@ -43,9 +43,9 @@ flowchart TB
         S3[(return-photos — customer uploads<br/>product-photos — real catalog photos)]
     end
 
-    subgraph Models ["OpenAI (or any OpenAI-compatible endpoint)"]
-        LLM[["Chat: policy / photo / recommendation / critic"]]
-        EMB[["Embeddings: policy_chunks.embedding"]]
+    subgraph Models ["OpenAI-compatible provider (Groq, Qwen 3.8 27B by default)"]
+        LLM[["Chat: policy / photo / recommendation / critic / chat assist"]]
+        EMB[["Embeddings (optional): policy_chunks.embedding"]]
     end
 
     WEB -- "/api/*, same-origin proxy" --> API

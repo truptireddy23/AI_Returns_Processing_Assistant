@@ -1,6 +1,15 @@
 .DS_Store
 Instructions
 
+# Local AI-agent tooling (per-developer, not part of the app)
+.claude/
+skills-lock.json
+
+# Editors and logs
+.idea/
+.vscode/
+*.log
+
 # Secrets: commit .env.example only
 .env
 .env.*
@@ -13,6 +22,9 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 .pytest_cache/
+.coverage
+htmlcov/
+*.tsbuildinfo
 node_modules/
 .next/
 .neon
