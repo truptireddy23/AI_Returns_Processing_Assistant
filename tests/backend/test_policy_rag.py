@@ -286,6 +286,13 @@ async def test_customer_note_is_sent_as_quoted_data(monkeypatch: pytest.MonkeyPa
     assert repr(injection) in user_prompt
 
 
+def test_policy_prompt_says_how_to_tell_a_defect_from_wear() -> None:
+    prompt = model_steps_module._load_system_prompt("policy.md")
+    assert "A part failing structurally soon after delivery is a manufacturing defect" in prompt
+    assert '"Sole wear" in P3 means tread wearing down' in prompt
+    assert 'answer "unclear" rather than guessing' in prompt
+
+
 def test_system_prompt_tells_the_model_to_ignore_embedded_instructions() -> None:
     prompt = model_steps_module._load_system_prompt("policy.md")
     lowered = prompt.lower()
