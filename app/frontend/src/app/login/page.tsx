@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { AuthShell } from "@/components/auth-shell";
 import { homeFor } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
@@ -33,49 +34,37 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-sm flex-col gap-6">
-      <h1 className="text-2xl font-semibold">Sign in</h1>
+    <AuthShell
+      title="Welcome back"
+      subtitle="Sign in to shop, follow a return, or review cases."
+      footer={
+        <>
+          New here?{" "}
+          <Link href="/signup" className="link">
+            Create an account
+          </Link>
+        </>
+      }
+    >
       <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
-        <label className="flex flex-col gap-1 text-sm">
-          Email
-          <input
-            name="email"
-            type="email"
-            autoComplete="username"
-            required
-            className="rounded-md border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
-          />
+        <label className="field">
+          <span className="label">Email</span>
+          <input name="email" type="email" autoComplete="username" required placeholder="you@example.com" className="input" />
         </label>
-        <label className="flex flex-col gap-1 text-sm">
-          Password
-          <input
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            required
-            className="rounded-md border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
-          />
+        <label className="field">
+          <span className="label">Password</span>
+          <input name="password" type="password" autoComplete="current-password" required className="input" />
         </label>
         {error ? (
-          <p role="alert" className="text-sm text-red-700 dark:text-red-400">
+          <p role="alert" className="notice notice-danger">
             {error}
           </p>
         ) : null}
-        <button
-          type="submit"
-          disabled={pending}
-          className="rounded-md bg-zinc-900 px-4 py-2 font-medium text-white disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900"
-        >
+        <button type="submit" disabled={pending} className="btn btn-primary mt-1 w-full py-2.5">
           {pending ? "Signing in…" : "Sign in"}
         </button>
       </form>
-      <p className="text-sm">
-        New here?{" "}
-        <Link href="/signup" className="underline">
-          Create an account
-        </Link>
-      </p>
-      <p className="text-xs text-zinc-500">Demo accounts are listed in app/seed/users.json.</p>
-    </div>
+      <p className="hint mt-5 text-center">Demo accounts are listed in app/seed/users.json.</p>
+    </AuthShell>
   );
 }

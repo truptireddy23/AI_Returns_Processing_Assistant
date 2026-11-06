@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { RequireRole } from "@/components/require-role";
+import { PageHeader } from "@/components/ui";
 
 import { AuditLogView } from "./audit-log";
 import { Overview } from "./overview";
@@ -23,22 +24,11 @@ export default function AdminPage() {
 function Admin() {
   const [tab, setTab] = useState<Tab>("overview");
   return (
-    <section className="flex flex-col gap-5">
-      <h1 className="text-2xl font-semibold">Admin</h1>
-      <div role="tablist" aria-label="Admin sections" className="flex gap-1 border-b border-zinc-200 dark:border-zinc-800">
+    <section className="flex flex-col gap-6">
+      <PageHeader title="Admin" subtitle="Oversee how returns are decided: automation limits, agreement with reviewers, and the full audit trail." />
+      <div role="tablist" aria-label="Admin sections" className="tabs w-fit">
         {TABS.map((t) => (
-          <button
-            key={t.key}
-            role="tab"
-            type="button"
-            aria-selected={tab === t.key}
-            onClick={() => setTab(t.key)}
-            className={`-mb-px border-b-2 px-3 py-2 text-sm ${
-              tab === t.key
-                ? "border-zinc-900 font-medium dark:border-zinc-100"
-                : "border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
-            }`}
-          >
+          <button key={t.key} role="tab" type="button" aria-selected={tab === t.key} onClick={() => setTab(t.key)} className="tab">
             {t.label}
           </button>
         ))}

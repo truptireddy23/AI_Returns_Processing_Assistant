@@ -49,27 +49,27 @@ export function Overview({ onEditSettings }: { onEditSettings: () => void }) {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div role="group" aria-label="Time range" className="inline-flex rounded-md border border-zinc-300 p-0.5 text-sm dark:border-zinc-700">
+        <div role="group" aria-label="Time range" className="tabs">
           {([7, 30, 90] as Days[]).map((d) => (
             <button
               key={d}
               type="button"
               aria-pressed={days === d}
               onClick={() => setDays(d)}
-              className={`rounded px-3 py-1 ${days === d ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900" : "hover:bg-zinc-100 dark:hover:bg-zinc-800"}`}
+              className="tab"
             >
               Last {d} days
             </button>
           ))}
         </div>
-        <button type="button" onClick={() => setReloadKey((k) => k + 1)} className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800">
+        <button type="button" onClick={() => setReloadKey((k) => k + 1)} className="btn btn-secondary">
           Refresh
         </button>
       </div>
 
       {settings ? <SettingsStrip s={settings} onEdit={onEditSettings} /> : null}
-      {error ? <p role="alert" className="text-red-700 dark:text-red-400">{error}</p> : null}
-      {!m && !error ? <p className="text-zinc-500">Loading…</p> : null}
+      {error ? <p role="alert" className="notice notice-danger">{error}</p> : null}
+      {!m && !error ? <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">{Array.from({ length: 6 }, (_, i) => <div key={i} className="skeleton h-28" />)}</div> : null}
       {m ? <Dashboard m={m} /> : null}
     </div>
   );
@@ -77,27 +77,28 @@ export function Overview({ onEditSettings }: { onEditSettings: () => void }) {
 
 function SettingsStrip({ s, onEdit }: { s: AdminSettings; onEdit: () => void }) {
   return (
-    <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-md bg-zinc-50 px-4 py-3 text-sm dark:bg-zinc-900">
+    <div className="card flex flex-wrap items-center gap-x-6 gap-y-2 px-5 py-3.5 text-sm">
       <span>
         Automatic approvals{" "}
-        <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${s.automation_enabled ? "bg-green-100 text-green-900 dark:bg-green-950 dark:text-green-200" : "bg-zinc-200 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-100"}`}>
+        <span className={`badge ml-1 ${s.automation_enabled ? "badge-success" : "badge-neutral"}`}>
           {s.automation_enabled ? "On" : "Off"}
         </span>
       </span>
       <span>Risk below <strong className="tabular-nums">{Number(s.risk_limit).toFixed(2)}</strong></span>
       <span>Person needed above <strong className="tabular-nums">{formatMoney(s.high_value_limit_cents)}</strong></span>
       <span>QA sample <strong className="tabular-nums">{pct(Number(s.qa_sample_rate))}</strong></span>
-      <button type="button" onClick={onEdit} className="ml-auto underline">Edit settings</button>
+      <button type="button" onClick={onEdit} className="btn btn-secondary btn-sm ml-auto">Edit settings</button>
     </div>
   );
 }
 
 function Tile({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div className="flex flex-col gap-1 rounded-md border border-zinc-200 p-4 dark:border-zinc-800">
-      <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">{label}</span>
-      <span className="text-3xl font-semibold tabular-nums">{value}</span>
-      {sub ? <span className="text-xs text-zinc-500">{sub}</span> : null}
+    <div className="card relative flex flex-col gap-1 overflow-hidden p-4">
+      <span aria-hidden className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-indigo-500 to-violet-500 opacity-80" />
+      <span className="eyebrow text-[11px]">{label}</span>
+      <span className="text-3xl font-semibold tracking-tight tabular-nums">{value}</span>
+      {sub ? <span className="hint">{sub}</span> : null}
     </div>
   );
 }
@@ -107,23 +108,23 @@ function Meter({ value, max, title }: { value: number; max: number; title: strin
   const width = max > 0 ? Math.max(2, (value / max) * 100) : 0;
   return (
     <div className="h-2 w-full rounded-full bg-zinc-100 dark:bg-zinc-800" title={title} role="img" aria-label={title}>
-      <div className="h-2 rounded-full bg-sky-700 dark:bg-sky-400" style={{ width: `${width}%` }} />
+      <div className="h-2 rounded-full bg-indigo-600 dark:bg-indigo-400" style={{ width: `${width}%` }} />
     </div>
   );
 }
 
 function Panel({ title, children, note }: { title: string; children: React.ReactNode; note?: string }) {
   return (
-    <div className="flex flex-col gap-3 rounded-md border border-zinc-200 p-4 dark:border-zinc-800">
+    <div className="card flex flex-col gap-3 p-5">
       <h2 className="text-sm font-semibold">{title}</h2>
       {children}
-      {note ? <p className="text-xs text-zinc-500">{note}</p> : null}
+      {note ? <p className="hint">{note}</p> : null}
     </div>
   );
 }
 
 function CountTable({ rows, labels, empty }: { rows: { key: string; count: number }[]; labels: Record<string, string>; empty: string }) {
-  if (rows.length === 0) return <p className="text-sm text-zinc-500">{empty}</p>;
+  if (rows.length === 0) return <p className="subtle text-sm">{empty}</p>;
   const total = rows.reduce((n, r) => n + r.count, 0);
   return (
     <table className="w-full text-sm">
@@ -141,7 +142,7 @@ function CountTable({ rows, labels, empty }: { rows: { key: string; count: numbe
 }
 
 function RateTable({ rows, labels }: { rows: { key: string; total: number; agreed: number }[]; labels: Record<string, string> }) {
-  if (rows.length === 0) return <p className="text-sm text-zinc-500">No reviewer decisions on AI proposals yet.</p>;
+  if (rows.length === 0) return <p className="subtle text-sm">No reviewer decisions on AI proposals yet.</p>;
   return (
     <table className="w-full text-sm">
       <thead className="text-xs text-zinc-500">
@@ -208,7 +209,7 @@ function Dashboard({ m }: { m: AdminMetrics }) {
         </Panel>
         <Panel title="Decisions by people" note={m.avg_hours_to_decision !== null && m.avg_hours_to_decision !== undefined ? `Average time from return to decision: ${m.avg_hours_to_decision} h.` : undefined}>
           {decidedTotal === 0 ? (
-            <p className="text-sm text-zinc-500">No decisions by people in this period.</p>
+            <p className="subtle text-sm">No decisions by people in this period.</p>
           ) : (
             <table className="w-full text-sm">
               <thead className="text-xs text-zinc-500">

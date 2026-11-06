@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { ProductGallery } from "@/components/product-gallery";
+import { ErrorNotice, PageHeader } from "@/components/ui";
 
 import { api, errorMessage, formatMoney, type Product } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -38,54 +39,51 @@ export default function ShopPage() {
 
   return (
     <section className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <h1 className="text-2xl font-semibold">Shop</h1>
-        <div role="group" aria-label="Filter by category" className="flex flex-wrap gap-2">
-          {CATEGORIES.map((c) => (
-            <button
-              key={c}
-              type="button"
-              aria-pressed={category === c}
-              onClick={() => setCategory(c)}
-              className={`rounded-full border px-3 py-1 text-sm capitalize ${
-                category === c
-                  ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900"
-                  : "border-zinc-300 dark:border-zinc-700"
-              }`}
-            >
-              {c}
-            </button>
-          ))}
+      <PageHeader
+        title="Shop"
+        subtitle="Everyday essentials, with returns reviewed fairly and fast."
+        actions={
+          <div role="group" aria-label="Filter by category" className="tabs">
+            {CATEGORIES.map((c) => (
+              <button key={c} type="button" aria-pressed={category === c} onClick={() => setCategory(c)} className="tab capitalize">
+                {c}
+              </button>
+            ))}
+          </div>
+        }
+      />
+
+      {error ? <ErrorNotice>{error}</ErrorNotice> : null}
+      {!products && !error ? (
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3" role="status" aria-label="Loading">
+          {Array.from({ length: 6 }, (_, i) => <div key={i} className="skeleton aspect-[4/5] w-full rounded-xl" />)}
         </div>
-      </div>
+      ) : null}
 
-      {error ? <p role="alert" className="text-red-700">{error}</p> : null}
-      {!products && !error ? <p className="text-zinc-500">Loading…</p> : null}
-
-      <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" data-testid="catalog">
+      <ul className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3" data-testid="catalog">
         {shown?.map((p) => (
-          <li key={p.id} className="flex flex-col overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800">
+          <li
+            key={p.id}
+            className="card group flex flex-col overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+          >
             <ProductGallery product={p} />
-            <div className="flex flex-1 flex-col gap-2 p-4">
-              <div className="flex items-start justify-between gap-2">
-                <h2 className="font-medium">{p.name}</h2>
-                <span className="font-medium">{formatMoney(p.price_cents)}</span>
+            <div className="flex flex-1 flex-col gap-2 p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="eyebrow">{p.category}</p>
+                  <h2 className="mt-0.5 font-semibold leading-snug">{p.name}</h2>
+                </div>
+                <span className="text-lg font-semibold tabular-nums">{formatMoney(p.price_cents)}</span>
               </div>
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">{p.description}</p>
-              {p.is_final_sale ? (
-                <span className="w-fit rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-900">Final Sale — not returnable</span>
-              ) : null}
-              <div className="mt-auto pt-2">
+              <p className="muted line-clamp-3 text-sm">{p.description}</p>
+              {p.is_final_sale ? <span className="badge badge-warning w-fit">Final Sale · not returnable</span> : null}
+              <div className="mt-auto pt-3">
                 {isCustomer ? (
-                  <button
-                    type="button"
-                    onClick={() => addToCart(p)}
-                    className="w-full rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
-                  >
+                  <button type="button" onClick={() => addToCart(p)} className={`btn w-full ${justAdded === p.id ? "btn-success" : "btn-primary"}`}>
                     {justAdded === p.id ? "Added ✓" : "Add to cart"}
                   </button>
                 ) : auth.status === "signed_out" ? (
-                  <Link href="/login" className="text-sm underline">
+                  <Link href="/login" className="btn btn-secondary w-full">
                     Sign in to buy
                   </Link>
                 ) : null}

@@ -31,7 +31,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <AuthProvider>
           <CartProvider>
             <SiteHeader />
-            <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-4 py-10">{children}</main>
+            <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 py-8 sm:px-6 sm:py-10">{children}</main>
+            <footer className="border-t border-zinc-200/80 dark:border-zinc-800">
+              <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-5 text-xs text-zinc-500 sm:px-6">
+                <span>ReturnGuard · AI reviews clear-cut returns; a person owns every denial.</span>
+                <span>IS 492 · University of Illinois Urbana-Champaign</span>
+              </div>
+            </footer>
           </CartProvider>
         </AuthProvider>
       </body>

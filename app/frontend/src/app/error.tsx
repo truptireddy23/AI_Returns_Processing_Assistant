@@ -11,21 +11,21 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
   }, [error]);
 
   return (
-    <section className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-3 py-20 text-center">
-      <p className="text-sm font-medium text-red-700 dark:text-red-400">Something went wrong</p>
+    <section className="card mx-auto my-auto flex w-full max-w-md flex-col items-center gap-3 px-8 py-14 text-center">
+      <p className="badge badge-danger">Something went wrong</p>
       <h1 className="text-2xl font-semibold">We hit a snag loading this page</h1>
-      <p className="text-zinc-600 dark:text-zinc-400">
+      <p className="muted">
         Nothing was lost — try again, or head back and pick up where you left off.
       </p>
       <div className="mt-3 flex gap-2">
         <button
           type="button"
           onClick={reset}
-          className="rounded-md bg-zinc-900 px-4 py-2 text-sm text-white hover:opacity-90 dark:bg-zinc-100 dark:text-zinc-900"
+          className="btn btn-primary"
         >
           Try again
         </button>
-        <Link href="/" className="rounded-md border border-zinc-300 px-4 py-2 text-sm dark:border-zinc-700">
+        <Link href="/" className="btn btn-secondary">
           Go home
         </Link>
       </div>

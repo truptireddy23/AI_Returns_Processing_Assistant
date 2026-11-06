@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
@@ -9,6 +8,7 @@ import { ChatThread } from "@/components/chat-thread";
 import { RequireRole } from "@/components/require-role";
 import { DecisionBadge, ReasonBadge, StrengthBadge } from "@/components/review-badges";
 import { StatusBadge } from "@/components/status-badge";
+import { ErrorNotice, LoadingRows, PageHeader } from "@/components/ui";
 import {
   ACTION_LABELS,
   api,
@@ -109,52 +109,67 @@ function Case() {
     else setNotice(errorMessage(error, "Couldn't release this case."));
   }
 
-  if (error && !c) return <p role="alert" className="text-red-700 dark:text-red-400">{error}</p>;
-  if (!c) return <p className="text-zinc-500">Loading…</p>;
+  if (error && !c) return <ErrorNotice>{error}</ErrorNotice>;
+  if (!c) return <LoadingRows rows={5} />;
 
   const open = c.status === "under_review" || c.status === "failed";
   const photoCheck = c.checks.find((k) => k.key === "photo");
   const photoUnverified = photoCheck?.state === "warn";
 
   return (
-    <section className="flex flex-col gap-5">
-      <div className="flex flex-col gap-2">
-        <Link href="/review" className="w-fit text-sm text-zinc-500 hover:underline">← Review queue</Link>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <h1 className="text-2xl font-semibold">Case R-{c.case_number}</h1>
-          <StatusBadge status={c.status} />
-        </div>
-        <p className="text-zinc-600 dark:text-zinc-400">
-          {c.product_name} · {CATEGORY_LABELS[c.product_category]} · <span className="font-medium text-zinc-900 dark:text-zinc-100">{formatMoney(c.refund_amount_cents)}</span>
-          {" "}· Order #{c.order_number}
-          {c.is_final_sale ? <span className="ml-2 rounded bg-zinc-200 px-1.5 py-0.5 text-xs dark:bg-zinc-800">Final Sale</span> : null}
-        </p>
-      </div>
+    <section className="mx-auto flex w-full max-w-4xl flex-col gap-5">
+      <PageHeader
+        back={{ href: "/review", label: "Review queue" }}
+        title={
+          <span className="flex flex-wrap items-center gap-3">
+            Case R-{c.case_number}
+            <StatusBadge status={c.status} />
+          </span>
+        }
+        subtitle={
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="font-medium text-zinc-800 dark:text-zinc-200">{c.product_name}</span>
+            <span>· {CATEGORY_LABELS[c.product_category]}</span>
+            <span>· Order #{c.order_number}</span>
+            {c.is_final_sale ? <span className="badge badge-warning">Final Sale</span> : null}
+          </span>
+        }
+        actions={
+          <div className="text-right">
+            <p className="eyebrow">Refund</p>
+            <p className="text-2xl font-semibold tabular-nums">{formatMoney(c.refund_amount_cents)}</p>
+          </div>
+        }
+      />
 
       <LiveTrace returnId={id} active={rerunPending} />
 
       {/* Why the case is here comes first (M2, M4). */}
       {open && c.escalation_reason ? (
-        <div role="note" className="flex flex-col gap-1 rounded-md border border-amber-300 bg-amber-50 p-3 text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100" data-testid="why-here">
-          <p className="text-sm font-semibold uppercase tracking-wide">⚠ {ESCALATION_LABELS[c.escalation_reason]}</p>
-          <p className="text-sm">{ESCALATION_HINTS[c.escalation_reason]}</p>
+        <div role="note" className="notice notice-warning items-start" data-testid="why-here">
+          <WarnIcon />
+          <div className="flex flex-col gap-1">
+          <p className="font-semibold">Why this case is here: {ESCALATION_LABELS[c.escalation_reason]}</p>
+          <p>{ESCALATION_HINTS[c.escalation_reason]}</p>
           {c.ai.gate_reasons.length > 1 ? (
             <p className="text-xs">
               Also flagged: {c.ai.gate_reasons.filter((r) => r !== c.escalation_reason).map((r) => ESCALATION_LABELS[r]).join(" · ")}
             </p>
           ) : null}
+          </div>
         </div>
       ) : null}
       {open && photoUnverified && c.escalation_reason !== "unverified_photo" ? (
-        <div role="note" className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-950 dark:border-red-800 dark:bg-red-950/40 dark:text-red-100">
-          ⚠ Photo not verified — check that it shows this product and looks genuine.
+        <div role="note" className="notice notice-danger">
+          <WarnIcon />
+          <span><span className="font-semibold">Photo not verified.</span> Check that it shows this product and looks genuine.</span>
         </div>
       ) : null}
 
       {c.review_request ? <ReviewRequestPanel c={c} /> : null}
 
       {!open ? <DecidedPanel c={c} /> : <ClaimBar c={c} onClaim={claim} onRelease={release} />}
-      {notice ? <p role="alert" className="text-sm text-red-700 dark:text-red-400">{notice}</p> : null}
+      {notice ? <ErrorNotice>{notice}</ErrorNotice> : null}
 
       {/* A single column, in the order a reviewer actually works a case: what the
           system thinks, whether its checks passed, the evidence behind them, the
@@ -181,6 +196,14 @@ function Case() {
 
 // --- Panels -----------------------------------------------------------------
 
+function WarnIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className="mt-0.5 h-5 w-5 shrink-0">
+      <path fillRule="evenodd" d="M8.5 2.6a1.7 1.7 0 0 1 3 0l6.3 11.3a1.7 1.7 0 0 1-1.5 2.6H3.7a1.7 1.7 0 0 1-1.5-2.6L8.5 2.6ZM10 7a.8.8 0 0 0-.8.8v3.5a.8.8 0 0 0 1.6 0V7.8A.8.8 0 0 0 10 7Zm0 8a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clipRule="evenodd" />
+    </svg>
+  );
+}
+
 /** Re-run the AI checks on a case that is already with a person, e.g. one checked
  * before a model was configured, or after the checks failed. The fresh result
  * replaces this card; the case stays here and is never decided by the re-run. */
@@ -188,7 +211,7 @@ function RerunControl({ c, onRerun }: { c: ReviewCase; onRerun: () => Promise<vo
   const [busy, setBusy] = useState(false);
   if (c.rerun_pending) {
     return (
-      <p role="status" className="flex items-center gap-2 border-t border-zinc-200 pt-3 text-sm text-zinc-600 dark:border-zinc-800 dark:text-zinc-400">
+      <p role="status" className="muted flex items-center gap-2 border-t border-zinc-100 pt-4 text-sm dark:border-zinc-800">
         <span className="h-2 w-2 animate-pulse rounded-full bg-sky-500" />
         Re-running the AI checks… this card updates on its own, usually within a minute.
       </p>
@@ -196,8 +219,8 @@ function RerunControl({ c, onRerun }: { c: ReviewCase; onRerun: () => Promise<vo
   }
   if (!c.can_rerun) return null;
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-zinc-200 pt-3 dark:border-zinc-800">
-      <p className="text-xs text-zinc-500">
+    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-zinc-100 pt-4 dark:border-zinc-800">
+      <p className="hint">
         Result looks stale or incomplete? Run the AI checks again. The case stays with you either way.
       </p>
       <button
@@ -211,9 +234,9 @@ function RerunControl({ c, onRerun }: { c: ReviewCase; onRerun: () => Promise<vo
             setBusy(false);
           }
         }}
-        className="rounded border border-zinc-300 px-3 py-1.5 text-sm font-medium hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-900"
+        className="btn btn-secondary btn-sm"
       >
-        {busy ? "Starting…" : "Re-run AI checks"}
+        {busy ? "Starting…" : "↻ Re-run AI checks"}
       </button>
     </div>
   );
@@ -221,12 +244,12 @@ function RerunControl({ c, onRerun }: { c: ReviewCase; onRerun: () => Promise<vo
 
 function Card({ title, children, aside }: { title: string; children: React.ReactNode; aside?: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-3 rounded-md border border-zinc-200 p-4 dark:border-zinc-800">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">{title}</h2>
+    <div className="card overflow-hidden">
+      <div className="card-header">
+        <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{title}</h2>
         {aside}
       </div>
-      {children}
+      <div className="flex flex-col gap-4 p-5">{children}</div>
     </div>
   );
 }
@@ -235,8 +258,8 @@ function Card({ title, children, aside }: { title: string; children: React.React
  * few seconds) — same visual weight as the Recommendation card's AI/Rules badge. */
 function LiveBadge() {
   return (
-    <span className="flex items-center gap-1.5 rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-500" />
+    <span className="badge badge-success">
+      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
       Live
     </span>
   );
@@ -244,20 +267,20 @@ function LiveBadge() {
 
 function ClaimBar({ c, onClaim, onRelease }: { c: ReviewCase; onClaim: () => void; onRelease: () => void }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-zinc-50 px-3 py-2 text-sm dark:bg-zinc-900">
+    <div className="card flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 text-sm">
       {c.claimed_by_me ? (
         <>
-          <span>You&apos;re working on this case.</span>
-          <button type="button" onClick={onRelease} className="rounded px-2 py-1 text-zinc-600 hover:bg-zinc-200 dark:text-zinc-300 dark:hover:bg-zinc-800">
+          <span className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-indigo-500" />You&apos;re working on this case.</span>
+          <button type="button" onClick={onRelease} className="btn btn-ghost btn-sm">
             Release to queue
           </button>
         </>
       ) : c.claimed_by_name ? (
-        <span>{c.claimed_by_name} is working on this case.</span>
+        <span className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-amber-500" />{c.claimed_by_name} is working on this case.</span>
       ) : c.can_decide ? (
         <>
           <span className="text-zinc-600 dark:text-zinc-400">Nobody is working on this case.</span>
-          <button type="button" onClick={onClaim} className="rounded px-2 py-1 hover:bg-zinc-200 dark:hover:bg-zinc-800">Claim</button>
+          <button type="button" onClick={onClaim} className="btn btn-secondary btn-sm">Claim</button>
         </>
       ) : (
         <span className="text-zinc-600 dark:text-zinc-400">{c.cannot_decide_reason}</span>
@@ -268,7 +291,7 @@ function ClaimBar({ c, onClaim, onRelease }: { c: ReviewCase; onClaim: () => voi
 
 function DecidedPanel({ c }: { c: ReviewCase }) {
   return (
-    <div className="flex flex-col gap-2 rounded-md border border-zinc-200 p-4 dark:border-zinc-800" data-testid="decided">
+    <div className="card card-pad flex flex-col gap-3" data-testid="decided">
       <div className="flex flex-wrap items-center gap-2 text-sm">
         <DecisionBadge decision={c.final_decision} final />
         <span>
@@ -278,8 +301,8 @@ function DecidedPanel({ c }: { c: ReviewCase }) {
       </div>
       {c.customer_message ? (
         <div className="text-sm">
-          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Message sent to the customer</p>
-          <p className="mt-1 whitespace-pre-wrap">{c.customer_message}</p>
+          <p className="eyebrow">Message sent to the customer</p>
+          <p className="mt-1.5 rounded-lg bg-zinc-50 p-3 leading-relaxed whitespace-pre-wrap dark:bg-zinc-800/60">{c.customer_message}</p>
         </div>
       ) : null}
     </div>
@@ -289,7 +312,7 @@ function DecidedPanel({ c }: { c: ReviewCase }) {
 function ReviewRequestPanel({ c }: { c: ReviewCase }) {
   const rr = c.review_request!;
   return (
-    <div className="flex flex-col gap-1 rounded-md border border-violet-300 bg-violet-50 p-3 text-sm text-violet-950 dark:border-violet-800 dark:bg-violet-950/40 dark:text-violet-100">
+    <div className="notice notice-violet flex-col gap-1.5">
       <p className="font-semibold">
         Customer asked for a review · {formatDateTime(rr.created_at)}
         {rr.status === "resolved" ? " · resolved" : ""}
@@ -310,13 +333,13 @@ function Recommendation({ c, onRerun }: { c: ReviewCase; onRerun: () => Promise<
     <Card
       title="Recommendation"
       aside={
-        <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300" title={fromRules ? "Produced by the rule-based checks" : "Written by the AI"}>
-          {fromRules ? "Rules" : "AI"}
+        <span className={`badge ${fromRules ? "badge-neutral" : "badge-brand"}`} title={fromRules ? "Produced by the rule-based checks" : "Written by the AI"}>
+          {fromRules ? "Rules" : "✦ AI"}
         </span>
       }
     >
       <div className="flex flex-wrap items-center gap-3">
-        <span className="text-lg font-semibold">{c.ai.proposal ? DECISION_LABELS[c.ai.proposal] : "No recommendation"}</span>
+        <span className="text-xl font-semibold tracking-tight">{c.ai.proposal ? DECISION_LABELS[c.ai.proposal] : "No recommendation"}</span>
         {c.evidence_strength ? (
           <span className="flex items-center gap-1.5 text-sm">
             Evidence <StrengthBadge strength={c.evidence_strength} />
@@ -324,22 +347,22 @@ function Recommendation({ c, onRerun }: { c: ReviewCase; onRerun: () => Promise<
           </span>
         ) : null}
       </div>
-      {c.ai.rationale ? <p className="text-sm">{c.ai.rationale}</p> : null}
+      {c.ai.rationale ? <p className="text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">{c.ai.rationale}</p> : null}
       {c.ai.uncertain_about.length > 0 ? (
-        <div className="text-sm">
-          <p className="font-medium">Uncertain about</p>
-          <ul className="ml-4 list-disc text-zinc-700 dark:text-zinc-300">
+        <div className="rounded-lg bg-amber-50/70 p-3 text-sm dark:bg-amber-950/30">
+          <p className="font-medium text-amber-900 dark:text-amber-200">Uncertain about</p>
+          <ul className="ml-4 mt-1 list-disc text-amber-900/90 dark:text-amber-100/90">
             {c.ai.uncertain_about.map((u) => <li key={u}>{u}</li>)}
           </ul>
         </div>
       ) : null}
       {c.ai.critic_concern ? (
-        <p className="text-sm text-amber-800 dark:text-amber-300">Re-check concern: {c.ai.critic_concern}</p>
+        <p className="notice notice-warning">Re-check concern: {c.ai.critic_concern}</p>
       ) : null}
       {c.status === "failed" ? (
-        <p className="text-sm text-amber-800 dark:text-amber-300">The automatic checks didn&apos;t finish, so some evidence may be missing.</p>
+        <p className="notice notice-warning">The automatic checks didn&apos;t finish, so some evidence may be missing.</p>
       ) : null}
-      <p className="text-xs text-zinc-500">
+      <p className="hint">
         {fromRules
           ? "Produced by the rule-based checks; the photo is not checked automatically yet."
           : "A recommendation, not a decision. You make the call."}
@@ -351,26 +374,26 @@ function Recommendation({ c, onRerun }: { c: ReviewCase; onRerun: () => Promise<
 }
 
 const CHECK_ICON: Record<Check["state"], { icon: string; tone: string; label: string }> = {
-  pass: { icon: "✓", tone: "text-green-700 dark:text-green-400", label: "clear" },
-  warn: { icon: "⚠", tone: "text-amber-700 dark:text-amber-400", label: "warning" },
-  fail: { icon: "✕", tone: "text-red-700 dark:text-red-400", label: "failed" },
-  info: { icon: "•", tone: "text-zinc-500", label: "info" },
+  pass: { icon: "✓", tone: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300", label: "clear" },
+  warn: { icon: "!", tone: "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300", label: "warning" },
+  fail: { icon: "✕", tone: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300", label: "failed" },
+  info: { icon: "i", tone: "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400", label: "info" },
 };
 
 function Checks({ checks }: { checks: Check[] }) {
   return (
     <Card title="Checks">
-      {checks.length === 0 ? <p className="text-sm text-zinc-500">No checks have run on this case.</p> : null}
-      <ul className="flex flex-col gap-2 text-sm" data-testid="checks">
+      {checks.length === 0 ? <p className="subtle text-sm">No checks have run on this case.</p> : null}
+      <ul className="-my-1 flex flex-col divide-y divide-zinc-100 text-sm dark:divide-zinc-800" data-testid="checks">
         {checks.map((k) => {
           const s = CHECK_ICON[k.state];
           return (
-            <li key={k.key} className="flex gap-2">
-              <span className={`w-4 shrink-0 font-bold ${s.tone}`} aria-label={s.label}>{s.icon}</span>
+            <li key={k.key} className="flex gap-3 py-2.5">
+              <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${s.tone}`} aria-label={s.label}>{s.icon}</span>
               <span className="flex flex-col">
                 <span className="font-medium">
                   {k.label}
-                  {k.clauses.length ? <span className="ml-1 text-xs font-normal text-zinc-500">({k.clauses.join(", ")})</span> : null}
+                  {k.clauses.length ? <span className="ml-2 font-mono text-[11px] font-normal text-zinc-500">{k.clauses.join(" · ")}</span> : null}
                 </span>
                 <span className="text-zinc-600 dark:text-zinc-400">{k.detail}</span>
               </span>
@@ -395,47 +418,47 @@ function Evidence({ c }: { c: ReviewCase }) {
           </span>
         </p>
         {c.reason_text ? (
-          <blockquote className="mt-2 border-l-2 border-zinc-300 pl-2 whitespace-pre-wrap text-zinc-700 dark:border-zinc-700 dark:text-zinc-300">
+          <blockquote className="mt-3 rounded-r-lg border-l-4 border-indigo-300 bg-indigo-50/50 px-3 py-2 whitespace-pre-wrap text-zinc-800 dark:border-indigo-800 dark:bg-indigo-950/30 dark:text-zinc-200">
             “{c.reason_text}”
-            <span className="block text-xs text-zinc-500">Customer&apos;s words</span>
+            <span className="subtle mt-1 block text-xs">Customer&apos;s words</span>
           </blockquote>
         ) : null}
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <figure className="flex flex-col gap-1">
+      <div className="grid grid-cols-2 gap-4">
+        <figure className="flex flex-col gap-1.5">
           {c.product_photo_url ? (
-            <Image src={c.product_photo_url} alt={`Catalog photo of ${c.product_name}`} width={240} height={240} unoptimized className="aspect-square w-full rounded border border-zinc-200 object-cover dark:border-zinc-800" />
+            <Image src={c.product_photo_url} alt={`Catalog photo of ${c.product_name}`} width={240} height={240} unoptimized className="aspect-square w-full rounded-xl border border-zinc-200 bg-white object-contain p-2 dark:border-zinc-800" />
           ) : (
-            <div className="flex aspect-square items-center justify-center rounded border border-dashed text-xs text-zinc-500">No catalog photo</div>
+            <div className="flex aspect-square items-center justify-center rounded-xl border border-dashed border-zinc-300 text-xs text-zinc-500 dark:border-zinc-700">No catalog photo</div>
           )}
-          <figcaption className="text-xs text-zinc-500">Catalog photo</figcaption>
+          <figcaption className="eyebrow">Catalog photo</figcaption>
         </figure>
         {c.photos.length === 0 ? (
-          <div className="flex aspect-square items-center justify-center rounded border border-dashed border-zinc-300 p-2 text-center text-xs text-zinc-500 dark:border-zinc-700">
+          <div className="flex aspect-square items-center justify-center rounded-xl border border-dashed border-zinc-300 p-2 text-center text-xs text-zinc-500 dark:border-zinc-700">
             No customer photo
           </div>
         ) : (
           c.photos.map((p, i) => (
-            <figure key={p.id} className="flex flex-col gap-1">
+            <figure key={p.id} className="flex flex-col gap-1.5">
               <a href={p.url} target="_blank" rel="noreferrer" title="Open full size">
                 {/* Served by the API only to the customer and staff. */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={p.url} alt={`Customer photo ${i + 1}`} className="aspect-square w-full rounded border border-zinc-200 object-cover dark:border-zinc-800" />
+                <img src={p.url} alt={`Customer photo ${i + 1}`} className="aspect-square w-full rounded-xl border border-zinc-200 object-cover shadow-sm transition hover:opacity-90 dark:border-zinc-800" />
               </a>
-              <figcaption className="text-xs text-zinc-500">Customer photo{c.photos.length > 1 ? ` ${i + 1}` : ""}</figcaption>
+              <figcaption className="eyebrow">Customer photo{c.photos.length > 1 ? ` ${i + 1}` : ""} · click to enlarge</figcaption>
             </figure>
           ))
         )}
       </div>
 
       {c.photos.map((p, i) => (
-        <dl key={p.id} className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 rounded bg-zinc-50 p-2 text-xs dark:bg-zinc-900">
-          <dt className="col-span-2 font-semibold text-zinc-600 dark:text-zinc-300">Photo {c.photos.length > 1 ? i + 1 : ""} file details</dt>
+        <dl key={p.id} className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1.5 rounded-xl border border-zinc-100 bg-zinc-50/70 p-3 text-xs dark:border-zinc-800 dark:bg-zinc-800/40">
+          <dt className="eyebrow col-span-2 mb-1">Photo {c.photos.length > 1 ? i + 1 : ""} file details</dt>
           <dt className="text-zinc-500">Camera data</dt>
           <dd>{p.has_exif ? (p.camera ?? "present, no camera named") : "none (screenshots, downloads, and generated images often have none)"}</dd>
           {p.captured_at ? (<><dt className="text-zinc-500">Taken</dt><dd>{p.captured_at}</dd></>) : null}
-          {p.software ? (<><dt className="text-zinc-500">Software</dt><dd>{p.software}</dd></>) : null}
+          {p.software ? (<><dt className="text-zinc-500">Software</dt><dd className="font-medium text-amber-700 dark:text-amber-400">{p.software}</dd></>) : null}
           <dt className="text-zinc-500">Generator hints</dt>
           <dd className={p.has_generator_hints ? "font-medium text-red-700 dark:text-red-400" : ""}>{p.has_generator_hints ? "Found — possibly AI-generated" : "None found"}</dd>
           <dt className="text-zinc-500">Size</dt>
@@ -448,8 +471,9 @@ function Evidence({ c }: { c: ReviewCase }) {
 
 function ClauseText({ k }: { k: Clause }) {
   return (
-    <li className={`text-sm ${k.cited ? "" : "text-zinc-500"}`}>
-      <span className="font-medium">{k.clause_id}. {k.title}.</span> {k.body}
+    <li className={`flex gap-3 text-sm ${k.cited ? "" : "text-zinc-500"}`}>
+      <span className={`mt-0.5 h-fit shrink-0 rounded-md px-1.5 py-0.5 font-mono text-[11px] font-semibold ${k.cited ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300" : "bg-zinc-100 text-zinc-500 dark:bg-zinc-800"}`}>{k.clause_id}</span>
+      <span><span className="font-medium">{k.title}.</span> {k.body}</span>
     </li>
   );
 }
@@ -463,14 +487,14 @@ function Policy({ c }: { c: ReviewCase }) {
       title={`Policy used${c.policy_version ? ` (version ${c.policy_version})` : ""}`}
       aside={
         c.clauses.length > cited.length ? (
-          <button type="button" onClick={() => setAll((v) => !v)} className="text-xs underline">
+          <button type="button" onClick={() => setAll((v) => !v)} className="link text-xs">
             {all ? "Show cited only" : "View all"}
           </button>
         ) : null
       }
     >
-      {shown.length === 0 ? <p className="text-sm text-zinc-500">No clauses cited.</p> : null}
-      <ul className="flex flex-col gap-2">{shown.map((k) => <ClauseText key={k.clause_id} k={k} />)}</ul>
+      {shown.length === 0 ? <p className="subtle text-sm">No clauses cited.</p> : null}
+      <ul className="flex flex-col gap-2.5">{shown.map((k) => <ClauseText key={k.clause_id} k={k} />)}</ul>
     </Card>
   );
 }
@@ -488,26 +512,42 @@ function History({ c }: { c: ReviewCase }) {
   const years = h.account_age_days >= 365 ? `${(h.account_age_days / 365).toFixed(1)} yrs` : `${h.account_age_days} days`;
   return (
     <Card title="Customer history">
-      <p className="text-sm">
-        Account {years} · {h.past_orders} other order{h.past_orders === 1 ? "" : "s"} · {h.past_returns} other return{h.past_returns === 1 ? "" : "s"}
-        {" "}· {h.recent_returns_30d} in the last 30 days ·{" "}
-        {h.other_accounts_at_address ? `${h.other_accounts_at_address} other account(s) at this address` : "no linked accounts"}
-      </p>
+      <dl className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+        {[
+          ["Account age", years],
+          ["Other orders", String(h.past_orders)],
+          ["Other returns", String(h.past_returns)],
+          ["Last 30 days", `${h.recent_returns_30d} return${h.recent_returns_30d === 1 ? "" : "s"}`],
+          ["Linked accounts", h.other_accounts_at_address ? `${h.other_accounts_at_address} at address` : "None"],
+        ].map(([label, value]) => (
+          <div key={label} className="rounded-lg bg-zinc-50 px-3 py-2 dark:bg-zinc-800/50">
+            <dt className="eyebrow text-[10px]">{label}</dt>
+            <dd className="mt-0.5 font-semibold">{value}</dd>
+          </div>
+        ))}
+      </dl>
       {h.risk_score !== null && h.risk_score !== undefined ? (
-        <details className="text-sm">
-          <summary className="cursor-pointer">Risk score {h.risk_score.toFixed(2)} when checked — how it&apos;s made</summary>
-          <ul className="mt-2 flex flex-col gap-1">
+        <details className="rounded-lg border border-zinc-100 px-3 py-2 text-sm dark:border-zinc-800">
+          <summary className="cursor-pointer font-medium">
+            Risk score{" "}
+            <span className={`badge ml-1 ${h.risk_score >= 0.3 ? "badge-warning" : "badge-success"}`}>{h.risk_score.toFixed(2)}</span>{" "}
+            <span className="subtle font-normal">when checked · how it&apos;s made</span>
+          </summary>
+          <ul className="mt-3 flex flex-col gap-2">
             {Object.entries(h.risk_factors).map(([k, v]) => (
-              <li key={k} className="flex justify-between gap-2">
-                <span className="text-zinc-600 dark:text-zinc-400">{FACTOR_LABELS[k] ?? k}</span>
-                <span className="tabular-nums">+{v.toFixed(2)}</span>
+              <li key={k} className="grid grid-cols-[8rem_1fr_3rem] items-center gap-3">
+                <span className="muted">{FACTOR_LABELS[k] ?? k}</span>
+                <span className="h-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800">
+                  <span className="block h-1.5 rounded-full bg-indigo-500" style={{ width: `${Math.min(100, (v / 0.4) * 100)}%` }} />
+                </span>
+                <span className="text-right tabular-nums">+{v.toFixed(2)}</span>
               </li>
             ))}
           </ul>
           {h.risk_notes.length ? <ul className="ml-4 mt-2 list-disc text-zinc-600 dark:text-zinc-400">{h.risk_notes.map((n) => <li key={n}>{n}</li>)}</ul> : null}
         </details>
       ) : null}
-      <p className="text-xs text-zinc-500">The customer&apos;s name and contact details are hidden so the decision rests on the evidence.</p>
+      <p className="hint">🔒 The customer&apos;s name and contact details are hidden so the decision rests on the evidence.</p>
     </Card>
   );
 }
@@ -569,15 +609,18 @@ function DecisionPanel({ c, onDecided }: { c: ReviewCase; onDecided: (c: ReviewC
 
   if (!c.can_decide) {
     return (
-      <div className="rounded-md border border-zinc-200 p-4 text-sm text-zinc-600 dark:border-zinc-800 dark:text-zinc-400">
+      <div className="notice notice-info">
         {c.cannot_decide_reason}
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-4 rounded-md border-2 border-zinc-900 p-4 dark:border-zinc-100" data-testid="decision-panel">
-      <h2 className="text-base font-semibold">Your decision</h2>
+    <div className="card flex flex-col gap-5 p-5 ring-2 ring-indigo-500/30 sm:p-6" data-testid="decision-panel">
+      <div>
+        <h2 className="text-lg font-semibold">Your decision</h2>
+        <p className="muted text-sm">The AI recommends; you decide. Denials always need a confirmed policy rule.</p>
+      </div>
 
       {aiDecides ? (
         <fieldset className="flex flex-col gap-2">
@@ -592,11 +635,7 @@ function DecisionPanel({ c, onDecided }: { c: ReviewCase; onDecided: (c: ReviewC
                 type="button"
                 aria-pressed={override === o}
                 onClick={() => setOverride(override === o ? null : o)}
-                className={`rounded-full border px-3 py-1 text-sm ${
-                  override === o
-                    ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900"
-                    : "border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-                }`}
+                className="chip"
               >
                 {OVERRIDE_LABELS[o]}
               </button>
@@ -608,31 +647,31 @@ function DecisionPanel({ c, onDecided }: { c: ReviewCase; onDecided: (c: ReviewC
               onChange={(e) => setOverrideNote(e.target.value)}
               maxLength={200}
               placeholder="Why do you disagree?"
-              className="rounded-md border border-zinc-300 bg-transparent px-2 py-1.5 text-sm dark:border-zinc-700"
+              className="input"
             />
           ) : null}
         </fieldset>
       ) : null}
 
-      <label className="flex flex-col gap-1 text-sm">
-        Note to the customer <span className="text-zinc-500">(optional, added to their message)</span>
+      <label className="field">
+        <span className="label">Note to the customer <span className="subtle font-normal">(optional, added to their message)</span></span>
         <textarea
           value={note}
           onChange={(e) => setNote(e.target.value)}
           maxLength={500}
           rows={2}
-          className="rounded-md border border-zinc-300 bg-transparent px-2 py-1.5 dark:border-zinc-700"
+          className="input"
         />
       </label>
 
-      {error ? <p role="alert" className="text-sm text-red-700 dark:text-red-400">{error}</p> : null}
+      {error ? <ErrorNotice>{error}</ErrorNotice> : null}
 
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-3 border-t border-zinc-100 pt-5 dark:border-zinc-800">
         <button
           type="button"
           disabled={pending}
           onClick={() => submit("approve", c.clauses.filter((k) => k.cited).map((k) => k.clause_id))}
-          className="rounded-md bg-green-700 px-4 py-2 font-medium text-white hover:bg-green-800 disabled:opacity-50"
+          className="btn btn-success btn-lg min-w-36"
         >
           {pending ? "Saving…" : "Approve"}
         </button>
@@ -647,7 +686,7 @@ function DecisionPanel({ c, onDecided }: { c: ReviewCase; onDecided: (c: ReviewC
             }
             setConfirming(true);
           }}
-          className="rounded-md border border-red-700 px-4 py-2 font-medium text-red-700 hover:bg-red-50 disabled:opacity-50 dark:text-red-400 dark:hover:bg-red-950/40"
+          className="btn btn-danger-outline btn-lg min-w-36"
         >
           Deny…
         </button>
@@ -684,7 +723,7 @@ function DenyDialog({
   const toggle = (id: string) => setChosen((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onCancel}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/60 p-4 backdrop-blur-sm" onClick={onCancel}>
       <div
         ref={dialogRef}
         role="dialog"
@@ -692,41 +731,44 @@ function DenyDialog({
         aria-labelledby="deny-title"
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
-        className="flex max-h-[90vh] w-full max-w-lg flex-col gap-4 overflow-y-auto rounded-lg bg-white p-5 text-zinc-900 shadow-xl outline-none dark:bg-zinc-900 dark:text-zinc-100"
+        className="flex max-h-[90vh] w-full max-w-lg flex-col gap-4 overflow-y-auto rounded-2xl bg-white p-6 text-zinc-900 shadow-2xl outline-none dark:bg-zinc-900 dark:text-zinc-100"
       >
-        <h2 id="deny-title" className="text-lg font-semibold">Deny this return?</h2>
-        <p className="text-sm">
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600 dark:bg-red-950"><WarnIcon /></span>
+          <h2 id="deny-title" className="text-lg font-semibold">Deny this return?</h2>
+        </div>
+        <p className="muted text-sm">
           Case R-{c.case_number} · {c.product_name} · {formatMoney(c.refund_amount_cents)}
         </p>
         <fieldset className="flex flex-col gap-2">
           <legend className="mb-1 text-sm font-medium">Policy basis <span className="font-normal text-zinc-500">(the customer sees this)</span></legend>
           {c.clauses.map((k) => (
-            <label key={k.clause_id} className="flex gap-2 text-sm">
-              <input type="checkbox" checked={chosen.includes(k.clause_id)} onChange={() => toggle(k.clause_id)} className="mt-1" />
+            <label key={k.clause_id} className={`flex cursor-pointer gap-3 rounded-lg border px-3 py-2 text-sm transition-colors ${chosen.includes(k.clause_id) ? "border-red-300 bg-red-50/60 dark:border-red-900 dark:bg-red-950/30" : "border-zinc-200 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"}`}>
+              <input type="checkbox" checked={chosen.includes(k.clause_id)} onChange={() => toggle(k.clause_id)} className="checkbox mt-0.5 accent-red-600" />
               <span>
                 <span className="font-medium">{k.clause_id} — {k.title}</span>
-                <span className="block text-zinc-500">{k.body}</span>
+                <span className="subtle block text-xs">{k.body}</span>
               </span>
             </label>
           ))}
         </fieldset>
-        <p className="rounded bg-zinc-100 p-2 text-sm dark:bg-zinc-800">
+        <p className="notice notice-info">
           {c.review_request
             ? "This is the customer's review request: your decision is final."
             : "The customer will be told this decision was made by a person, and can request a review."}
         </p>
         <div className="flex justify-end gap-3">
-          <button type="button" onClick={onCancel} className="rounded-md px-4 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-800">Cancel</button>
+          <button type="button" onClick={onCancel} className="btn btn-secondary">Cancel</button>
           <button
             type="button"
             disabled={pending || chosen.length === 0}
             onClick={() => onConfirm(chosen)}
-            className="rounded-md bg-red-700 px-4 py-2 font-medium text-white hover:bg-red-800 disabled:opacity-50"
+            className="btn btn-danger"
           >
             {pending ? "Saving…" : "Confirm denial"}
           </button>
         </div>
-        {chosen.length === 0 ? <p className="text-right text-xs text-zinc-500">Choose at least one policy rule.</p> : null}
+        {chosen.length === 0 ? <p className="hint text-right">Choose at least one policy rule.</p> : null}
       </div>
     </div>
   );
@@ -753,26 +795,27 @@ function detailText(action: string, d: Record<string, unknown>): string | null {
 
 function Timeline({ c }: { c: ReviewCase }) {
   return (
-    <details className="rounded-md border border-zinc-200 p-4 dark:border-zinc-800">
-      <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-zinc-500">
+    <details className="card px-5 py-4">
+      <summary className="cursor-pointer text-sm font-semibold">
         Case history ({c.timeline.length})
       </summary>
-      <ol className="mt-3 flex flex-col gap-2 text-sm">
+      <ol className="mt-4 flex flex-col gap-0 border-l-2 border-zinc-100 pl-4 text-sm dark:border-zinc-800">
         {c.timeline.map((e, i) => {
           const extra = detailText(e.action, e.details);
           return (
-            <li key={i} className="grid grid-cols-[10rem_1fr] gap-3">
-              <span className="text-xs text-zinc-500">{formatDateTime(e.at)}</span>
+            <li key={i} className="relative grid gap-0.5 pb-4 sm:grid-cols-[11rem_1fr] sm:gap-3">
+              <span aria-hidden className="absolute top-1.5 -left-[1.4rem] h-2.5 w-2.5 rounded-full border-2 border-white bg-indigo-500 dark:border-zinc-900" />
+              <span className="subtle text-xs">{formatDateTime(e.at)}</span>
               <span>
                 {ACTION_LABELS[e.action] ?? e.action}
-                {e.actor_name ? <span className="text-zinc-500"> · {e.actor_name}</span> : null}
-                {extra ? <span className="block text-xs text-zinc-500">{extra}</span> : null}
+                {e.actor_name ? <span className="subtle"> · {e.actor_name}</span> : null}
+                {extra ? <span className="subtle block text-xs">{extra}</span> : null}
               </span>
             </li>
           );
         })}
       </ol>
-      <p className="mt-3 text-xs text-zinc-500">From the append-only audit log. Escalation reason now: <ReasonBadge reason={c.escalation_reason} /></p>
+      <p className="hint mt-1">From the append-only audit log. Escalation reason now: <ReasonBadge reason={c.escalation_reason} /></p>
     </details>
   );
 }
@@ -813,13 +856,19 @@ function LiveTrace({ returnId, active }: { returnId: string; active: boolean }) 
     return () => source.close();
   }, [returnId, active]);
   return (
-    <details className="rounded-md border border-zinc-200 p-3 dark:border-zinc-800" open={active || undefined}>
-      <summary className="cursor-pointer text-sm font-semibold">Pipeline trace · {connection}</summary>
-      <ol className="mt-3 space-y-2 text-sm" aria-label="Pipeline trace" aria-live="polite">
-        {events.length === 0 ? <li>No pipeline events yet.</li> : null}
+    <details className="card px-5 py-3" open={active || undefined}>
+      <summary className="flex cursor-pointer items-center gap-2 text-sm font-semibold">
+        Pipeline trace
+        <span className={`badge ${active ? "badge-info" : "badge-neutral"}`}>
+          {active ? <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-sky-500" /> : null}
+          {connection}
+        </span>
+      </summary>
+      <ol className="mt-3 space-y-1.5 font-mono text-xs" aria-label="Pipeline trace" aria-live="polite">
+        {events.length === 0 ? <li className="subtle font-sans text-sm">No pipeline events yet.</li> : null}
         {events.map((event, index) => (
-          <li key={`${event.run_id}-${index}`}>
-            <span className="font-medium">{event.step.replaceAll("_", " ")}</span> {event.kind}
+          <li key={`${event.run_id}-${index}`} className="rounded-md bg-zinc-50 px-2.5 py-1.5 dark:bg-zinc-800/50">
+            <span className="font-semibold text-indigo-700 dark:text-indigo-300">{event.step.replaceAll("_", " ")}</span> <span className="subtle">{event.kind}</span>
             {event.data.latency_ms != null ? ` · ${event.data.latency_ms} ms` : ""}
             {event.data.model ? ` · ${event.data.model}` : ""}
             {event.data.tokens_in != null ? ` · ${event.data.tokens_in} input / ${event.data.tokens_out} output tokens` : ""}

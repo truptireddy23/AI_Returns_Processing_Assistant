@@ -1,10 +1,12 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { RequireRole } from "@/components/require-role";
+import { EmptyState, ErrorNotice, PageHeader } from "@/components/ui";
 import { api, errorMessage, formatMoney, type Product } from "@/lib/api";
 import { MAX_QUANTITY, useCart } from "@/lib/cart";
 
@@ -12,7 +14,7 @@ export default function CartPage() {
   return <RequireRole roles={["customer"]}>{() => <Cart />}</RequireRole>;
 }
 
-const inputClass = "rounded-md border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900";
+const inputClass = "input";
 
 function Cart() {
   const cart = useCart();
@@ -73,91 +75,102 @@ function Cart() {
 
   if (cart.count === 0) {
     return (
-      <section className="flex flex-col gap-3">
-        <h1 className="text-2xl font-semibold">Cart</h1>
-        <p>
-          Your cart is empty. <Link href="/shop" className="underline">Browse the shop</Link>.
-        </p>
+      <section className="flex flex-col gap-6">
+        <PageHeader title="Cart" />
+        <EmptyState
+          title="Your cart is empty"
+          body="Find something you like in the shop, then come back here to check out."
+          action={<Link href="/shop" className="btn btn-primary">Browse the shop</Link>}
+        />
       </section>
     );
   }
 
-  return (
-    <section className="grid gap-8 md:grid-cols-[1fr_minmax(0,22rem)]">
-      <div className="flex flex-col gap-4">
-        <h1 className="text-2xl font-semibold">Cart</h1>
-        <ul className="flex flex-col divide-y divide-zinc-200 dark:divide-zinc-800" data-testid="cart-lines">
-          {lines.map(([id, qty]) => (
-            <li key={id} className="flex items-center justify-between gap-3 py-3">
-              <span>{products[id].name}</span>
-              <span className="flex items-center gap-3">
-                <label className="sr-only" htmlFor={`qty-${id}`}>Quantity</label>
-                <select
-                  id={`qty-${id}`}
-                  value={qty}
-                  onChange={(e) => cart.setQuantity(id, Number(e.target.value))}
-                  className={inputClass}
-                >
-                  {Array.from({ length: MAX_QUANTITY + 1 }, (_, n) => (
-                    <option key={n} value={n}>{n === 0 ? "Remove" : n}</option>
-                  ))}
-                </select>
-                <span className="w-20 text-right">{formatMoney(products[id].price_cents * qty)}</span>
-              </span>
-            </li>
-          ))}
-        </ul>
-        <p className="text-right font-medium">Total {formatMoney(total)}</p>
-      </div>
+  const itemCount = lines.reduce((n, [, q]) => n + q, 0);
 
-      <form onSubmit={onSubmit} className="flex flex-col gap-3" aria-label="Checkout">
-        <h2 className="text-lg font-medium">Checkout</h2>
-        <fieldset className="flex flex-col gap-2">
-          <legend className="text-sm font-medium">Shipping</legend>
-          <input name="name" required placeholder="Full name" autoComplete="name" className={inputClass} />
-          <input name="line1" required placeholder="Street address" autoComplete="address-line1" className={inputClass} />
-          <div className="flex gap-2">
-            <input name="city" required placeholder="City" autoComplete="address-level2" className={`${inputClass} flex-1`} />
-            <input name="postal_code" required placeholder="ZIP" autoComplete="postal-code" className={`${inputClass} w-24`} />
+  return (
+    <section className="flex flex-col gap-6">
+      <PageHeader title="Cart" subtitle={`${itemCount} item${itemCount === 1 ? "" : "s"} ready for checkout`} />
+      <div className="grid items-start gap-6 lg:grid-cols-[1fr_minmax(0,24rem)]">
+        <div className="card overflow-hidden">
+          <ul className="divide-y divide-zinc-100 dark:divide-zinc-800" data-testid="cart-lines">
+            {lines.map(([id, qty]) => {
+              const p = products[id];
+              const photo = p.photos[0]?.url ?? p.photo_url;
+              return (
+                <li key={id} className="flex items-center gap-4 p-4">
+                  {photo ? (
+                    <Image src={photo} alt="" width={64} height={64} unoptimized className="h-16 w-16 shrink-0 rounded-lg border border-zinc-100 bg-white object-contain p-1 dark:border-zinc-800" />
+                  ) : null}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium">{p.name}</p>
+                    <p className="subtle text-sm">{formatMoney(p.price_cents)} each</p>
+                  </div>
+                  <label className="sr-only" htmlFor={`qty-${id}`}>Quantity</label>
+                  <select
+                    id={`qty-${id}`}
+                    value={qty}
+                    onChange={(e) => cart.setQuantity(id, Number(e.target.value))}
+                    className="input w-24"
+                  >
+                    {Array.from({ length: MAX_QUANTITY + 1 }, (_, n) => (
+                      <option key={n} value={n}>{n === 0 ? "Remove" : `Qty ${n}`}</option>
+                    ))}
+                  </select>
+                  <span className="w-20 text-right font-medium tabular-nums">{formatMoney(p.price_cents * qty)}</span>
+                </li>
+              );
+            })}
+          </ul>
+          <div className="flex items-center justify-between border-t border-zinc-100 bg-zinc-50/60 px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900/60">
+            <span className="muted text-sm">Subtotal</span>
+            <span className="text-lg font-semibold tabular-nums">{formatMoney(total)}</span>
           </div>
-        </fieldset>
-        <fieldset className="flex flex-col gap-2">
-          <legend className="text-sm font-medium">Billing</legend>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={billingSame} onChange={(e) => setBillingSame(e.target.checked)} />
-            Billing address same as shipping
-          </label>
-          {billingSame ? null : (
-            <>
-              <input name="billing_name" required placeholder="Name on card" autoComplete="billing name" className={inputClass} />
-              <input name="billing_line1" required placeholder="Billing street address" autoComplete="billing address-line1" className={inputClass} />
-              <div className="flex gap-2">
-                <input name="billing_city" required placeholder="City" autoComplete="billing address-level2" className={`${inputClass} flex-1`} />
-                <input name="billing_postal_code" required placeholder="ZIP" autoComplete="billing postal-code" className={`${inputClass} w-24`} />
-              </div>
-            </>
-          )}
-        </fieldset>
-        <fieldset className="flex flex-col gap-2">
-          <legend className="text-sm font-medium">Payment (test cards only)</legend>
-          <p className="text-xs text-zinc-500">
-            No money moves. Use 4242 4242 4242 4242, any future expiry, any 3-digit code.
-          </p>
-          <input name="card" required inputMode="numeric" placeholder="Card number" autoComplete="off" className={inputClass} />
-          <div className="flex gap-2">
-            <input name="expiry" required placeholder="MM/YY" autoComplete="off" className={`${inputClass} flex-1`} />
-            <input name="cvc" required inputMode="numeric" placeholder="CVC" autoComplete="off" className={`${inputClass} w-24`} />
-          </div>
-        </fieldset>
-        {error ? <p role="alert" className="text-sm text-red-700 dark:text-red-400">{error}</p> : null}
-        <button
-          type="submit"
-          disabled={pending}
-          className="rounded-md bg-zinc-900 px-4 py-2 font-medium text-white disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900"
-        >
-          {pending ? "Placing order…" : `Place order · ${formatMoney(total)}`}
-        </button>
-      </form>
+        </div>
+
+        <form onSubmit={onSubmit} className="card card-pad flex flex-col gap-5 lg:sticky lg:top-24" aria-label="Checkout">
+          <h2 className="text-lg font-semibold">Checkout</h2>
+          <fieldset className="flex flex-col gap-2.5">
+            <legend className="label mb-2">Shipping</legend>
+            <input name="name" required placeholder="Full name" autoComplete="name" className={inputClass} />
+            <input name="line1" required placeholder="Street address" autoComplete="address-line1" className={inputClass} />
+            <div className="flex gap-2">
+              <input name="city" required placeholder="City" autoComplete="address-level2" className={`${inputClass} flex-1`} />
+              <input name="postal_code" required placeholder="ZIP" autoComplete="postal-code" className={`${inputClass} w-28`} />
+            </div>
+          </fieldset>
+          <fieldset className="flex flex-col gap-2.5">
+            <legend className="label mb-2">Billing</legend>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={billingSame} onChange={(e) => setBillingSame(e.target.checked)} className="checkbox" />
+              Billing address same as shipping
+            </label>
+            {billingSame ? null : (
+              <>
+                <input name="billing_name" required placeholder="Name on card" autoComplete="billing name" className={inputClass} />
+                <input name="billing_line1" required placeholder="Billing street address" autoComplete="billing address-line1" className={inputClass} />
+                <div className="flex gap-2">
+                  <input name="billing_city" required placeholder="City" autoComplete="billing address-level2" className={`${inputClass} flex-1`} />
+                  <input name="billing_postal_code" required placeholder="ZIP" autoComplete="billing postal-code" className={`${inputClass} w-28`} />
+                </div>
+              </>
+            )}
+          </fieldset>
+          <fieldset className="flex flex-col gap-2.5">
+            <legend className="label mb-2">Payment <span className="badge badge-info ml-1">Test cards only</span></legend>
+            <p className="hint">No money moves. Use 4242 4242 4242 4242, any future expiry, any 3-digit code.</p>
+            <input name="card" required inputMode="numeric" placeholder="Card number" autoComplete="off" className={inputClass} />
+            <div className="flex gap-2">
+              <input name="expiry" required placeholder="MM/YY" autoComplete="off" className={`${inputClass} flex-1`} />
+              <input name="cvc" required inputMode="numeric" placeholder="CVC" autoComplete="off" className={`${inputClass} w-28`} />
+            </div>
+          </fieldset>
+          {error ? <ErrorNotice>{error}</ErrorNotice> : null}
+          <button type="submit" disabled={pending} className="btn btn-primary w-full py-2.5">
+            {pending ? "Placing order…" : `Place order · ${formatMoney(total)}`}
+          </button>
+        </form>
+      </div>
     </section>
   );
 }

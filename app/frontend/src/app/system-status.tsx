@@ -38,11 +38,14 @@ export function SystemStatus() {
   }, []);
 
   return (
-    <section aria-labelledby="status-heading" className="flex flex-col gap-3">
-      <h2 id="status-heading" className="text-lg font-medium">
-        System status
-      </h2>
-      <ul className="flex flex-col gap-2">
+    <section aria-labelledby="status-heading" className="card card-pad flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h2 id="status-heading" className="text-sm font-semibold">
+          System status
+        </h2>
+        <p className="subtle text-xs">Live checks against the API and the database.</p>
+      </div>
+      <ul className="flex flex-wrap gap-2">
         {CHECKS.map((check) => {
           const result = results[check.path];
           const state = result ? (result.ok ? "ok" : "down") : "checking";
@@ -51,20 +54,14 @@ export function SystemStatus() {
               key={check.path}
               data-testid={`status-${check.label.toLowerCase()}`}
               data-state={state}
-              className="flex items-center justify-between rounded-md border border-zinc-200 px-4 py-3 dark:border-zinc-800"
+              className={`badge ${state === "ok" ? "badge-success" : state === "down" ? "badge-danger" : "badge-neutral"} px-3 py-1`}
             >
-              <span>{check.label}</span>
               <span
-                className={
-                  state === "ok"
-                    ? "text-green-700 dark:text-green-400"
-                    : state === "down"
-                      ? "text-red-700 dark:text-red-400"
-                      : "text-zinc-500"
-                }
-              >
-                {state === "checking" ? "Checking…" : result?.detail}
-              </span>
+                aria-hidden
+                className={`h-2 w-2 rounded-full ${state === "ok" ? "bg-emerald-500" : state === "down" ? "bg-red-500" : "animate-pulse bg-zinc-400"}`}
+              />
+              <span>{check.label}</span>
+              <span className="font-normal opacity-80">{state === "checking" ? "Checking…" : result?.detail}</span>
             </li>
           );
         })}

@@ -1,8 +1,27 @@
 @import "tailwindcss";
 
+/*
+ * ReturnGuard design foundation.
+ *
+ * Neutrals are Tailwind's zinc scale; the brand accent is indigo. Pages sit on a
+ * soft grey canvas and content lives on white cards, so hierarchy comes from
+ * surface and spacing rather than heavy borders. Dark mode follows the system
+ * setting (Tailwind's default `dark:` variant).
+ *
+ * Shared pieces are plain classes (.btn, .input, .card, …) so every page uses the
+ * same controls; page-specific layout stays inline as Tailwind utilities.
+ */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f6f7f9;
+  --foreground: #18181b;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #09090b;
+    --foreground: #f4f4f5;
+  }
 }
 
 @theme inline {
@@ -12,15 +31,189 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+::selection {
+  background: rgb(99 102 241 / 0.25);
+}
+
+@layer components {
+  /* --- Buttons ----------------------------------------------------------- */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors duration-150 select-none;
+    @apply focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500;
+    @apply disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs;
+  }
+  .btn-lg {
+    @apply px-5 py-2.5 text-base;
+  }
+  .btn-primary {
+    @apply bg-indigo-600 text-white shadow-sm hover:bg-indigo-500 active:bg-indigo-700;
+  }
+  .btn-secondary {
+    @apply border border-zinc-300 bg-white text-zinc-800 shadow-sm hover:bg-zinc-50;
+    @apply dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800;
+  }
+  .btn-ghost {
+    @apply text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900;
+    @apply dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-50;
+  }
+  .btn-success {
+    @apply bg-emerald-600 text-white shadow-sm hover:bg-emerald-500 active:bg-emerald-700;
+  }
+  .btn-danger {
+    @apply bg-red-600 text-white shadow-sm hover:bg-red-500 active:bg-red-700;
+  }
+  .btn-danger-outline {
+    @apply border border-red-300 bg-white text-red-700 shadow-sm hover:bg-red-50;
+    @apply dark:border-red-900 dark:bg-zinc-900 dark:text-red-400 dark:hover:bg-red-950/40;
+  }
+
+  /* --- Form controls ------------------------------------------------------ */
+  .input {
+    @apply block w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm transition-colors;
+    @apply placeholder:text-zinc-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 focus:outline-none;
+    @apply dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500;
+    @apply disabled:bg-zinc-50 disabled:text-zinc-500 aria-[invalid=true]:border-red-400 aria-[invalid=true]:focus:ring-red-500/15;
+  }
+  .label {
+    @apply text-sm font-medium text-zinc-800 dark:text-zinc-200;
+  }
+  .hint {
+    @apply text-xs text-zinc-500 dark:text-zinc-400;
+  }
+  .field {
+    @apply flex flex-col gap-1.5;
+  }
+  .checkbox {
+    @apply h-4 w-4 rounded border-zinc-300 accent-indigo-600;
+  }
+
+  /* --- Surfaces ----------------------------------------------------------- */
+  .card {
+    @apply rounded-xl border border-zinc-200/80 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900;
+  }
+  .card-pad {
+    @apply p-5;
+  }
+  .card-header {
+    @apply flex items-center justify-between gap-3 border-b border-zinc-100 px-5 py-3 dark:border-zinc-800;
+  }
+  .eyebrow {
+    @apply text-xs font-semibold tracking-wider text-zinc-500 uppercase dark:text-zinc-400;
+  }
+  .muted {
+    @apply text-zinc-600 dark:text-zinc-400;
+  }
+  .subtle {
+    @apply text-zinc-500 dark:text-zinc-400;
+  }
+  .link {
+    @apply font-medium text-indigo-600 underline-offset-4 hover:text-indigo-500 hover:underline dark:text-indigo-400;
+  }
+
+  /* --- Page structure ----------------------------------------------------- */
+  .page-title {
+    @apply text-2xl font-semibold tracking-tight text-zinc-900 sm:text-3xl dark:text-zinc-50;
+  }
+  .page-subtitle {
+    @apply mt-1 text-sm text-zinc-600 dark:text-zinc-400;
+  }
+
+  /* --- Badges -------------------------------------------------------------- */
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap ring-1 ring-inset;
+  }
+  .badge-neutral {
+    @apply bg-zinc-100 text-zinc-700 ring-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:ring-zinc-700;
+  }
+  .badge-brand {
+    @apply bg-indigo-50 text-indigo-700 ring-indigo-200 dark:bg-indigo-950/60 dark:text-indigo-300 dark:ring-indigo-900;
+  }
+  .badge-success {
+    @apply bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:ring-emerald-900;
+  }
+  .badge-warning {
+    @apply bg-amber-50 text-amber-800 ring-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:ring-amber-900;
+  }
+  .badge-danger {
+    @apply bg-red-50 text-red-700 ring-red-200 dark:bg-red-950/60 dark:text-red-300 dark:ring-red-900;
+  }
+  .badge-info {
+    @apply bg-sky-50 text-sky-700 ring-sky-200 dark:bg-sky-950/60 dark:text-sky-300 dark:ring-sky-900;
+  }
+  .badge-violet {
+    @apply bg-violet-50 text-violet-700 ring-violet-200 dark:bg-violet-950/60 dark:text-violet-300 dark:ring-violet-900;
+  }
+
+  /* --- Notices -------------------------------------------------------------- */
+  .notice {
+    @apply flex gap-3 rounded-xl border px-4 py-3 text-sm;
+  }
+  .notice-warning {
+    @apply border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100;
+  }
+  .notice-danger {
+    @apply border-red-200 bg-red-50 text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-100;
+  }
+  .notice-info {
+    @apply border-sky-200 bg-sky-50 text-sky-900 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-100;
+  }
+  .notice-success {
+    @apply border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100;
+  }
+  .notice-violet {
+    @apply border-violet-200 bg-violet-50 text-violet-900 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-100;
+  }
+  .error-text {
+    @apply text-sm text-red-700 dark:text-red-400;
+  }
+
+  /* --- Tables --------------------------------------------------------------- */
+  .table {
+    @apply w-full text-left text-sm;
+  }
+  .table thead {
+    @apply bg-zinc-50/80 text-xs font-medium tracking-wide text-zinc-500 uppercase dark:bg-zinc-900/60 dark:text-zinc-400;
+  }
+  .table th {
+    @apply px-4 py-2.5 font-medium;
+  }
+  .table td {
+    @apply px-4 py-3;
+  }
+  .table tbody tr {
+    @apply border-t border-zinc-100 transition-colors dark:border-zinc-800;
+  }
+
+  /* --- Tabs ------------------------------------------------------------------- */
+  .tabs {
+    @apply inline-flex flex-wrap gap-1 rounded-xl bg-zinc-100 p-1 dark:bg-zinc-900;
+  }
+  .tab {
+    @apply rounded-lg px-3.5 py-1.5 text-sm font-medium text-zinc-600 transition-colors hover:text-zinc-900;
+    @apply dark:text-zinc-400 dark:hover:text-zinc-100;
+    @apply aria-selected:bg-white aria-selected:text-zinc-900 aria-selected:shadow-sm aria-pressed:bg-white aria-pressed:text-zinc-900 aria-pressed:shadow-sm;
+    @apply dark:aria-selected:bg-zinc-800 dark:aria-selected:text-zinc-50 dark:aria-pressed:bg-zinc-800 dark:aria-pressed:text-zinc-50;
+  }
+
+  /* --- Chips (toggle pills) --------------------------------------------------- */
+  .chip {
+    @apply inline-flex items-center rounded-full border border-zinc-300 bg-white px-3 py-1 text-sm text-zinc-700 transition-colors hover:border-zinc-400 hover:bg-zinc-50;
+    @apply dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800;
+    @apply aria-pressed:border-indigo-600 aria-pressed:bg-indigo-600 aria-pressed:text-white;
+    @apply disabled:opacity-50;
+  }
+
+  /* --- Loading skeleton ------------------------------------------------------- */
+  .skeleton {
+    @apply animate-pulse rounded-lg bg-zinc-200/70 dark:bg-zinc-800;
+  }
 }

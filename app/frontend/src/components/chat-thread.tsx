@@ -163,7 +163,7 @@ export function ChatThread({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed right-5 bottom-5 z-40 flex items-center gap-2 rounded-full bg-zinc-900 px-4 py-3 text-sm font-medium text-white shadow-lg hover:opacity-90 dark:bg-zinc-100 dark:text-zinc-900"
+        className="fixed right-5 bottom-5 z-40 flex items-center gap-2 rounded-full bg-gradient-to-r from-indigo-600 to-violet-600 px-5 py-3 text-sm font-medium text-white shadow-lg shadow-indigo-600/25 transition hover:scale-[1.03] hover:shadow-xl"
       >
         <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
           <path d="M2 4.5A2.5 2.5 0 0 1 4.5 2h11A2.5 2.5 0 0 1 18 4.5v7A2.5 2.5 0 0 1 15.5 14H8l-3.5 3.5a.5.5 0 0 1-.85-.35V14h-.15A2.5 2.5 0 0 1 2 11.5v-7Z" />
@@ -182,21 +182,21 @@ export function ChatThread({
     <div
       className={
         floating
-          ? "fixed right-5 bottom-5 z-40 flex w-80 flex-col rounded-lg border border-zinc-200 bg-white shadow-xl dark:border-zinc-800 dark:bg-zinc-950"
+          ? "fixed right-5 bottom-5 z-40 flex w-[22rem] max-w-[calc(100vw-2.5rem)] flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
           : bare
             ? "flex flex-col gap-2"
-            : "flex flex-col gap-2 rounded border border-zinc-200 dark:border-zinc-800"
+            : "card flex flex-col gap-2 overflow-hidden"
       }
     >
       {bare ? null : (
-        <div className="flex items-center justify-between border-b border-zinc-200 px-3 py-2 text-sm font-medium dark:border-zinc-800">
-          Chat
+        <div className="flex items-center justify-between border-b border-zinc-200 bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-3 text-sm font-semibold text-white dark:border-zinc-800">
+          <span className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-emerald-300" />Chat with us</span>
           {floating ? (
             <button
               type="button"
               onClick={() => setOpen(false)}
               aria-label="Close chat"
-              className="rounded p-1 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              className="rounded-md p-1 text-white/80 hover:bg-white/15 hover:text-white"
             >
               <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-4 w-4">
                 <path strokeLinecap="round" d="M5 5l10 10M15 5L5 15" />
@@ -214,8 +214,8 @@ export function ChatThread({
             ref={listRef}
             className={
               bare
-                ? "flex max-h-80 flex-col gap-2 overflow-y-auto rounded-md bg-zinc-50 p-3 dark:bg-zinc-900"
-                : "flex max-h-72 flex-col gap-2 overflow-y-auto px-3 py-2"
+                ? "flex max-h-80 flex-col gap-3 overflow-y-auto rounded-xl bg-zinc-50 p-4 dark:bg-zinc-950"
+                : "flex max-h-80 min-h-40 flex-col gap-3 overflow-y-auto bg-zinc-50/70 px-4 py-3 dark:bg-zinc-950"
             }
           >
             {messages.length === 0 ? (
@@ -229,15 +229,15 @@ export function ChatThread({
                 const mine = m.sender === as;
                 return (
                   <div key={m.id} className={`flex flex-col ${mine ? "items-end" : "items-start"}`}>
-                    <span className="text-xs text-zinc-500">
+                    <span className="mb-0.5 text-[11px] text-zinc-500">
                       {m.sender === as ? "You" : MESSAGE_SENDER_LABELS[m.sender]} ·{" "}
                       {formatDateTime(m.created_at)}
                     </span>
                     <p
-                      className={`max-w-[85%] rounded-lg px-3 py-1.5 text-sm whitespace-pre-wrap ${
+                      className={`max-w-[85%] rounded-2xl px-3.5 py-2 text-sm leading-relaxed whitespace-pre-wrap shadow-sm ${
                         mine
-                          ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                          : "bg-zinc-100 dark:bg-zinc-800"
+                          ? "rounded-br-md bg-indigo-600 text-white"
+                          : "rounded-bl-md border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-800"
                       }`}
                     >
                       {m.body}
@@ -249,7 +249,7 @@ export function ChatThread({
           </div>
 
           {as === "customer" ? (
-            <div className="flex flex-wrap gap-1.5 px-3 pb-1">
+            <div className={bare ? "flex flex-wrap gap-1.5" : "flex flex-wrap gap-1.5 px-4 pt-1"}>
               {suggestedQuestions(
                 context,
                 messages.some((m) => m.sender === "reviewer"),
@@ -259,7 +259,7 @@ export function ChatThread({
                   type="button"
                   onClick={() => sendText(q)}
                   disabled={sending}
-                  className="rounded-full border border-zinc-300 px-2.5 py-1 text-xs hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                  className="chip px-2.5 py-1 text-xs"
                 >
                   {q}
                 </button>
@@ -271,11 +271,11 @@ export function ChatThread({
             className={
               bare
                 ? "flex flex-col gap-1"
-                : "flex flex-col gap-1 border-t border-zinc-200 p-2 dark:border-zinc-800"
+                : "flex flex-col gap-1 border-t border-zinc-100 p-3 dark:border-zinc-800"
             }
           >
             {error ? (
-              <p role="alert" className="text-sm text-red-700 dark:text-red-400">
+              <p role="alert" className="error-text">
                 {error}
               </p>
             ) : null}
@@ -292,19 +292,19 @@ export function ChatThread({
                 maxLength={MAX_LENGTH}
                 rows={1}
                 placeholder={as === "customer" ? "Ask a question…" : "Message the customer…"}
-                className="flex-1 resize-none rounded-md border border-zinc-300 bg-transparent px-2 py-1.5 text-sm dark:border-zinc-700"
+                className="input flex-1 resize-none"
               />
               <button
                 type="button"
                 onClick={() => sendText(draft)}
                 disabled={sending || !draft.trim()}
-                className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+                className="btn btn-primary"
               >
                 Send
               </button>
             </div>
             {as === "reviewer" ? (
-              <p className="text-xs text-zinc-500">
+              <p className="hint">
                 Sending a message hands this thread to you — the assistant stops auto-replying.
               </p>
             ) : null}

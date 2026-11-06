@@ -83,69 +83,69 @@ export function AuditLogView() {
     }
   }
 
-  const select = "rounded-md border border-zinc-300 bg-transparent px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-950";
+  const select = "input w-auto";
 
   return (
     <div className="flex flex-col gap-4">
       <form
-        className="flex flex-wrap items-end gap-3"
+        className="card flex flex-wrap items-end gap-3 p-4"
         onSubmit={(e) => {
           e.preventDefault();
           setEntries(null);
           setApplied(filters);
         }}
       >
-        <label className="flex flex-col gap-1 text-xs text-zinc-500">
+        <label className="flex flex-col gap-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400">
           Who
           <select value={filters.actor} onChange={(e) => setFilters({ ...filters, actor: e.target.value as ActorType | "" })} className={select}>
             <option value="">Anyone</option>
             {(Object.keys(ACTOR_LABELS) as ActorType[]).map((a) => <option key={a} value={a}>{ACTOR_LABELS[a]}</option>)}
           </select>
         </label>
-        <label className="flex flex-col gap-1 text-xs text-zinc-500">
+        <label className="flex flex-col gap-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400">
           What
           <select value={filters.action} onChange={(e) => setFilters({ ...filters, action: e.target.value })} className={select}>
             {ACTION_FILTERS.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
           </select>
         </label>
-        <label className="flex flex-col gap-1 text-xs text-zinc-500">
+        <label className="flex flex-col gap-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400">
           Case
           <input value={filters.caseNumber} onChange={(e) => setFilters({ ...filters, caseNumber: e.target.value })} placeholder="R-213" className={`${select} w-28`} />
         </label>
-        <button type="submit" className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm text-white dark:bg-zinc-100 dark:text-zinc-900">Apply</button>
+        <button type="submit" className="btn btn-primary">Apply filters</button>
       </form>
 
-      {error ? <p role="alert" className="text-red-700 dark:text-red-400">{error}</p> : null}
-      {entries === null && !error ? <p className="text-zinc-500">Loading…</p> : null}
-      {entries?.length === 0 ? <p className="text-zinc-500">No entries match.</p> : null}
+      {error ? <p role="alert" className="notice notice-danger">{error}</p> : null}
+      {entries === null && !error ? <div className="skeleton h-64" /> : null}
+      {entries?.length === 0 ? <p className="card card-pad subtle text-center text-sm">No entries match.</p> : null}
 
       {entries && entries.length > 0 ? (
-        <div className="overflow-x-auto rounded-md border border-zinc-200 dark:border-zinc-800">
-          <table className="w-full min-w-[760px] text-left text-sm" data-testid="audit-table">
-            <thead className="bg-zinc-50 text-xs uppercase tracking-wide text-zinc-500 dark:bg-zinc-900">
+        <div className="card overflow-x-auto">
+          <table className="table min-w-[760px]" data-testid="audit-table">
+            <thead>
               <tr>
-                <th className="px-3 py-2 font-medium">Time</th>
-                <th className="px-3 py-2 font-medium">Actor</th>
-                <th className="px-3 py-2 font-medium">Action</th>
-                <th className="px-3 py-2 font-medium">Case</th>
-                <th className="px-3 py-2 font-medium">Details</th>
+                <th>Time</th>
+                <th>Actor</th>
+                <th>Action</th>
+                <th>Case</th>
+                <th>Details</th>
               </tr>
             </thead>
             <tbody>
               {entries.map((e) => (
-                <tr key={e.id} className="border-t border-zinc-200 align-top dark:border-zinc-800">
-                  <td className="whitespace-nowrap px-3 py-2 text-zinc-600 dark:text-zinc-400">{formatDateTime(e.at)}</td>
-                  <td className="px-3 py-2">
-                    {ACTOR_LABELS[e.actor_type]}
-                    {e.actor_name ? <span className="block text-xs text-zinc-500">{e.actor_name}</span> : null}
+                <tr key={e.id} className="align-top hover:bg-zinc-50/60 dark:hover:bg-zinc-800/40">
+                  <td className="muted whitespace-nowrap text-xs">{formatDateTime(e.at)}</td>
+                  <td>
+                    <span className="badge badge-neutral">{ACTOR_LABELS[e.actor_type]}</span>
+                    {e.actor_name ? <span className="subtle mt-1 block text-xs">{e.actor_name}</span> : null}
                   </td>
-                  <td className="px-3 py-2">{ACTION_LABELS[e.action] ?? e.action}</td>
-                  <td className="px-3 py-2">
+                  <td className="font-medium">{ACTION_LABELS[e.action] ?? e.action}</td>
+                  <td>
                     {e.case_number && e.return_id ? (
-                      <Link href={`/review/${e.return_id}`} className="underline">R-{e.case_number}</Link>
+                      <Link href={`/review/${e.return_id}`} className="link">R-{e.case_number}</Link>
                     ) : "—"}
                   </td>
-                  <td className="max-w-md px-3 py-2 text-xs break-words text-zinc-600 dark:text-zinc-400">{summary(e) || "—"}</td>
+                  <td className="muted max-w-md text-xs break-words">{summary(e) || "—"}</td>
                 </tr>
               ))}
             </tbody>
@@ -154,11 +154,11 @@ export function AuditLogView() {
       ) : null}
 
       {nextBefore !== null ? (
-        <button type="button" onClick={more} disabled={loadingMore} className="w-fit rounded-md border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-800">
+        <button type="button" onClick={more} disabled={loadingMore} className="btn btn-secondary w-fit">
           {loadingMore ? "Loading…" : "Load older entries"}
         </button>
       ) : null}
-      <p className="text-xs text-zinc-500">The audit log is append-only: the database rejects edits and deletions. Customers are shown by role, not by name.</p>
+      <p className="hint">🔒 The audit log is append-only: the database rejects edits and deletions. Customers are shown by role, not by name.</p>
     </div>
   );
 }

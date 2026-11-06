@@ -4,10 +4,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { AuthShell } from "@/components/auth-shell";
 import { useAuth } from "@/lib/auth";
 
 const MIN_PASSWORD = 10;
-const inputClass = "rounded-md border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900";
+const inputClass = "input";
 
 export default function SignupPage() {
   const auth = useAuth();
@@ -42,22 +43,29 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-sm flex-col gap-6">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold">Create an account</h1>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">Shop and start returns online.</p>
-      </div>
+    <AuthShell
+      title="Create your account"
+      subtitle="Shop and start returns online."
+      footer={
+        <>
+          Already have an account?{" "}
+          <Link href="/login" className="link">
+            Sign in
+          </Link>
+        </>
+      }
+    >
       <form onSubmit={onSubmit} className="flex flex-col gap-4" aria-label="Create an account">
-        <label className="flex flex-col gap-1 text-sm">
-          Name
+        <label className="field">
+          <span className="label">Name</span>
           <input name="display_name" required maxLength={100} autoComplete="name" className={inputClass} />
         </label>
-        <label className="flex flex-col gap-1 text-sm">
-          Email
-          <input name="email" type="email" required autoComplete="email" className={inputClass} />
+        <label className="field">
+          <span className="label">Email</span>
+          <input name="email" type="email" required autoComplete="email" placeholder="you@example.com" className={inputClass} />
         </label>
-        <label className="flex flex-col gap-1 text-sm">
-          Password
+        <label className="field">
+          <span className="label">Password</span>
           <input
             name="password"
             type="password"
@@ -68,33 +76,23 @@ export default function SignupPage() {
             aria-describedby="password-help"
             className={inputClass}
           />
-          <span id="password-help" className="text-xs text-zinc-500">
+          <span id="password-help" className="hint">
             At least {MIN_PASSWORD} characters. Not your email, and not a common password.
           </span>
         </label>
-        <label className="flex flex-col gap-1 text-sm">
-          Confirm password
+        <label className="field">
+          <span className="label">Confirm password</span>
           <input name="confirm" type="password" required autoComplete="new-password" className={inputClass} />
         </label>
         {error ? (
-          <p role="alert" className="text-sm text-red-700 dark:text-red-400">
+          <p role="alert" className="notice notice-danger">
             {error}
           </p>
         ) : null}
-        <button
-          type="submit"
-          disabled={pending}
-          className="rounded-md bg-zinc-900 px-4 py-2 font-medium text-white disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900"
-        >
+        <button type="submit" disabled={pending} className="btn btn-primary mt-1 w-full py-2.5">
           {pending ? "Creating account…" : "Create account"}
         </button>
       </form>
-      <p className="text-sm">
-        Already have an account?{" "}
-        <Link href="/login" className="underline">
-          Sign in
-        </Link>
-      </p>
-    </div>
+    </AuthShell>
   );
 }

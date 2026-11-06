@@ -1,13 +1,13 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { ChatThread } from "@/components/chat-thread";
 import { RequireRole } from "@/components/require-role";
 import { StatusBadge } from "@/components/status-badge";
+import { ErrorNotice, LoadingRows, PageHeader } from "@/components/ui";
 import { api, csrfHeaders, errorMessage, formatDate, formatMoney, REASON_LABELS, type ReturnCase, type ReturnStatus } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
@@ -77,80 +77,112 @@ function Status() {
     };
   }, [id, reload]);
 
-  if (error) return <p role="alert" className="text-red-700">{error}</p>;
-  if (!ret) return <p className="text-zinc-500">{offline ? "Can't reach the server. Retrying…" : "Loading…"}</p>;
+  if (error) return <ErrorNotice>{error}</ErrorNotice>;
+  if (!ret) return offline ? <p className="notice notice-warning">Can&apos;t reach the server. Retrying…</p> : <LoadingRows rows={3} />;
 
   const step = STEP_OF[ret.status];
+  const done = ret.status === "approved" || ret.status === "denied";
+  const outcomeTone =
+    ret.status === "approved" ? "notice-success" : ret.status === "denied" ? "notice-danger" : "notice-info";
   return (
-    <section className="mx-auto flex w-full max-w-xl flex-col gap-6">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold">Return R-{ret.case_number}</h1>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          Order #{ret.order_number} · started {formatDate(ret.created_at)}
-        </p>
-      </div>
+    <section className="mx-auto flex w-full max-w-3xl flex-col gap-6">
+      <PageHeader
+        back={{ href: "/orders", label: "My orders" }}
+        title={`Return R-${ret.case_number}`}
+        subtitle={`Order #${ret.order_number} · started ${formatDate(ret.created_at)}`}
+        actions={<StatusBadge status={ret.status} />}
+      />
 
-      <ol className="grid grid-cols-4 gap-2 text-xs" aria-label="Progress" data-testid="progress">
-        {STEPS.map((label, i) => (
-          <li key={label} aria-current={i === step ? "step" : undefined} className="flex flex-col gap-1">
-            <span className={`h-1.5 rounded ${i <= step ? "bg-zinc-900 dark:bg-zinc-100" : "bg-zinc-200 dark:bg-zinc-800"}`} />
-            <span className={i === step ? "font-semibold" : "text-zinc-500"}>{label}</span>
-          </li>
-        ))}
-      </ol>
-
-      <div className="flex items-center gap-2" aria-live="polite">
-        <StatusBadge status={ret.status} />
-        {offline ? (
-          <span className="text-sm text-amber-700">Connection lost. Retrying…</span>
-        ) : POLL_WHILE.includes(ret.status) ? (
-          <span className="text-sm text-zinc-500">We&apos;ll update this page automatically.</span>
-        ) : null}
+      <div className="card card-pad flex flex-col gap-4">
+        <ol className="grid grid-cols-4" aria-label="Progress" data-testid="progress">
+          {STEPS.map((label, i) => {
+            const complete = i < step || (done && i === step);
+            const current = i === step && !done;
+            return (
+              <li key={label} aria-current={i === step ? "step" : undefined} className="relative flex flex-col items-center gap-2 text-center">
+                {i > 0 ? (
+                  <span
+                    aria-hidden
+                    className={`absolute top-4 right-1/2 h-0.5 w-full -translate-y-1/2 ${i <= step ? "bg-indigo-500" : "bg-zinc-200 dark:bg-zinc-800"}`}
+                  />
+                ) : null}
+                <span
+                  className={`relative z-10 flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold ring-4 ring-white dark:ring-zinc-900 ${
+                    complete
+                      ? "bg-indigo-600 text-white"
+                      : current
+                        ? "bg-white text-indigo-700 ring-indigo-100 outline-2 outline-indigo-600 dark:bg-zinc-900 dark:text-indigo-300"
+                        : "bg-zinc-100 text-zinc-500 dark:bg-zinc-800"
+                  }`}
+                >
+                  {complete ? "✓" : i + 1}
+                </span>
+                <span className={`text-xs ${i === step ? "font-semibold text-zinc-900 dark:text-zinc-100" : "subtle"}`}>{label}</span>
+              </li>
+            );
+          })}
+        </ol>
+        <div className="flex items-center justify-center gap-2 text-sm" aria-live="polite">
+          {offline ? (
+            <span className="text-amber-700 dark:text-amber-400">Connection lost. Retrying…</span>
+          ) : POLL_WHILE.includes(ret.status) ? (
+            <span className="subtle flex items-center gap-2">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-sky-500" />
+              We&apos;ll update this page automatically.
+            </span>
+          ) : null}
+        </div>
       </div>
 
       {ret.status === "needs_info" ? (
-        <div role="status" className="flex flex-col gap-3 rounded bg-amber-50 p-3 text-sm text-amber-900">
-          <p>{ret.customer_message ?? "We need more information to continue."}</p>
+        <div role="status" className="notice notice-warning flex-col gap-3">
+          <p className="font-medium">{ret.customer_message ?? "We need more information to continue."}</p>
           {isOwner && ret.photo_required ? (
             <AddPhoto returnId={ret.id} onSent={(updated) => { setRet(updated); setReload((n) => n + 1); }} />
           ) : null}
         </div>
       ) : ret.customer_message ? (
-        <p className="rounded border border-zinc-200 p-3 text-sm dark:border-zinc-800" data-testid="customer-message">{ret.customer_message}</p>
+        <div className={`notice ${outcomeTone}`} data-testid="customer-message">
+          <p className="leading-relaxed">{ret.customer_message}</p>
+        </div>
       ) : null}
 
       {isOwner && ret.can_request_review ? (
         <RequestReview returnId={ret.id} onSent={(updated) => setRet(updated)} />
       ) : null}
 
-      <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
-        <dt className="text-zinc-500">Item</dt>
-        <dd className="flex items-center gap-2">
-          {ret.product_photo_url ? <Image src={ret.product_photo_url} alt="" width={32} height={32} unoptimized className="rounded" /> : null}
-          {ret.product_name}
-        </dd>
-        <dt className="text-zinc-500">Reason</dt>
-        <dd>{REASON_LABELS[ret.reason]}</dd>
-        {ret.reason_text ? (
-          <>
-            <dt className="text-zinc-500">Your note</dt>
-            <dd className="whitespace-pre-wrap">{ret.reason_text}</dd>
-          </>
-        ) : null}
-        <dt className="text-zinc-500">Refund</dt>
-        <dd>{formatMoney(ret.refund_amount_cents)}</dd>
-      </dl>
+      <div className="grid gap-6 sm:grid-cols-[1fr_auto]">
+        <dl className="card card-pad grid grid-cols-[auto_1fr] items-center gap-x-6 gap-y-3 text-sm">
+          <dt className="eyebrow">Item</dt>
+          <dd className="flex items-center gap-3">
+            {ret.product_photo_url ? (
+              <Image src={ret.product_photo_url} alt="" width={40} height={40} unoptimized className="h-10 w-10 rounded-lg border border-zinc-100 bg-white object-contain p-0.5 dark:border-zinc-800" />
+            ) : null}
+            <span className="font-medium">{ret.product_name}</span>
+          </dd>
+          <dt className="eyebrow">Reason</dt>
+          <dd>{REASON_LABELS[ret.reason]}</dd>
+          {ret.reason_text ? (
+            <>
+              <dt className="eyebrow">Your note</dt>
+              <dd className="whitespace-pre-wrap">{ret.reason_text}</dd>
+            </>
+          ) : null}
+          <dt className="eyebrow">Refund</dt>
+          <dd className="text-base font-semibold tabular-nums">{formatMoney(ret.refund_amount_cents)}</dd>
+        </dl>
 
-      {ret.photos.length > 0 ? (
-        <div className="flex flex-col gap-2">
-          <h2 className="text-sm font-medium">Your photo</h2>
-          {ret.photos.map((p) => (
-            // Served by the API only to you and our reviewers (needs your session cookie).
-            // eslint-disable-next-line @next/next/no-img-element
-            <img key={p.id} src={p.url} alt="Photo you uploaded" className="max-h-72 w-fit rounded border border-zinc-200" />
-          ))}
-        </div>
-      ) : null}
+        {ret.photos.length > 0 ? (
+          <div className="card card-pad flex flex-col gap-2">
+            <h2 className="eyebrow">Your photo</h2>
+            {ret.photos.map((p) => (
+              // Served by the API only to you and our reviewers (needs your session cookie).
+              // eslint-disable-next-line @next/next/no-img-element
+              <img key={p.id} src={p.url} alt="Photo you uploaded" className="max-h-56 w-fit rounded-lg border border-zinc-200 dark:border-zinc-800" />
+            ))}
+          </div>
+        ) : null}
+      </div>
 
       {isOwner ? (
         <ChatThread
@@ -160,8 +192,6 @@ function Status() {
           context={{ status: ret.status, can_request_review: ret.can_request_review }}
         />
       ) : null}
-
-      <Link href="/orders" className="text-sm underline">Back to my orders</Link>
     </section>
   );
 }
@@ -192,39 +222,42 @@ function RequestReview({ returnId, onSent }: { returnId: string; onSent: (r: Ret
 
   if (!open) {
     return (
-      <div className="flex flex-wrap items-center gap-3 text-sm">
-        <span>Think we got it wrong?</span>
-        <button type="button" onClick={() => setOpen(true)} className="rounded-md border border-zinc-300 px-3 py-1.5 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800">
+      <div className="card card-pad flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="font-medium">Think we got it wrong?</p>
+          <p className="muted text-sm">A different member of our team will take a fresh look.</p>
+        </div>
+        <button type="button" onClick={() => setOpen(true)} className="btn btn-secondary">
           Request a review
         </button>
       </div>
     );
   }
   return (
-    <div className="flex flex-col gap-2 rounded border border-zinc-200 p-3 text-sm dark:border-zinc-800">
-      <label className="flex flex-col gap-1">
-        Tell us what we missed
+    <div className="card card-pad flex flex-col gap-3 text-sm">
+      <label className="field">
+        <span className="label">Tell us what we missed</span>
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
           rows={3}
           maxLength={1000}
-          className="rounded-md border border-zinc-300 bg-transparent px-2 py-1.5 dark:border-zinc-700"
+          className="input"
           placeholder="For example: the sole came apart after two weeks of normal use."
         />
       </label>
-      <p className="text-xs text-zinc-500">A different member of our team will look at it. You can ask once per return.</p>
-      {error ? <p role="alert" className="text-red-700">{error}</p> : null}
+      <p className="hint">A different member of our team will look at it. You can ask once per return.</p>
+      {error ? <ErrorNotice>{error}</ErrorNotice> : null}
       <div className="flex gap-2">
         <button
           type="button"
           onClick={send}
           disabled={pending || text.trim().length < 10}
-          className="w-fit rounded-md bg-zinc-900 px-3 py-1.5 text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+          className="btn btn-primary"
         >
           {pending ? "Sending…" : "Send request"}
         </button>
-        <button type="button" onClick={() => setOpen(false)} className="rounded-md px-3 py-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800">Cancel</button>
+        <button type="button" onClick={() => setOpen(false)} className="btn btn-ghost">Cancel</button>
       </div>
     </div>
   );
@@ -266,16 +299,21 @@ function AddPhoto({ returnId, onSent }: { returnId: string; onSent: (r: ReturnCa
 
   return (
     <div className="flex flex-col gap-2">
-      <label className="flex flex-col gap-1">
-        Add a photo of the problem
-        <input type="file" accept={ACCEPTED} onChange={(e) => choose(e.target.files?.[0])} />
+      <label className="field">
+        <span className="label">Add a photo of the problem</span>
+        <input
+          type="file"
+          accept={ACCEPTED}
+          onChange={(e) => choose(e.target.files?.[0])}
+          className="text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-zinc-800 file:shadow-sm"
+        />
       </label>
-      {error ? <p role="alert" className="text-red-700">{error}</p> : null}
+      {error ? <p role="alert" className="error-text">{error}</p> : null}
       <button
         type="button"
         onClick={send}
         disabled={!file || pending}
-        className="w-fit rounded-md bg-zinc-900 px-3 py-1.5 text-white disabled:opacity-50"
+        className="btn btn-primary w-fit"
       >
         {pending ? "Sending…" : "Send photo"}
       </button>

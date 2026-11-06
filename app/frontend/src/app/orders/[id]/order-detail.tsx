@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 
 import { RequireRole } from "@/components/require-role";
 import { StatusBadge } from "@/components/status-badge";
+import { ErrorNotice, LoadingRows, PageHeader } from "@/components/ui";
 import { api, errorMessage, formatDateTime, formatMoney, type OrderDetail } from "@/lib/api";
 import type { components } from "@/lib/api-schema";
 
@@ -42,99 +43,95 @@ function Detail() {
 
   if (error) {
     return (
-      <p role="alert" className="text-red-700">
-        {error} <Link href="/orders" className="underline">Back to my orders</Link>
-      </p>
+      <div className="flex flex-col gap-3">
+        <ErrorNotice>{error}</ErrorNotice>
+        <Link href="/orders" className="link w-fit text-sm">Back to my orders</Link>
+      </div>
     );
   }
-  if (!order) return <p className="text-zinc-500">Loading…</p>;
+  if (!order) return <LoadingRows rows={4} />;
 
   return (
-    <section className="mx-auto flex w-full max-w-3xl flex-col gap-6" data-testid="order-detail">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="text-2xl font-semibold">Order #{order.order_number}</h1>
-        <Link href="/orders" className="text-sm underline">All orders</Link>
-      </div>
+    <section className="mx-auto flex w-full max-w-4xl flex-col gap-6" data-testid="order-detail">
+      <PageHeader
+        back={{ href: "/orders", label: "All orders" }}
+        title={`Order #${order.order_number}`}
+        subtitle={`Placed ${formatDateTime(order.placed_at)}`}
+        actions={<span className="text-2xl font-semibold tabular-nums">{formatMoney(order.total_cents)}</span>}
+      />
 
-      <dl className="grid grid-cols-1 gap-x-8 gap-y-4 rounded-md border border-zinc-200 p-4 text-sm sm:grid-cols-2 dark:border-zinc-800">
-        <div>
-          <dt className="text-zinc-500">Order ID</dt>
-          <dd className="font-mono text-xs break-all" data-testid="order-id">{order.id}</dd>
-        </div>
-        <div>
-          <dt className="text-zinc-500">Ordered by</dt>
-          <dd>
-            {order.customer_name}
-            <br />
-            <span className="text-zinc-600 dark:text-zinc-400">{order.customer_email}</span>
-          </dd>
-        </div>
-        <div>
-          <dt className="text-zinc-500">Placed</dt>
-          <dd data-testid="placed-at">{formatDateTime(order.placed_at)}</dd>
-        </div>
-        <div>
-          <dt className="text-zinc-500">Delivered</dt>
-          <dd data-testid="delivered-at">{order.delivered_at ? formatDateTime(order.delivered_at) : "Not delivered yet"}</dd>
-        </div>
-        <div>
-          <dt className="text-zinc-500">Shipping address</dt>
-          <dd><AddressBlock address={order.shipping} /></dd>
-        </div>
-        <div>
-          <dt className="text-zinc-500">Billing address</dt>
-          <dd data-testid="billing">
-            {order.billing.same_as_shipping ? (
-              <span>Same as shipping address</span>
-            ) : (
-              <AddressBlock address={order.billing} />
-            )}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-zinc-500">Paid with</dt>
-          <dd data-testid="card">Card ending in {order.card_last4}</dd>
-        </div>
-        <div>
-          <dt className="text-zinc-500">Total</dt>
-          <dd className="font-medium">{formatMoney(order.total_cents)}</dd>
-        </div>
-      </dl>
-
-      <div className="flex flex-col gap-3">
-        <h2 className="text-lg font-medium">Items</h2>
-        <ul className="flex flex-col divide-y divide-zinc-200 rounded-md border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
+      <div className="card overflow-hidden">
+        <div className="card-header"><h2 className="font-semibold">Items</h2></div>
+        <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
           {order.items.map((i) => (
-            <li key={i.id} className="flex flex-wrap items-center gap-3 p-3" data-testid={`detail-item-${i.id}`}>
-              {i.photo_url ? <Image src={i.photo_url} alt="" width={56} height={56} unoptimized className="rounded" /> : null}
+            <li key={i.id} className="flex flex-wrap items-center gap-4 px-5 py-4" data-testid={`detail-item-${i.id}`}>
+              {i.photo_url ? <Image src={i.photo_url} alt="" width={64} height={64} unoptimized className="h-16 w-16 rounded-lg border border-zinc-100 bg-white object-contain p-1 dark:border-zinc-800" /> : null}
               <span className="min-w-40 flex-1">
-                {i.product_name}
-                {i.is_final_sale ? <span className="ml-2 text-xs text-amber-700">Final Sale</span> : null}
-                <span className="block text-xs text-zinc-500">
+                <span className="font-medium">{i.product_name}</span>
+                {i.is_final_sale ? <span className="badge badge-warning ml-2">Final Sale</span> : null}
+                <span className="subtle block text-xs">
                   {i.quantity} × {formatMoney(i.unit_price_cents)}
                 </span>
               </span>
-              <span className="w-20 text-right">{formatMoney(i.unit_price_cents * i.quantity)}</span>
-              <span className="w-40 text-right text-sm">
+              <span className="w-20 text-right font-medium tabular-nums">{formatMoney(i.unit_price_cents * i.quantity)}</span>
+              <span className="flex w-44 justify-end text-sm">
                 {i.return_id && i.return_status ? (
-                  <Link href={`/returns/${i.return_id}`} className="hover:underline">
+                  <Link href={`/returns/${i.return_id}`} className="transition hover:opacity-80">
                     <StatusBadge status={i.return_status} />
                   </Link>
                 ) : order.delivered_at ? (
-                  <Link
-                    href={`/returns/new/${i.id}`}
-                    className="rounded-md border border-zinc-300 px-3 py-1.5 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-900"
-                  >
+                  <Link href={`/returns/new/${i.id}`} className="btn btn-secondary btn-sm">
                     Return item
                   </Link>
                 ) : (
-                  <span className="text-zinc-500">Returnable after delivery</span>
+                  <span className="subtle">Returnable after delivery</span>
                 )}
               </span>
             </li>
           ))}
         </ul>
       </div>
+
+      <dl className="card card-pad grid grid-cols-1 gap-x-8 gap-y-5 text-sm sm:grid-cols-2">
+        <div>
+          <dt className="eyebrow">Order ID</dt>
+          <dd className="mt-1 font-mono text-xs break-all" data-testid="order-id">{order.id}</dd>
+        </div>
+        <div>
+          <dt className="eyebrow">Ordered by</dt>
+          <dd className="mt-1">
+            {order.customer_name}
+            <br />
+            <span className="muted">{order.customer_email}</span>
+          </dd>
+        </div>
+        <div>
+          <dt className="eyebrow">Placed</dt>
+          <dd className="mt-1" data-testid="placed-at">{formatDateTime(order.placed_at)}</dd>
+        </div>
+        <div>
+          <dt className="eyebrow">Delivered</dt>
+          <dd className="mt-1" data-testid="delivered-at">{order.delivered_at ? formatDateTime(order.delivered_at) : "Not delivered yet"}</dd>
+        </div>
+        <div>
+          <dt className="eyebrow">Shipping address</dt>
+          <dd className="mt-1"><AddressBlock address={order.shipping} /></dd>
+        </div>
+        <div>
+          <dt className="eyebrow">Billing address</dt>
+          <dd className="mt-1" data-testid="billing">
+            {order.billing.same_as_shipping ? <span>Same as shipping address</span> : <AddressBlock address={order.billing} />}
+          </dd>
+        </div>
+        <div>
+          <dt className="eyebrow">Paid with</dt>
+          <dd className="mt-1" data-testid="card">Card ending in {order.card_last4}</dd>
+        </div>
+        <div>
+          <dt className="eyebrow">Total</dt>
+          <dd className="mt-1 font-semibold">{formatMoney(order.total_cents)}</dd>
+        </div>
+      </dl>
     </section>
   );
 }
