@@ -95,6 +95,14 @@ class Settings(BaseSettings):
     policy_model: str = "gpt-4o-mini"
     policy_retrieval_k: int = 4
 
+    # Chat assist (M9). When set, the customer-chat bot's replies are drafted by
+    # Groq instead of OPENAI_API_KEY's `policy_model` — faster/cheaper, same
+    # OpenAI-compatible JSON-mode call. Embeddings for policy retrieval still need
+    # OPENAI_API_KEY regardless (see above); without it there's nothing to ground
+    # a Groq reply in, so chat_assist.default_clients() falls back either way.
+    groq_api_key: SecretStr = SecretStr("")
+    groq_chat_model: str = "llama-3.3-70b-versatile"
+
     @model_validator(mode="after")
     def _production_guards(self) -> "Settings":
         if self.environment == "production" and not self.cookie_secure:

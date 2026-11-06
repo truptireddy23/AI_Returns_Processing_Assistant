@@ -31,6 +31,7 @@ from returnguard.pipeline.llm import ChatClient, EmbeddingClient, OpenAIClient
 from returnguard.pipeline.retrieval import retrieve_policy_clauses
 
 _PROMPTS_DIR = Path(__file__).resolve().parents[4] / "prompts"
+_GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 
 FALLBACK_REPLY = "Thanks for your message — a reviewer will follow up with you here shortly."
 
@@ -66,19 +67,39 @@ class ChatReply:
 
 
 def default_clients() -> tuple[EmbeddingClient, ChatClient] | tuple[None, None]:
-    """A real `OpenAIClient` (it implements both protocols) when `OPENAI_API_KEY` is
-    configured, or `(None, None)` to fall back to `FALLBACK_REPLY` without a model call."""
+    """Embeddings always come from OpenAI (`OPENAI_API_KEY`) — `policy_chunks.embedding`
+    is a fixed-dimension column sized for its model, so there's no swapping that out.
+    Without it there's nothing to retrieve policy clauses with, so `(None, None)` falls
+    back to `FALLBACK_REPLY` regardless of what's configured for chat.
+
+    The chat call itself goes to Groq (`GROQ_API_KEY`) when set — same OpenAI-compatible
+    `complete_json`, just a faster/cheaper model drafting the actual reply — else to
+    OpenAI, same as before Groq was wired in."""
     settings = get_settings()
-    api_key = settings.openai_api_key.get_secret_value()
-    if not api_key:
+    openai_key = settings.openai_api_key.get_secret_value()
+    if not openai_key:
         return None, None
-    client = OpenAIClient(
-        api_key=api_key,
+    embedder = OpenAIClient(
+        api_key=openai_key,
         chat_base_url=settings.openai_chat_base_url,
         embedding_model=settings.embedding_model,
         chat_model=settings.policy_model,
     )
-    return client, client
+    groq_key = settings.groq_api_key.get_secret_value()
+    chat: ChatClient = (
+        OpenAIClient(
+            # This instance only ever has `.complete_json()` called on it — its
+            # embedding half is configured but unreachable, same client class as
+            # `embedder` purely to reuse `complete_json`'s implementation.
+            api_key=groq_key,
+            chat_base_url=_GROQ_BASE_URL,
+            embedding_model=settings.embedding_model,
+            chat_model=settings.groq_chat_model,
+        )
+        if groq_key
+        else embedder
+    )
+    return embedder, chat
 
 
 def _parse_chat_response(raw: dict[str, Any]) -> tuple[str, bool, bool]:

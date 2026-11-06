@@ -12,10 +12,11 @@ from typing import Any
 
 import pytest
 
+from returnguard.config import get_settings
 from returnguard.models import Decision, EscalationReason, ReturnStatus
 from returnguard.pipeline import chat_assist as chat_assist_module
 from returnguard.pipeline.chat_assist import FALLBACK_REPLY, ChatCase, draft_reply
-from returnguard.pipeline.llm import ChatUsage
+from returnguard.pipeline.llm import ChatUsage, OpenAIClient
 
 
 def make_case(
@@ -224,3 +225,55 @@ def test_system_prompt_forbids_promising_a_decision() -> None:
     prompt = chat_assist_module._load_system_prompt("chat.md").lower()
     assert "never" in prompt
     assert "approve" in prompt and "deny" in prompt
+
+
+# --- Client selection (which provider drafts the reply) ----------------------
+
+
+@pytest.fixture
+def _clear_settings_cache() -> Any:
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
+
+
+@pytest.mark.usefixtures("_clear_settings_cache")
+def test_default_clients_is_none_without_an_openai_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    # No OPENAI_API_KEY means no way to embed a query for retrieval, so there's
+    # nothing to ground a reply in — Groq alone can't stand in for that.
+    monkeypatch.setenv("OPENAI_API_KEY", "")
+    monkeypatch.setenv("GROQ_API_KEY", "sk-groq-test")
+
+    embedder, chat = chat_assist_module.default_clients()
+
+    assert embedder is None
+    assert chat is None
+
+
+@pytest.mark.usefixtures("_clear_settings_cache")
+def test_default_clients_uses_groq_for_chat_when_configured(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-openai-test")
+    monkeypatch.setenv("GROQ_API_KEY", "sk-groq-test")
+    monkeypatch.setenv("GROQ_CHAT_MODEL", "llama-3.3-70b-versatile")
+
+    embedder, chat = chat_assist_module.default_clients()
+
+    assert isinstance(embedder, OpenAIClient)
+    assert isinstance(chat, OpenAIClient)
+    assert chat is not embedder  # a separate client, pointed at Groq
+    assert chat._chat_model == "llama-3.3-70b-versatile"
+    assert str(chat._chat_client.base_url).startswith(chat_assist_module._GROQ_BASE_URL)
+
+
+@pytest.mark.usefixtures("_clear_settings_cache")
+def test_default_clients_falls_back_to_openai_for_chat_without_a_groq_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-openai-test")
+    monkeypatch.setenv("GROQ_API_KEY", "")
+
+    embedder, chat = chat_assist_module.default_clients()
+
+    assert chat is embedder  # unchanged from before Groq was wired in
