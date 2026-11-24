@@ -198,43 +198,6 @@ and the typed client in `frontend/src/lib/api-schema.d.ts`; CI fails if they're 
 
 Run `make help` for every command.
 
-## Reproduce the benchmark
-
-The Checkpoint 4 benchmark sends 32 labelled return cases through the real pipeline and
-governance gate. Cases, labels and results are in `docs/study_materials/benchmark/` (see its
-`README.md` for the dataset and its limits).
-
-**Re-score only (no database, no model):** every number and chart in the report comes from
-the committed `results/*.jsonl`, so this alone reproduces them:
-
-```bash
-make benchmark-report   # writes summary.json, RESULTS.md and docs/figures/*.svg
-```
-
-**Run it again.** Needs the local Postgres (`make up`, or just `docker compose up -d db`)
-and, for the AI variants, `CHAT_API_KEY` in `app/.env`. The runner uses its own
-`returnguard_bench` database on the local Postgres, created and migrated automatically, and
-rolls back every case, so it never touches Neon or your demo data.
-
-```bash
-make benchmark-photos                                      # team members: photos not in git
-make benchmark VARIANT=rules                               # no model calls, about a minute
-caffeinate -i make benchmark VARIANT=model ARGS="--max-model-cases 28"
-make benchmark-report
-```
-
-- **Variants:** `rules`, `model` (as deployed), `model_no_critic` and `model_no_tools`.
-  Add `ARGS="--repeats 3"` for repeated runs or `ARGS="--only <case-key> ..."` for a few cases.
-- **Resumable:** each result is appended to `results/<variant>.jsonl` and finished rows are
-  skipped. Groq's free tier allows about 28 AI cases a day; a quota error stops the run
-  cleanly, and the same command continues the next day.
-- **Keep the machine awake** (`caffeinate -i` on macOS). Sleep pauses timers and inflates
-  latencies.
-- `make benchmark-photos` reads the team's private buckets with the shared `app/.env`. Without
-  it, run only the cases whose photos are in git (`--only`).
-- Results depend on the prompt versions in `app/prompts/`. When a prompt changes, start a new
-  results file (move the old one aside) rather than mixing versions.
-
 ## Troubleshooting
 
 - **`make up` hangs on "Waiting"** — check `docker compose logs api`; the API waits for
