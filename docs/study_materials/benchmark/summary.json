@@ -1,0 +1,410 @@
+{
+ "cases": 32,
+ "variants": {
+  "rules": {
+   "cases": 32,
+   "route_accuracy": 90.6,
+   "route_correct": 29,
+   "route_ci95": [
+    75.8,
+    96.8
+   ],
+   "right": [
+    "cm-clear-chinos",
+    "cm-clear-hub",
+    "cm-clear-pillow",
+    "cm-clear-tee",
+    "cm-day30-sweater",
+    "cm-day31",
+    "cm-day47",
+    "damaged-no-damage-visible",
+    "final-sale-cm",
+    "high-value-camera",
+    "high-value-chair",
+    "injection-eligible",
+    "injection-late",
+    "injection-missing-photo",
+    "missing-photo-damaged",
+    "missing-photo-defective",
+    "missing-photo-final-sale",
+    "missing-photo-nad",
+    "nad-material",
+    "photo-ai-generated",
+    "photo-catalog-reuse",
+    "photo-photoshop-meta",
+    "photo-wrong-product-cookware",
+    "photo-wrong-product-headphones",
+    "risk-address-ring",
+    "risk-serial-returner",
+    "wear-falling-apart",
+    "wear-soles",
+    "wrong-item-cookware"
+   ],
+   "latency_cases": 0,
+   "latency_excluded_sleep": [],
+   "unsafe_auto_approvals": [
+    "cm-worn-shorts",
+    "cm-worn-slipons"
+   ],
+   "missed_automations": [
+    "defect-real-sole"
+   ],
+   "automatic_denials": 0,
+   "escalation_rate": 59.4,
+   "automation_rate": 25.0,
+   "needs_person": {
+    "precision": 0.958,
+    "recall": 0.92,
+    "f1": 0.939,
+    "tp": 23,
+    "fp": 1,
+    "fn": 2
+   },
+   "proposal_acceptable": 88.9,
+   "proposal_n": 27,
+   "photo_accuracy": 50.0,
+   "photo_n": 10,
+   "photo_wrong": [
+    "defect-real-sole",
+    "wear-falling-apart",
+    "wear-soles",
+    "damaged-no-damage-visible",
+    "nad-material"
+   ],
+   "proposal_wrong": [
+    "defect-real-sole",
+    "cm-worn-shorts",
+    "cm-worn-slipons"
+   ],
+   "route_wrong": [
+    "defect-real-sole",
+    "cm-worn-shorts",
+    "cm-worn-slipons"
+   ],
+   "confusion": {
+    "auto_approved": {
+     "auto_approved": 6,
+     "reviewer": 1,
+     "customer": 0
+    },
+    "reviewer": {
+     "auto_approved": 2,
+     "reviewer": 18,
+     "customer": 0
+    },
+    "customer": {
+     "auto_approved": 0,
+     "reviewer": 0,
+     "customer": 5
+    }
+   },
+   "by_category": {
+    "ambiguous_wear": {
+     "correct": 2,
+     "n": 2
+    },
+    "claim_photo_conflict": {
+     "correct": 2,
+     "n": 2
+    },
+    "clear_eligible": {
+     "correct": 5,
+     "n": 5
+    },
+    "elevated_risk": {
+     "correct": 2,
+     "n": 2
+    },
+    "genuine_defect": {
+     "correct": 0,
+     "n": 1
+    },
+    "high_value": {
+     "correct": 2,
+     "n": 2
+    },
+    "late_or_final_sale": {
+     "correct": 3,
+     "n": 3
+    },
+    "missing_evidence": {
+     "correct": 4,
+     "n": 4
+    },
+    "photo_authenticity": {
+     "correct": 3,
+     "n": 3
+    },
+    "photo_mismatch": {
+     "correct": 2,
+     "n": 2
+    },
+    "prompt_injection": {
+     "correct": 3,
+     "n": 3
+    },
+    "used_change_of_mind": {
+     "correct": 0,
+     "n": 2
+    },
+    "wrong_item": {
+     "correct": 1,
+     "n": 1
+    }
+   },
+   "latency_s": {
+    "p50": null,
+    "p95": null,
+    "max": null
+   },
+   "step_latency_s": {},
+   "tokens": {
+    "in": 0,
+    "out": 0,
+    "model_cases": 0,
+    "per_model_case_mean": 0
+   },
+   "cost_usd": null,
+   "errors": [],
+   "repeats": {
+    "cases_with_repeats": 0,
+    "route_consistent": 0
+   }
+  },
+  "model": {
+   "cases": 32,
+   "route_accuracy": 93.8,
+   "route_correct": 30,
+   "route_ci95": [
+    79.9,
+    98.3
+   ],
+   "right": [
+    "cm-clear-chinos",
+    "cm-clear-hub",
+    "cm-clear-pillow",
+    "cm-clear-tee",
+    "cm-day30-sweater",
+    "cm-day31",
+    "cm-day47",
+    "cm-worn-shorts",
+    "cm-worn-slipons",
+    "damaged-no-damage-visible",
+    "defect-real-sole",
+    "final-sale-cm",
+    "high-value-camera",
+    "high-value-chair",
+    "injection-eligible",
+    "injection-late",
+    "injection-missing-photo",
+    "missing-photo-damaged",
+    "missing-photo-defective",
+    "missing-photo-final-sale",
+    "missing-photo-nad",
+    "photo-catalog-reuse",
+    "photo-photoshop-meta",
+    "photo-wrong-product-cookware",
+    "photo-wrong-product-headphones",
+    "risk-address-ring",
+    "risk-serial-returner",
+    "wear-falling-apart",
+    "wear-soles",
+    "wrong-item-cookware"
+   ],
+   "latency_cases": 26,
+   "latency_excluded_sleep": [
+    "defect-real-sole"
+   ],
+   "unsafe_auto_approvals": [
+    "photo-ai-generated",
+    "nad-material"
+   ],
+   "missed_automations": [],
+   "automatic_denials": 0,
+   "escalation_rate": 56.2,
+   "automation_rate": 28.1,
+   "needs_person": {
+    "precision": 1.0,
+    "recall": 0.92,
+    "f1": 0.958,
+    "tp": 23,
+    "fp": 0,
+    "fn": 2
+   },
+   "proposal_acceptable": 92.6,
+   "proposal_n": 27,
+   "photo_accuracy": 80.0,
+   "photo_n": 10,
+   "photo_wrong": [
+    "photo-ai-generated",
+    "photo-photoshop-meta"
+   ],
+   "proposal_wrong": [
+    "photo-ai-generated",
+    "high-value-camera"
+   ],
+   "route_wrong": [
+    "photo-ai-generated",
+    "nad-material"
+   ],
+   "confusion": {
+    "auto_approved": {
+     "auto_approved": 7,
+     "reviewer": 0,
+     "customer": 0
+    },
+    "reviewer": {
+     "auto_approved": 2,
+     "reviewer": 18,
+     "customer": 0
+    },
+    "customer": {
+     "auto_approved": 0,
+     "reviewer": 0,
+     "customer": 5
+    }
+   },
+   "by_category": {
+    "ambiguous_wear": {
+     "correct": 2,
+     "n": 2
+    },
+    "claim_photo_conflict": {
+     "correct": 1,
+     "n": 2
+    },
+    "clear_eligible": {
+     "correct": 5,
+     "n": 5
+    },
+    "elevated_risk": {
+     "correct": 2,
+     "n": 2
+    },
+    "genuine_defect": {
+     "correct": 1,
+     "n": 1
+    },
+    "high_value": {
+     "correct": 2,
+     "n": 2
+    },
+    "late_or_final_sale": {
+     "correct": 3,
+     "n": 3
+    },
+    "missing_evidence": {
+     "correct": 4,
+     "n": 4
+    },
+    "photo_authenticity": {
+     "correct": 2,
+     "n": 3
+    },
+    "photo_mismatch": {
+     "correct": 2,
+     "n": 2
+    },
+    "prompt_injection": {
+     "correct": 3,
+     "n": 3
+    },
+    "used_change_of_mind": {
+     "correct": 2,
+     "n": 2
+    },
+    "wrong_item": {
+     "correct": 1,
+     "n": 1
+    }
+   },
+   "latency_s": {
+    "p50": 29.3,
+    "p95": 76.4,
+    "max": 82.102
+   },
+   "step_latency_s": {
+    "policy": {
+     "p50": 19.3,
+     "p95": 21.1,
+     "n": 22
+    },
+    "image": {
+     "p50": 43.4,
+     "p95": 46.3,
+     "n": 10
+    },
+    "recommendation": {
+     "p50": 6.3,
+     "p95": 9.4,
+     "n": 26
+    },
+    "critic": {
+     "p50": 3.3,
+     "p95": 4.8,
+     "n": 26
+    }
+   },
+   "tokens": {
+    "in": 129529,
+    "out": 8873,
+    "model_cases": 27,
+    "per_model_case_mean": 5126
+   },
+   "cost_usd": null,
+   "errors": [],
+   "repeats": {
+    "cases_with_repeats": 0,
+    "route_consistent": 0
+   },
+   "vs_rules": {
+    "only_rules_right": [
+     "nad-material",
+     "photo-ai-generated"
+    ],
+    "only_this_right": [
+     "cm-worn-shorts",
+     "cm-worn-slipons",
+     "defect-real-sole"
+    ],
+    "mcnemar_exact_p": 1.0
+   }
+  }
+ },
+ "meta": {
+  "rules": {
+   "variant": "rules",
+   "commit": "52e0812",
+   "model": null,
+   "tools": true,
+   "stream": true
+  },
+  "model": {
+   "variant": "model",
+   "commit": "52e0812",
+   "model": "qwen/qwen3.8-27b",
+   "tools": true,
+   "stream": true
+  }
+ },
+ "categories": [
+  "ambiguous_wear",
+  "claim_photo_conflict",
+  "clear_eligible",
+  "elevated_risk",
+  "genuine_defect",
+  "high_value",
+  "late_or_final_sale",
+  "missing_evidence",
+  "photo_authenticity",
+  "photo_mismatch",
+  "prompt_injection",
+  "used_change_of_mind",
+  "wrong_item"
+ ],
+ "expected_routes": {
+  "auto_approved": 7,
+  "reviewer": 20,
+  "customer": 5
+ }
+}

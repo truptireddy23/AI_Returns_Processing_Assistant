@@ -38,3 +38,9 @@ Photos/
 
 # Vercel CLI project links
 .vercel
+
+# Benchmark photos taken from the team's private buckets (third-party catalog images and
+# an uploaded return photo): kept local, fetched with `make benchmark-photos`.
+docs/study_materials/benchmark/catalog/
+docs/study_materials/benchmark/photos/court_shoe_catalog_reused.jpg
+docs/study_materials/benchmark/photos/red_cookware_wrong_item.jpg

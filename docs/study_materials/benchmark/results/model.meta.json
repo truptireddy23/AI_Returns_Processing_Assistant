@@ -1,0 +1,7 @@
+{
+ "variant": "model",
+ "commit": "52e0812",
+ "model": "qwen/qwen3.8-27b",
+ "tools": true,
+ "stream": true
+}
