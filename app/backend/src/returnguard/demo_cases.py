@@ -78,8 +78,8 @@ def _load_cases(seed_dir: Path) -> list[dict[str, Any]]:
     return cases
 
 
-async def _photo_bytes(session: AsyncSession, seed_dir: Path, spec: str) -> bytes:
-    """A file in demo_photos/, or `catalog:<SKU>` for that product's own catalog photo."""
+async def _photo_bytes(session: AsyncSession, photo_dir: Path, spec: str) -> bytes:
+    """A file in `photo_dir`, or `catalog:<SKU>` for that product's own catalog photo."""
     if spec.startswith("catalog:"):
         sku = spec.split(":", 1)[1]
         photo = await session.scalar(
@@ -92,12 +92,19 @@ async def _photo_bytes(session: AsyncSession, seed_dir: Path, spec: str) -> byte
         if photo is None:
             raise SystemExit(f"{sku} has no catalog photo to reuse")
         return await get_storage(get_settings().product_photo_bucket).get(photo.storage_key)
-    return (seed_dir / PHOTO_DIR / spec).read_bytes()
+    return (photo_dir / spec).read_bytes()
 
 
 async def load_case(
-    session: AsyncSession, seed_dir: Path, case: dict[str, Any], *, now: datetime
+    session: AsyncSession,
+    seed_dir: Path,
+    case: dict[str, Any],
+    *,
+    now: datetime,
+    photo_dir: Path | None = None,
 ) -> Loaded:
+    """`photo_dir` defaults to seed_dir/demo_photos (the benchmark passes its own)."""
+    photo_dir = photo_dir or seed_dir / PHOTO_DIR
     result = Loaded(key=case["key"], email=case["email"])
     if await session.scalar(select(User.id).where(func.lower(User.email) == case["email"].lower())):
         result.skipped = True
@@ -222,7 +229,7 @@ async def load_case(
     if r.get("photo"):
         settings = get_settings()
         processed = process_upload(
-            await _photo_bytes(session, seed_dir, r["photo"]),
+            await _photo_bytes(session, photo_dir, r["photo"]),
             max_pixels=settings.upload_max_pixels,
             max_side=settings.upload_max_side,
         )

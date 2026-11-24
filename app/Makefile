@@ -5,7 +5,7 @@ BACKEND := cd backend &&
 FRONTEND := cd frontend &&
 
 .DEFAULT_GOAL := help
-.PHONY: help env up down logs ps migrate seed demo-cases embed-policy sync-prompts product-photos reset-db psql dev-prep dev-api dev-worker dev-web \
+.PHONY: help env up down logs ps migrate seed demo-cases benchmark benchmark-report benchmark-photos embed-policy sync-prompts product-photos reset-db psql dev-prep dev-api dev-worker dev-web \
         install test lint typecheck fmt check api-types requirements clean bias-audit smoke
 
 help: ## Show this help
@@ -32,6 +32,15 @@ seed: ## Load demo data (does nothing if users already exist)
 
 demo-cases: ## Add the six ready-made demo cases (seed/demo_cases.json); skips ones already loaded
 	$(BACKEND) LOG_JSON=false WORKER_WAKE_URL=http://localhost:8001/wake uv run python -m returnguard.demo_cases
+
+benchmark: ## CP4 benchmark on a private local DB: make benchmark VARIANT=model ARGS="--max-model-cases 28"
+	$(BACKEND) LOG_JSON=false uv run python -m returnguard.benchmark --variant $(or $(VARIANT),rules) $(ARGS)
+
+benchmark-photos: ## Fetch the benchmark photos that aren't in git (team members; read-only)
+	$(BACKEND) uv run python -m returnguard.benchmark_photos
+
+benchmark-report: ## Score benchmark results; write summary, RESULTS.md and docs/figures/*.svg
+	$(BACKEND) uv run python -m returnguard.benchmark_report $(ARGS)
 
 embed-policy: ## Embed the active policy's clauses for Policy RAG (needs EMBEDDING_API_KEY; no-op without it)
 	$(COMPOSE) run --rm api python -m returnguard.embed_policy
