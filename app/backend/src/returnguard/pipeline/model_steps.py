@@ -95,12 +95,16 @@ def _parse_policy_response(
 
 def _parse_photo_response(raw: dict[str, Any]) -> tuple[PhotoCheck, list[str]]:
     """Verified only when the product matches, the authenticity read is "genuine",
-    and the model listed no synthetic signs. The signs list must be present: the
-    prompt has the model inspect and list them before deciding, and a "genuine"
-    that skipped that step (or contradicts it) is not trusted. Anything else,
-    including a bad response, is `NOT_VERIFIED`."""
+    the model listed no synthetic signs, and the photo itself shows the problem the
+    customer claims. The signs list must be present: the prompt has the model
+    inspect and list them before deciding, and a "genuine" that skipped that step
+    (or contradicts it) is not trusted. A genuine photo of an item that doesn't show
+    the claim (e.g. a clean shoe for "the leather is fake") is not evidence for it, and
+    neither is a reply that skips the question. Anything else, including a bad
+    response, is `NOT_VERIFIED`."""
     match = str(raw.get("product_match", "")).strip().lower()
     authenticity = str(raw.get("authenticity", "")).strip().lower()
+    claim_shown = str(raw.get("claim_shown", "")).strip().lower()
     signs_raw = raw.get("synthetic_signs")
     signs = (
         [str(s).strip() for s in signs_raw if str(s).strip()]
@@ -113,6 +117,12 @@ def _parse_photo_response(raw: dict[str, Any]) -> tuple[PhotoCheck, list[str]]:
     ]
     if signs:
         notes_parts.append("Synthetic signs: " + "; ".join(signs))
+    if claim_shown in {"no", "unclear"}:
+        claim_notes = str(raw.get("claim_notes", "")).strip()
+        notes_parts.append(
+            "The photo doesn't show the claimed problem"
+            + (f": {claim_notes}" if claim_notes else ".")
+        )
     notes = [n for n in notes_parts if n] or ["The model's response didn't include notes."]
     if (
         signs is None
@@ -120,7 +130,7 @@ def _parse_photo_response(raw: dict[str, Any]) -> tuple[PhotoCheck, list[str]]:
         or authenticity not in {"genuine", "suspicious", "unclear"}
     ):
         return PhotoCheck.NOT_VERIFIED, ["The model's response didn't match the expected format."]
-    if match == "yes" and authenticity == "genuine" and not signs:
+    if match == "yes" and authenticity == "genuine" and not signs and claim_shown == "yes":
         return PhotoCheck.VERIFIED, notes
     return PhotoCheck.NOT_VERIFIED, notes
 
@@ -403,13 +413,16 @@ class ModelSteps:
         policy: PolicyResult,
         photo: PhotoResult,
         recommendation: Recommendation,
+        behavior: BehaviorScore,
     ) -> CriticResult:
         user_prompt = (
             f"Policy finding: eligibility={policy.eligibility.value}, "
             f"cited clauses={policy.cited_clauses}, reason={policy.reason!r}\n"
             f"Photo finding: check={photo.check.value}, notes={photo.notes}\n"
             f"Recommendation under review: proposal={recommendation.proposal.value}, "
-            f"ambiguous={recommendation.ambiguous}, rationale={recommendation.rationale!r}"
+            f"ambiguous={recommendation.ambiguous}, rationale={recommendation.rationale!r}\n"
+            f"Behavior risk score: {behavior.score:.2f} (0 = no concern, 1 = highest concern)\n"
+            f"Behavior factors: {behavior.explanation}"
         )
         raw, usage = await self._chat.complete_json(
             system=self._critic_prompt, user=user_prompt, max_tokens=MAX_TOKENS["critic"]

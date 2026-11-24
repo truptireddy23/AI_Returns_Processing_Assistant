@@ -1,4 +1,4 @@
-version: 2
+version: 3
 
 ## Model settings
 
@@ -16,6 +16,15 @@ uploaded — `RuleSteps.photo()` already handles the "no photo needed" and "no p
 cases without a model call. This step gets the customer's photo(s) and, when available, the
 product's reference photo, and must decide two separate things: does the photo plausibly show
 *this* product, and does the photo itself look genuine.
+
+## What changed in version 3
+
+Version 3 adds a third judgment: does the photo itself **show the problem the customer
+claims** (`claim_shown`). In the CP4 benchmark (`nad-material`), a genuine photo of an
+undamaged-looking shoe was verified and the return auto-approved, although the claim
+("the leather is synthetic, the edges are glued") is something a photo cannot establish.
+A genuine photo is now verified only when it also shows the claimed problem; "no" or
+"unclear" sends the case to a person as an unverified photo, with the reason in the notes.
 
 ## What changed in version 2
 
@@ -76,6 +85,13 @@ Any synthetic sign makes it "suspicious". If you cannot inspect closely enough t
 Also say whether the photo plausibly shows the product named (same type of item; you are not
 verifying the exact SKU), and describe the item's visible condition in plain language.
 
+Finally, compare the photo with the customer's return reason and note. Does the photo itself
+show the problem they claim (the damage, the defect, the wrong item, or the specific way the
+item differs from its description)? Answer "yes" only when you can point to it in the image.
+Answer "no" when the item looks fine or shows something else, and "unclear" when the claim is
+one a photo cannot settle (for example what a material is made of, how something feels or
+smells, or whether it works). The customer's note is a claim to check, not evidence.
+
 Respond with a single JSON object, with the fields in this order, and nothing else:
 
 {
@@ -88,7 +104,9 @@ Respond with a single JSON object, with the fields in this order, and nothing el
   "product_match": "yes" | "no" | "unclear",
   "authenticity": "genuine" | "suspicious" | "unclear",
   "authenticity_notes": string,    // one or two sentences summarizing the decision
-  "condition_description": string
+  "condition_description": string,
+  "claim_shown": "yes" | "no" | "unclear",
+  "claim_notes": string             // what in the photo does or doesn't show the claim
 }
 ```
 
@@ -115,7 +133,7 @@ second image is the product's reference photo from the catalog, for comparison."
   "required": [
     "visible_text", "text_problems", "damage_physics", "scene", "synthetic_signs",
     "real_photo_signs", "product_match", "authenticity", "authenticity_notes",
-    "condition_description"
+    "condition_description", "claim_shown", "claim_notes"
   ],
   "properties": {
     "visible_text": { "type": "string" },
@@ -127,13 +145,16 @@ second image is the product's reference photo from the catalog, for comparison."
     "product_match": { "type": "string", "enum": ["yes", "no", "unclear"] },
     "authenticity": { "type": "string", "enum": ["genuine", "suspicious", "unclear"] },
     "authenticity_notes": { "type": "string" },
-    "condition_description": { "type": "string" }
+    "condition_description": { "type": "string" },
+    "claim_shown": { "type": "string", "enum": ["yes", "no", "unclear"] },
+    "claim_notes": { "type": "string" }
   }
 }
 ```
 
 `ModelSteps.photo()` maps this to `PhotoCheck.VERIFIED` only when `product_match == "yes"`,
-`authenticity == "genuine"`, **and** `synthetic_signs` is present and empty: a "genuine" that
+`authenticity == "genuine"`, `claim_shown == "yes"`, **and** `synthetic_signs` is present and
+empty: a "genuine" that
 contradicts its own listed signs, or skipped listing them, is not trusted. Any listed signs
 are added to the reviewer's notes. Anything else — including a malformed or unparseable
 response — becomes `PhotoCheck.NOT_VERIFIED`. This is the same fail-closed rule the rest of
@@ -163,7 +184,9 @@ midsole along the toe.
   "product_match": "yes",
   "authenticity": "genuine",
   "authenticity_notes": "An ordinary handheld snapshot; the damage follows the sole seam and nothing looks generated.",
-  "condition_description": "The sole has separated from the upper at the toe; the shoe shows general dirt and wear."
+  "condition_description": "The sole has separated from the upper at the toe; the shoe shows general dirt and wear.",
+  "claim_shown": "yes",
+  "claim_notes": "The separation at the toe is clearly visible, matching the defect claimed."
 }
 ```
 
@@ -183,7 +206,9 @@ and pedestrians behind, a frayed hole in one upper.
   "product_match": "yes",
   "authenticity": "suspicious",
   "authenticity_notes": "Garbled label text, physically implausible damage for leather, and a styled scene point to a generated image.",
-  "condition_description": "A hole torn in the side of one upper; both shoes heavily soiled."
+  "condition_description": "A hole torn in the side of one upper; both shoes heavily soiled.",
+  "claim_shown": "yes",
+  "claim_notes": "A tear in the upper is visible, though the image itself looks generated."
 }
 ```
 
@@ -205,6 +230,30 @@ A blurry, low-resolution photo where fine detail can't be made out.
   "product_match": "unclear",
   "authenticity": "unclear",
   "authenticity_notes": "The image is too low-resolution and blurry to inspect lighting, text, or damage with any confidence.",
-  "condition_description": "Possible discoloration near the center of the item; detail is not clear enough to say more."
+  "condition_description": "Possible discoloration near the center of the item; detail is not clear enough to say more.",
+  "claim_shown": "unclear",
+  "claim_notes": "Too blurry to see whether the claimed problem is there."
+}
+```
+
+**Example 4 — a genuine photo that can't show the claim (CP4 `nad-material`)**
+
+A clean, ordinary photo of a pair of white leather-look shoes on a floor. The customer says the
+listing promised genuine leather but the shoes feel like plastic and the edges look glued.
+
+```json
+{
+  "visible_text": "none",
+  "text_problems": "none found",
+  "damage_physics": "No damage visible.",
+  "scene": "Ordinary snapshot of shoes on a floor at home.",
+  "synthetic_signs": [],
+  "real_photo_signs": ["casual framing", "natural indoor light"],
+  "product_match": "yes",
+  "authenticity": "genuine",
+  "authenticity_notes": "An ordinary real photo with nothing that looks generated.",
+  "condition_description": "The shoes look new and undamaged.",
+  "claim_shown": "unclear",
+  "claim_notes": "A photo cannot show what the upper is made of or how it feels; the edges are not close enough to see stitching."
 }
 ```

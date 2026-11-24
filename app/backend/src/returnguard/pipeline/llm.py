@@ -12,6 +12,7 @@ policy instead of retrieving clauses.
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import json
 import re
@@ -113,6 +114,7 @@ class OpenAIClient:
         chat_temperature: float = 0.0,
         chat_extra_body: dict[str, Any] | None = None,
         chat_max_retries: int = 2,
+        chat_timeout_seconds: float = 60.0,
         embedding_api_key: str = "",
         embedding_base_url: str = "",
         embedding_model: str = "",
@@ -131,6 +133,9 @@ class OpenAIClient:
                 api_key=chat_api_key,
                 base_url=chat_base_url or None,
                 max_retries=chat_max_retries,
+                # Per attempt: bounds the connection and each read, so a provider that
+                # stops sending mid-stream raises instead of holding the job open.
+                timeout=chat_timeout_seconds,
             )
             if chat_api_key
             else None
@@ -140,6 +145,7 @@ class OpenAIClient:
             if embedding_api_key
             else None
         )
+        self._chat_timeout = chat_timeout_seconds
         self.stream_enabled = stream_enabled
         self.tools_enabled = tools_enabled
         self._input_price = input_usd_per_million
@@ -163,6 +169,7 @@ class OpenAIClient:
             chat_temperature=settings.chat_temperature,
             chat_extra_body=settings.chat_extra_body,
             chat_max_retries=settings.chat_max_retries,
+            chat_timeout_seconds=settings.chat_timeout_seconds,
             embedding_api_key=settings.embedding_api_key.get_secret_value(),
             embedding_base_url=settings.embedding_base_url,
             embedding_model=settings.embedding_model,
@@ -253,18 +260,21 @@ class OpenAIClient:
             usage = None
             model = self._chat_model
             try:
-                async for chunk in stream:
-                    model = chunk.model or model
-                    # Groq may report terminal usage inside x_groq instead of usage.
-                    usage = chunk.usage or usage
-                    extra = getattr(chunk, "x_groq", None)
-                    if not usage and isinstance(extra, dict) and extra.get("usage"):
-                        from types import SimpleNamespace
+                # The SDK's timeout bounds each read, not the whole reply: a provider
+                # trickling tokens could still hold a review open. This caps the reply.
+                async with asyncio.timeout(self._chat_timeout):
+                    async for chunk in stream:
+                        model = chunk.model or model
+                        # Groq may report terminal usage inside x_groq instead of usage.
+                        usage = chunk.usage or usage
+                        extra = getattr(chunk, "x_groq", None)
+                        if not usage and isinstance(extra, dict) and extra.get("usage"):
+                            from types import SimpleNamespace
 
-                        usage = SimpleNamespace(**extra["usage"])
-                    if chunk.choices and chunk.choices[0].delta.content:
-                        parts.append(chunk.choices[0].delta.content)
-                        chunks += 1
+                            usage = SimpleNamespace(**extra["usage"])
+                        if chunk.choices and chunk.choices[0].delta.content:
+                            parts.append(chunk.choices[0].delta.content)
+                            chunks += 1
             finally:
                 await stream.close()
             content = "".join(parts)

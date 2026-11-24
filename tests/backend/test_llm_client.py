@@ -317,3 +317,47 @@ async def test_streaming_assembles_json_accounts_usage_and_closes() -> None:
     assert usage.stream_chunks == 2 and usage.tokens_in == 8 and usage.tokens_out == 4
     assert requests[0]["stream_options"] == {"include_usage": True}
     assert stream.closed
+
+
+def test_the_chat_timeout_reaches_the_sdk_client() -> None:
+    client = model_client(settings(chat_api_key=SecretStr("gsk-test"), chat_timeout_seconds=12))
+    assert client is not None
+    assert client._chat_client is not None
+    assert client._chat_client.timeout == 12
+
+
+async def test_a_stalled_stream_times_out_and_is_closed() -> None:
+    """The benchmark saw a Groq stream stop mid-reply and hold a review for up to an
+    hour. A stall must raise (the worker retries, then sends the case to a person)."""
+    import asyncio
+    from types import SimpleNamespace
+
+    class StalledStream:
+        closed = False
+
+        def __aiter__(self) -> Any:
+            async def chunks() -> Any:
+                yield SimpleNamespace(
+                    model="test",
+                    usage=None,
+                    choices=[SimpleNamespace(delta=SimpleNamespace(content='{"veto":'))],
+                )
+                await asyncio.sleep(3600)  # the provider stops sending
+
+            return chunks()
+
+        async def close(self) -> None:
+            self.closed = True
+
+    stream = StalledStream()
+
+    async def create(**kwargs: Any) -> Any:
+        return stream
+
+    client = OpenAIClient(chat_api_key="test", stream_enabled=True, chat_timeout_seconds=0.05)
+    client._chat_client = SimpleNamespace(  # type: ignore[assignment]
+        chat=SimpleNamespace(completions=SimpleNamespace(create=create))
+    )
+    with pytest.raises(TimeoutError):
+        await asyncio.wait_for(client.complete_json(system="s", user="u"), timeout=5)
+    assert stream.closed

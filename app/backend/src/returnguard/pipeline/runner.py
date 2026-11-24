@@ -319,8 +319,10 @@ async def review_return(
     t = datetime.now(UTC)
     trace.event("critic", "started")
     await db.commit()
-    critic = await steps.critic(case, policy_result, photo_result, rec)
-    trace.step("critic", {"proposal": rec.proposal}, critic, latency_ms=_ms(t))
+    critic = await steps.critic(case, policy_result, photo_result, rec, behavior)
+    trace.step(
+        "critic", {"proposal": rec.proposal, "risk": behavior.score}, critic, latency_ms=_ms(t)
+    )
     await db.commit()
 
     # 7. Governance gate (code): the only place a decision becomes final.

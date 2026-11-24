@@ -15,6 +15,7 @@ import pytest
 
 from returnguard.models import Decision, ReturnReason
 from returnguard.pipeline import model_steps as model_steps_module
+from returnguard.pipeline.behavior import BehaviorScore
 from returnguard.pipeline.checks import PolicyFacts
 from returnguard.pipeline.gate import Eligibility
 from returnguard.pipeline.llm import ChatUsage
@@ -211,8 +212,6 @@ async def test_policy_sends_the_whole_policy_without_an_embedding_provider(
 
 async def test_every_model_step_caps_its_reply(monkeypatch: pytest.MonkeyPatch) -> None:
     """Each call carries its own reply cap (providers budget requests by it)."""
-    from returnguard.pipeline.behavior import BehaviorScore
-
     chunks = [_Chunk("P2", "Damaged or defective items", "...")]
     chat = FakeChat(
         {
@@ -222,6 +221,7 @@ async def test_every_model_step_caps_its_reply(monkeypatch: pytest.MonkeyPatch) 
             "product_match": "yes",
             "authenticity": "genuine",
             "synthetic_signs": [],
+            "claim_shown": "yes",
             "proposal": "approve",
             "veto": False,
         }
@@ -239,7 +239,7 @@ async def test_every_model_step_caps_its_reply(monkeypatch: pytest.MonkeyPatch) 
     policy = await steps.policy(case, facts)
     photo = await steps.photo(case, facts)
     rec = await steps.recommend(case, facts, policy, photo, BehaviorScore(score=0.1))
-    await steps.critic(case, policy, photo, rec)
+    await steps.critic(case, policy, photo, rec, BehaviorScore(score=0.1))
 
     caps = model_steps_module.MAX_TOKENS
     assert chat.max_tokens == [
@@ -419,6 +419,7 @@ async def test_photo_is_verified_only_when_match_and_authenticity_both_pass(
             "product_match": "yes",
             "authenticity": "genuine",
             "synthetic_signs": [],
+            "claim_shown": "yes",
             "authenticity_notes": "looks real",
             "condition_description": "sole separated",
         }
@@ -534,9 +535,53 @@ async def test_photo_synthetic_signs_reach_the_reviewer_notes(
     assert "Synthetic signs: malformed lettering; staged cinematic composition" in result.notes
 
 
+@pytest.mark.parametrize("claim_shown", ["no", "unclear", None])
+async def test_a_genuine_photo_that_does_not_show_the_claim_is_not_verified(
+    claim_shown: str | None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """CP4 benchmark `nad-material`: a genuine photo of clean shoes was verified for
+    "the leather is synthetic", and the return auto-approved. A photo that doesn't
+    show the claimed problem (or a reply that skips the question) is no evidence."""
+    from returnguard.pipeline.gate import PhotoCheck
+
+    response: dict[str, Any] = {
+        "product_match": "yes",
+        "authenticity": "genuine",
+        "synthetic_signs": [],
+        "authenticity_notes": "an ordinary real photo",
+        "condition_description": "looks new",
+        "claim_notes": "a photo can't show what the upper is made of",
+    }
+    if claim_shown is not None:
+        response["claim_shown"] = claim_shown
+    steps = make_steps(
+        embedder=FakeEmbedder(),
+        chat=FakeChat(response),
+        chunks=[],
+        monkeypatch=monkeypatch,
+        storage=FakeStorage(b"\xff\xd8fake-jpeg-bytes"),
+    )
+
+    result = await steps.photo(
+        make_case(reason=ReturnReason.NOT_AS_DESCRIBED, photo_keys=["returns/r1/photo.jpg"]),
+        make_facts(photo_required=True),
+    )
+
+    assert result.check is PhotoCheck.NOT_VERIFIED
+    if claim_shown is not None:
+        assert any("doesn't show the claimed problem" in n for n in result.notes)
+
+
 def test_photo_prompt_asks_for_observations_before_the_verdict() -> None:
     prompt = model_steps_module._load_system_prompt("image.md")
-    fields = ["visible_text", "damage_physics", "scene", "synthetic_signs", "authenticity"]
+    fields = [
+        "visible_text",
+        "damage_physics",
+        "scene",
+        "synthetic_signs",
+        "authenticity",
+        "claim_shown",
+    ]
     positions = [prompt.index(f'"{f}"') for f in fields]
     assert positions == sorted(positions)
     assert 'Never default to "genuine"' in prompt
@@ -722,7 +767,7 @@ async def test_critic_passes_through_a_clean_recommendation(
     photo = PhotoResult(PhotoCheck.VERIFIED, [], source="model")
     rec = Recommendation(Decision.APPROVE, "ok", [], ambiguous=False, source="model")
 
-    result = await steps.critic(make_case(), policy, photo, rec)
+    result = await steps.critic(make_case(), policy, photo, rec, BehaviorScore(score=0.0))
 
     assert result.veto is False
     assert result.concern is None
@@ -743,7 +788,7 @@ async def test_critic_vetoes_a_self_contradicting_recommendation(
     photo = PhotoResult(PhotoCheck.NOT_NEEDED, [], source="rules")
     rec = Recommendation(Decision.APPROVE, "looks fine", [], ambiguous=False, source="model")
 
-    result = await steps.critic(make_case(), policy, photo, rec)
+    result = await steps.critic(make_case(), policy, photo, rec, BehaviorScore(score=0.0))
 
     assert result.veto is True
     assert result.concern
@@ -762,6 +807,33 @@ async def test_critic_fails_closed_to_veto_on_a_malformed_response(
     photo = PhotoResult(PhotoCheck.VERIFIED, [], source="rules")
     rec = Recommendation(Decision.APPROVE, "ok", [], ambiguous=False, source="model")
 
-    result = await steps.critic(make_case(), policy, photo, rec)
+    result = await steps.critic(make_case(), policy, photo, rec, BehaviorScore(score=0.0))
 
+    assert result.veto is True
+
+
+async def test_critic_sees_the_behavior_risk_and_its_factors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The critic checks that an approve proposal didn't ignore the risk factors the
+    recommendation step was shown, so it gets the same score and explanation."""
+    from returnguard.pipeline.gate import Eligibility as Elig
+    from returnguard.pipeline.gate import PhotoCheck
+    from returnguard.pipeline.steps import PhotoResult, PolicyResult, Recommendation
+
+    chat = FakeChat({"veto": True, "concern": "Rationale ignores three recent returns."})
+    steps = make_steps(embedder=FakeEmbedder(), chat=chat, chunks=[], monkeypatch=monkeypatch)
+    policy = PolicyResult(Elig.ELIGIBLE, ["P2"], "ok", source="model")
+    photo = PhotoResult(PhotoCheck.VERIFIED, [], source="model")
+    rec = Recommendation(Decision.APPROVE, "No concerns.", [], ambiguous=False, source="model")
+    behavior = BehaviorScore(
+        score=0.48,
+        explanation=["3 other return(s) in the last 30 days.", "Account is 4 day(s) old."],
+    )
+
+    result = await steps.critic(make_case(), policy, photo, rec, behavior)
+
+    user_prompt = chat.calls[0][1]
+    assert "Behavior risk score: 0.48" in user_prompt
+    assert "3 other return(s) in the last 30 days." in user_prompt
     assert result.veto is True
