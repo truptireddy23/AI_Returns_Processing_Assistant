@@ -112,6 +112,10 @@ class Settings(BaseSettings):
     # Retries on 429/5xx, honoring the provider's Retry-After. Free tiers with a
     # low tokens-per-minute cap need more than the SDK's default of 2.
     chat_max_retries: int = 2
+    # Seconds a chat call may take: each HTTP attempt's connect and reads, and a
+    # streamed reply as a whole. A stalled provider then fails the job (retried,
+    # then sent to a person) instead of holding a review open.
+    chat_timeout_seconds: float = Field(60.0, gt=0)
     # Embeddings are optional. Without EMBEDDING_API_KEY the policy step and chat
     # assist send the whole policy instead of retrieving the closest clauses.
     # policy_chunks.embedding is a fixed vector(1536) column

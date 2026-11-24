@@ -196,7 +196,15 @@ Median end-to-end time was 29.3 s and the 95th percentile 76.4 s (26 cases; one 
 
 ## 6. Limitations & Ethics
 
-*To be written.*
+**Privacy masking is pattern-based.** Before any model call, `pipeline/privacy.py` removes the customer's own name, email and addresses, along with email addresses, phone numbers, street addresses, "my name is…" phrases and gendered words. This is deterministic filtering, not named-entity recognition: a third party's name or an unusual address can pass through. Photos go to the provider unmasked and can show faces, homes or documents. Uploads are stripped of metadata and GPS is never stored, but the pixels are what the model needs. A production deployment would need a provider agreement covering retention and training use, and a notice telling customers that an AI service sees their photo.
+
+**The fairness evidence is thin.** Behaviour risk uses only account behaviour (return rate, recent returns, account age, shared-address fingerprints, refund size), each with a published weight, and reviewers never see a customer's name or email. Our bias audit (`make bias-audit`) compares risk pass rates across paired *synthetic* groups of four. It confirms the score ignores the labels we vary, not that outcomes are fair for real customers. Shared addresses and new accounts may correlate with students, renters or lower-income households, so these factors could carry proxy bias that only real data would reveal.
+
+**Failing closed has a cost.** Malformed replies, provider errors, stalled streams (now capped by a request timeout) and any doubt about a photo all send the case to a person. This is why the AI never denied a return, but it shifts work to reviewers, and a reviewer seeing many routine escalations may start to rubber-stamp them. Our evidence-strength labels and named escalation reasons are meant to counter that automation bias; we have not measured whether they do.
+
+**One provider, one model.** Every judgment step uses the same model (Qwen 3.8 27B on Groq's free tier), so the critic is a second prompt, not an independent model, and shares its blind spots. There is no fallback provider: an outage or a revoked key (our deployment's key was revoked in November) sends every case to a person. Free-tier limits also dominate our latency figures.
+
+**Scope.** Results come from 32 synthetic cases and one run, labelled by one person. The pipeline has not met real customers, real fraud or adversarial users, and it should not decide real refunds without a larger, independently labelled evaluation.
 
 ## 7. Conclusion & Future Work
 

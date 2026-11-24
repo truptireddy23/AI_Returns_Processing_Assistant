@@ -92,6 +92,7 @@ class Steps(Protocol):
         policy: PolicyResult,
         photo: PhotoResult,
         recommendation: Recommendation,
+        behavior: BehaviorScore,
     ) -> CriticResult: ...
 
 
@@ -169,5 +170,6 @@ class RuleSteps:
         policy: PolicyResult,
         photo: PhotoResult,
         recommendation: Recommendation,
+        behavior: BehaviorScore,
     ) -> CriticResult:
         return CriticResult(veto=False, concern=None, source=self.source)
